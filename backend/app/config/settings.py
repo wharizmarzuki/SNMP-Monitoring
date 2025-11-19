@@ -65,7 +65,31 @@ class Settings(BaseSettings):
     smtp_port: int = Field(default=587, validation_alias="SMTP_PORT")
     sender_email: str = Field(default="", validation_alias="SENDER_EMAIL")
     sender_password: str = Field(default="", validation_alias="SENDER_PASSWORD")
-    
+
+    # Redis Cache Configuration
+    redis_host: str = Field(
+        default="localhost",
+        validation_alias="REDIS_HOST",
+        description="Redis server hostname"
+    )
+    redis_port: int = Field(
+        default=6379,
+        validation_alias="REDIS_PORT",
+        ge=1, le=65535,
+        description="Redis server port"
+    )
+    redis_db: int = Field(
+        default=0,
+        validation_alias="REDIS_DB",
+        ge=0, le=15,
+        description="Redis database number (0-15)"
+    )
+    cache_enabled: bool = Field(
+        default=True,
+        validation_alias="CACHE_ENABLED",
+        description="Enable/disable Redis caching"
+    )
+
     # Environment
     environment: str = Field(
         default="development",

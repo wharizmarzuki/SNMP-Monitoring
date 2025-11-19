@@ -84,8 +84,15 @@ export const queryApi = {
   getTopDevices: (metric: "cpu" | "memory") =>
     api.get(`/query/top-devices?metric=${metric}`),
   getDeviceMetrics: (ip: string) => api.get(`/query/device/${ip}/metrics`),
+
+  // Optimized interface summary endpoint (60-80% smaller payload)
+  getInterfaceSummary: (ip: string) =>
+    api.get(`/query/device/${ip}/interfaces/summary`),
+
+  // Full interface endpoint (kept for backward compatibility)
   getDeviceInterfaces: (ip: string) =>
     api.get(`/query/device/${ip}/interfaces`),
+
   getHistory: (ip: string, start: string, end: string) =>
     api.get(`/query/history/device?ip=${ip}&start=${start}&end=${end}`),
   getActiveAlerts: () => api.get("/query/alerts/active"),

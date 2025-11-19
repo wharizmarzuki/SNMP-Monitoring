@@ -7,6 +7,7 @@ from typing import List
 from app.core import database, models
 from app.core import schemas
 from app.core.exceptions import DeviceNotFoundError, InterfaceNotFoundError, AlertNotFoundError, DiscoveryError
+from app.core.cache import cache
 from services import device_service, snmp_service
 from services.device_service import DeviceRepository, get_repository
 from services.snmp_service import SNMPClient, get_snmp_client
@@ -166,6 +167,11 @@ async def update_device_thresholds_batch(
 
     repo.db.commit()
     repo.db.refresh(device)
+
+    # Invalidate related caches
+    cache.delete(f"device:{ip}")
+    cache.delete("network_summary")
+    cache.delete_pattern("top_devices:*")
 
     return schemas.DeviceResponse.model_validate(device)
 
