@@ -15,7 +15,7 @@ A comprehensive network monitoring solution built with FastAPI and Next.js that 
 - **Interactive Dashboard**: Visual overview of network health with KPI cards
 - **Device Details**: Comprehensive per-device metrics and historical data
 - **Alert Console**: View, acknowledge, and manage network alerts
-- **Reporting**: Generate network performance reports
+- **rting**: Generate network performance rts
 - **Settings Management**: Configure alert recipients and thresholds
 
 ### Technical Highlights
@@ -53,7 +53,7 @@ A comprehensive network monitoring solution built with FastAPI and Next.js that 
 
 1. **Clone the repository**
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/wharizmarzuki/SNMP-Monitoring.git
 cd snmp-monitoring
 ```
 
