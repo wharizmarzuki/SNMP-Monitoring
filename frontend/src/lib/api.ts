@@ -1,4 +1,4 @@
-import axios, { AxiosError } from "axios";
+import axios from "axios";
 
 // Configure base URL - update this to match your backend
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -8,45 +8,13 @@ export const api = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
-  timeout: 10000,
 });
-
-// Add response interceptor for standardized error handling
-api.interceptors.response.use(
-  (response) => response,
-  (error: AxiosError<{error_code: string, message: string, details?: any}>) => {
-    if (error.response?.data) {
-      const { error_code, message, details } = error.response.data;
-
-      // Log for debugging
-      console.error(`API Error [${error_code}]:`, message, details);
-
-      // Return structured error for React Query
-      return Promise.reject({
-        code: error_code,
-        message,
-        details,
-        status: error.response.status
-      });
-    }
-    return Promise.reject(error);
-  }
-);
 
 // API endpoints for devices
 export const deviceApi = {
   getAll: () => api.get("/device/"),
   getByIp: (ip: string) => api.get(`/device/${ip}`),
   discover: () => api.get("/device/discover"),
-
-  // Batch threshold update (updated to match backend)
-  updateThresholds: (ip: string, thresholds: {
-    cpu_threshold?: number;
-    memory_threshold?: number;
-    failure_threshold?: number;
-  }) => api.put(`/device/${ip}/thresholds`, thresholds),
-
-  // Individual threshold updates (kept for backward compatibility)
   updateCpuThreshold: (ip: string, threshold: number) =>
     api.put(`/device/${ip}/threshold/cpu`, { threshold_value: threshold }),
   updateMemoryThreshold: (ip: string, threshold: number) =>

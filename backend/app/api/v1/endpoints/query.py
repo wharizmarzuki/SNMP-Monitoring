@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, desc, func, select
 from app.core import database, models, schemas
-from app.core.exceptions import DeviceNotFoundError
 from typing import List
 import datetime
 
@@ -73,7 +72,7 @@ async def get_device_metrics_history(
 ):
     device = db.query(models.Device).filter(models.Device.ip_address == ip).first()
     if not device:
-        raise DeviceNotFoundError(ip)
+        raise HTTPException(status_code=404, detail="Device not found")
 
     metrics = db.query(models.DeviceMetric)\
                 .filter(models.DeviceMetric.device_id == device.id)\
@@ -98,7 +97,7 @@ async def get_device_interface_latest(
 ):
     device = db.query(models.Device).filter(models.Device.ip_address == ip).first()
     if not device:
-        raise DeviceNotFoundError(ip)
+        raise HTTPException(status_code=404, detail="Device not found")
 
     try:
         subq = db.query(
