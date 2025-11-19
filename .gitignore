@@ -1,0 +1,116 @@
+# ============================================
+# SNMP Monitoring System - Root .gitignore
+# ============================================
+
+# ----------------
+# Environment Files
+# ----------------
+.env
+.env.*
+!.env.example
+*.env
+*.env.local
+*.env.production
+
+# ----------------
+# Python (Backend)
+# ----------------
+venv/
+env/
+ENV/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ----------------
+# Node.js (Frontend)
+# ----------------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+/.pnp
+.pnp.*
+
+# ----------------
+# Next.js
+# ----------------
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+.vercel
+
+# ----------------
+# Database Files
+# ----------------
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+monitoring.db
+
+# ----------------
+# Logs
+# ----------------
+logs/
+*.log
+pm2-*.log
+
+# ----------------
+# OS Files
+# ----------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# ----------------
+# IDE & Editor
+# ----------------
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.claude/
+
+# ----------------
+# Testing
+# ----------------
+coverage/
+.coverage
+.pytest_cache/
+.tox/
+htmlcov/
+
+# ----------------
+# Build & Production
+# ----------------
+/build
+*.pem
+
+# ----------------
+# Project Specific
+# ----------------
+prometheus/prometheus_data/
+PROMETHEUS_TO_SQLITE_MIGRATION_REPORT.md
+review.md
