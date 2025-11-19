@@ -1,11 +1,13 @@
 import asyncio
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from app.api.v1.endpoints import devices, polling, query, recipients
 from app.core import models
 from app.core.database import engine, SessionLocal
+from app.core.exceptions import APIError
 from services.snmp_service import get_snmp_client
 from app.config.settings import settings
 from app.config.logging import logger
@@ -79,6 +81,35 @@ app = FastAPI(
     description="SNMP device discovery and monitoring API",
     lifespan=lifespan
 )
+
+
+@app.exception_handler(APIError)
+async def api_error_handler(request: Request, exc: APIError):
+    """Handle all APIError exceptions with consistent format"""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error_code": exc.error_code,
+            "message": exc.message,
+            "details": exc.details
+        }
+    )
+
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    """Catch-all for unexpected errors"""
+    logger.error(f"Unhandled exception: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error_code": "INTERNAL_SERVER_ERROR",
+            "message": "An unexpected error occurred",
+            "details": {"error": str(exc)}
+        }
+    )
+
+
 from app.api.middleware import add_middleware_to_app
 add_middleware_to_app(app)
 

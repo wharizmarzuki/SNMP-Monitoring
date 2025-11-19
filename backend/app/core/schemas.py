@@ -42,6 +42,25 @@ class DeviceInfo(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class DeviceResponse(BaseModel):
+    """DTO for device responses - stable API contract"""
+    id: int
+    ip_address: str
+    hostname: str
+    vendor: str | None
+    is_reachable: bool
+    cpu_threshold: float
+    memory_threshold: float
+    failure_threshold: int
+    cpu_alert_state: str
+    memory_alert_state: str
+    reachability_alert_state: str
+    maintenance_mode: bool
+    last_poll_success: datetime | None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class DeviceMetrics(BaseModel):
     # This schema now matches the 'oid_values' dict in polling_service.py
     device_id: int
@@ -145,6 +164,13 @@ class FailureThresholdUpdate(BaseModel):
     threshold_value: int = Field(..., description="Number of consecutive failures before marking device unreachable", ge=1, le=10)
 
 
+class ThresholdBatchUpdate(BaseModel):
+    """Batch threshold update matching frontend payload"""
+    cpu_threshold: float | None = Field(None, ge=0, le=100)
+    memory_threshold: float | None = Field(None, ge=0, le=100)
+    failure_threshold: int | None = Field(None, ge=1, le=10)
+
+
 class ThresholdResponse(BaseModel):
     ip_address: str = Field(..., description="Device IP address")
     cpu_threshold: float = Field(..., description="CPU threshold value")
@@ -223,6 +249,23 @@ class InterfaceMetricResponse(BaseModel):
     if_name: str | None = None
     if_index: int | None = None
     packet_drop_threshold: float | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class InterfaceSummaryResponse(BaseModel):
+    """Lightweight interface data (only fields used by frontend)"""
+    if_index: int
+    if_name: str
+    if_descr: str | None
+    oper_status: int
+    admin_status: int
+    octets_in: int | None
+    octets_out: int | None
+    discards_in: int | None
+    discards_out: int | None
+    errors_in: int | None
+    errors_out: int | None
 
     model_config = ConfigDict(from_attributes=True)
 
