@@ -7,6 +7,7 @@ This guide covers running the SNMP monitoring system for both local development 
 - **Backend**: FastAPI (Python) on port 8000
 - **Frontend**: Next.js (React/TypeScript) on port 3000
 - **Database**: SQLite (file-based, no external DB needed)
+- **Cache**: Redis (optional but recommended for performance)
 
 ---
 
@@ -17,6 +18,38 @@ This guide covers running the SNMP monitoring system for both local development 
 - Python 3.12+
 - Node.js 18+
 - npm
+- Redis Server (optional but recommended)
+
+### Install Redis (Optional - Recommended for Performance)
+
+Redis provides significant performance improvements through caching. The application will work without it, but with reduced performance.
+
+**Ubuntu/Debian:**
+```bash
+sudo apt-get update
+sudo apt-get install redis-server
+sudo systemctl start redis
+sudo systemctl enable redis  # Start on boot
+```
+
+**macOS:**
+```bash
+brew install redis
+brew services start redis
+```
+
+**Docker:**
+```bash
+docker run -d -p 6379:6379 --name redis redis:7-alpine
+```
+
+**Verify Redis is running:**
+```bash
+redis-cli ping
+# Should return: PONG
+```
+
+**Note:** If Redis is not installed, the application will work normally but without caching benefits. You'll see a warning in logs: `"Redis cache unavailable. Caching will be disabled."`
 
 ### Quick Start
 
@@ -153,6 +186,12 @@ SNMP_RETRIES=3
 
 # Database
 DATABASE_URL=sqlite:///./monitoring.db
+
+# Redis Cache Configuration (Optional)
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_DB=0
+CACHE_ENABLED=true  # Set to false to disable caching
 
 # Application Settings
 POLLING_INTERVAL=60

@@ -30,6 +30,7 @@ A comprehensive network monitoring solution built with FastAPI and Next.js that 
 ### Backend
 - **Framework**: FastAPI (Python 3.12)
 - **Database**: SQLite with SQLAlchemy ORM
+- **Cache**: Redis (optional, for performance optimization)
 - **SNMP Library**: pysnmp
 - **Server**: Uvicorn (ASGI)
 
@@ -48,6 +49,7 @@ A comprehensive network monitoring solution built with FastAPI and Next.js that 
 - Python 3.12+
 - Node.js 18+
 - npm or yarn
+- Redis (optional but recommended for performance caching)
 
 ### Installation
 
@@ -57,7 +59,25 @@ git clone https://github.com/wharizmarzuki/SNMP-Monitoring.git
 cd snmp-monitoring
 ```
 
-2. **Backend Setup**
+2. **Redis Setup (Optional but Recommended)**
+
+For optimal performance with caching enabled, install and start Redis:
+
+```bash
+# Automated setup (detects your OS and installs/starts Redis)
+./setup-redis.sh
+```
+
+Or install manually:
+- **Ubuntu/Debian**: `sudo apt-get install redis-server && sudo systemctl start redis`
+- **macOS**: `brew install redis && brew services start redis`
+- **Docker**: `docker run -d -p 6379:6379 redis:7-alpine`
+
+Verify installation: `redis-cli ping` (should return `PONG`)
+
+> **Note**: The application will work without Redis but with reduced performance. See [DEPLOYMENT.md](DEPLOYMENT.md) for more details.
+
+3. **Backend Setup**
 ```bash
 cd backend
 
@@ -73,7 +93,7 @@ cp .env.example .env
 # Edit .env with your settings (SNMP community, email credentials, etc.)
 ```
 
-3. **Frontend Setup**
+4. **Frontend Setup**
 ```bash
 cd frontend
 
@@ -142,6 +162,12 @@ POLLING_CONCURRENCY=20         # Concurrent polling threads
 # Email Alerts
 SENDER_EMAIL=your@email.com
 SENDER_PASSWORD=your-app-password
+
+# Redis Cache (Optional)
+CACHE_ENABLED=true               # Enable/disable caching
+REDIS_HOST=localhost             # Redis server hostname
+REDIS_PORT=6379                  # Redis server port
+REDIS_DB=0                       # Redis database number (0-15)
 
 # Application
 LOG_LEVEL=INFO
@@ -298,6 +324,21 @@ rm backend/monitoring.db
 - Ensure devices have SNMP enabled
 - Check firewall rules allow UDP port 161
 - Verify network connectivity to target devices
+
+### Redis Cache Issues
+```bash
+# Check if Redis is running
+redis-cli ping
+
+# Start Redis (if installed but not running)
+sudo systemctl start redis
+
+# Check Redis logs
+sudo journalctl -u redis -f
+
+# Disable caching if Redis unavailable
+# In backend/.env, set: CACHE_ENABLED=false
+```
 
 ## Contributing
 
