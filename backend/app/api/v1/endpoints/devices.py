@@ -213,11 +213,13 @@ async def update_memory_alert_sent_endpoint(
 async def update_interface_threshold_endpoint(
     ip: str,
     if_index: int,
-    threshold_data: schemas.ThresholdUpdate, # Reuse the same schema
+    threshold_data: schemas.InterfaceThresholdUpdate,
     repo: DeviceRepository = Depends(get_repository)
 ):
     """
-    Update the packet drop threshold for a specific interface.
+    Update the discard rate threshold for a specific interface.
+    Threshold is a percentage (0-100) of total traffic that triggers alerts.
+    Example: 0.1 means alert when discard rate exceeds 0.1% of traffic.
     """
     device = device_service.get_device_by_ip(ip, repo)
     if not device:

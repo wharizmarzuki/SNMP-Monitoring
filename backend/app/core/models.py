@@ -79,7 +79,7 @@ class Interface(Base):
     if_index: Mapped[int | None] = mapped_column(Integer, index=True)
     if_name: Mapped[str | None] = mapped_column(String, index=True)
 
-    packet_drop_threshold: Mapped[float] = mapped_column(Float, default=100.0)
+    packet_drop_threshold: Mapped[float] = mapped_column(Float, default=0.1)  # Percentage: 0.1% default
 
     # Alert state management (Phase 2)
     oper_status_alert_state: Mapped[str] = mapped_column(String, default="clear")

@@ -164,6 +164,11 @@ class FailureThresholdUpdate(BaseModel):
     threshold_value: int = Field(..., description="Number of consecutive failures before marking device unreachable", ge=1, le=10)
 
 
+class InterfaceThresholdUpdate(BaseModel):
+    """Schema for updating interface discard rate thresholds (percentage-based)"""
+    threshold_value: float = Field(..., description="Discard rate threshold (percentage: 0-100)", ge=0, le=100)
+
+
 class ThresholdBatchUpdate(BaseModel):
     """Batch threshold update matching frontend payload"""
     cpu_threshold: float | None = Field(None, ge=0, le=100)

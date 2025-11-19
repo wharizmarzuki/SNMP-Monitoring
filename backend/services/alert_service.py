@@ -315,27 +315,33 @@ class AlertEvaluator:
         db: Session
     ) -> str | None:
         """
-        Checks for packet drop threshold breaches with state-based alert management (Phase 2).
+        Checks for discard rate threshold breaches with state-based alert management (Phase 2).
+        Compares discard rate (percentage) against threshold (percentage).
         Returns a message string if a notifiable event occurred, else None.
         """
-        # Use 'or 0' to handle potential None values from the DB
+        # Calculate discard rate as percentage
         total_drops = (latest_metric.discards_in or 0) + (latest_metric.discards_out or 0)
-        is_exceeded = (total_drops > interface.packet_drop_threshold)
+        total_traffic = (latest_metric.octets_in or 0) + (latest_metric.octets_out or 0)
+        discard_rate = (total_drops / total_traffic * 100) if total_traffic > 0 else 0
+
+        is_exceeded = (discard_rate > interface.packet_drop_threshold)
 
         if is_exceeded:
             if interface.packet_drop_alert_state == "clear":
                 # It's EXCEEDED and state is CLEAR. Only alert if it *changed*.
                 if previous_metric is not None:
                     prev_total_drops = (previous_metric.discards_in or 0) + (previous_metric.discards_out or 0)
-                    prev_is_exceeded = (prev_total_drops > interface.packet_drop_threshold)
+                    prev_total_traffic = (previous_metric.octets_in or 0) + (previous_metric.octets_out or 0)
+                    prev_discard_rate = (prev_total_drops / prev_total_traffic * 100) if prev_total_traffic > 0 else 0
+                    prev_is_exceeded = (prev_discard_rate > interface.packet_drop_threshold)
 
                     if not prev_is_exceeded:
                         # State change: OK -> DROPPING
-                        logger.warning(f"⚠️ ALERT: {device.hostname} Interface {interface.if_name} has high packet drop: {total_drops}")
+                        logger.warning(f"⚠️ ALERT: {device.hostname} Interface {interface.if_name} has high discard rate: {discard_rate:.3f}% (threshold: {interface.packet_drop_threshold}%)")
                         interface.packet_drop_alert_state = "triggered"
                         interface.packet_drop_alert_sent = True  # Keep legacy flag in sync
                         db.add(interface)
-                        return f"Interface {interface.if_name} ({interface.if_index}) has high packet drops: {total_drops}"
+                        return f"Interface {interface.if_name} ({interface.if_index}) has high discard rate: {discard_rate:.3f}% (threshold: {interface.packet_drop_threshold}%)"
             elif interface.packet_drop_alert_state == "triggered":
                 # Already alerted, still exceeding - no action
                 pass
@@ -346,11 +352,11 @@ class AlertEvaluator:
             # It's NOT exceeded.
             if interface.packet_drop_alert_state in ["triggered", "acknowledged"]:
                 # State change: DROPPING -> OK (Recovery)
-                logger.info(f"✅ RECOVERY: {device.hostname} Interface {interface.if_name} packet drops normal")
+                logger.info(f"✅ RECOVERY: {device.hostname} Interface {interface.if_name} discard rate normal: {discard_rate:.3f}%")
                 interface.packet_drop_alert_state = "clear"
                 interface.packet_drop_acknowledged_at = None  # Reset acknowledgment
                 interface.packet_drop_alert_sent = False  # Keep legacy flag in sync
                 db.add(interface)
-                return f"Interface {interface.if_name} ({interface.if_index}) packet drops are normal"
+                return f"Interface {interface.if_name} ({interface.if_index}) discard rate is normal: {discard_rate:.3f}%"
 
         return None

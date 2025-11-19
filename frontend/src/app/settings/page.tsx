@@ -312,7 +312,7 @@ export default function SettingsPage() {
                       <TableHeader>
                         <TableRow>
                           <TableHead>Interface Name</TableHead>
-                          <TableHead>Packet Drop Threshold</TableHead>
+                          <TableHead>Discard Rate Threshold (%)</TableHead>
                           <TableHead>Action</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -333,6 +333,12 @@ export default function SettingsPage() {
                         ))}
                       </TableBody>
                     </Table>
+                  )}
+                  {selectedDeviceForInterface && interfaces.length > 0 && (
+                    <p className="text-xs text-muted-foreground mt-4">
+                      Discard rate threshold: Percentage of total traffic (0-100%) that triggers an alert when exceeded.
+                      Recommended values: 0.01% (critical links), 0.1% (normal), 1.0% (tolerant).
+                    </p>
                   )}
                 </>
               )}
@@ -446,7 +452,7 @@ function InterfaceThresholdRow({
   onSave: (threshold: number) => void;
 }) {
   const [threshold, setThreshold] = useState(
-    iface.packet_drop_threshold?.toString() || "100"
+    iface.packet_drop_threshold?.toString() || "0.1"
   );
 
   return (
@@ -456,6 +462,9 @@ function InterfaceThresholdRow({
         <Input
           type="number"
           min="0"
+          max="100"
+          step="0.1"
+          placeholder="0.1"
           value={threshold}
           onChange={(e) => setThreshold(e.target.value)}
           className="w-32"
