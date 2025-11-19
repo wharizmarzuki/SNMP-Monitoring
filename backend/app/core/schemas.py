@@ -164,6 +164,11 @@ class FailureThresholdUpdate(BaseModel):
     threshold_value: int = Field(..., description="Number of consecutive failures before marking device unreachable", ge=1, le=10)
 
 
+class InterfaceThresholdUpdate(BaseModel):
+    """Schema for updating interface packet drop thresholds (not limited to 100)"""
+    threshold_value: float = Field(..., description="Packet drop threshold (number of drops)", ge=0)
+
+
 class ThresholdBatchUpdate(BaseModel):
     """Batch threshold update matching frontend payload"""
     cpu_threshold: float | None = Field(None, ge=0, le=100)

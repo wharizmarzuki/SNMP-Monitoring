@@ -213,11 +213,12 @@ async def update_memory_alert_sent_endpoint(
 async def update_interface_threshold_endpoint(
     ip: str,
     if_index: int,
-    threshold_data: schemas.ThresholdUpdate, # Reuse the same schema
+    threshold_data: schemas.InterfaceThresholdUpdate,
     repo: DeviceRepository = Depends(get_repository)
 ):
     """
     Update the packet drop threshold for a specific interface.
+    Accepts any positive number (not limited to 0-100 like CPU/Memory thresholds).
     """
     device = device_service.get_device_by_ip(ip, repo)
     if not device:

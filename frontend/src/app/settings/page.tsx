@@ -312,7 +312,7 @@ export default function SettingsPage() {
                       <TableHeader>
                         <TableRow>
                           <TableHead>Interface Name</TableHead>
-                          <TableHead>Packet Drop Threshold</TableHead>
+                          <TableHead>Packet Drop Threshold (drops)</TableHead>
                           <TableHead>Action</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -333,6 +333,12 @@ export default function SettingsPage() {
                         ))}
                       </TableBody>
                     </Table>
+                  )}
+                  {selectedDeviceForInterface && interfaces.length > 0 && (
+                    <p className="text-xs text-muted-foreground mt-4">
+                      Packet drop threshold: Number of total packet drops (in + out) before triggering an alert.
+                      Common values: 100-1000 drops depending on interface traffic.
+                    </p>
                   )}
                 </>
               )}
@@ -456,6 +462,8 @@ function InterfaceThresholdRow({
         <Input
           type="number"
           min="0"
+          step="1"
+          placeholder="100"
           value={threshold}
           onChange={(e) => setThreshold(e.target.value)}
           className="w-32"
