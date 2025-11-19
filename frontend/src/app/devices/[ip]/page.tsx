@@ -503,12 +503,12 @@ export default function DeviceDetailPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Interface Name</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Traffic (In / Out)</TableHead>
-                  <TableHead>Discard Rate</TableHead>
-                  <TableHead>Error Rate</TableHead>
-                  <TableHead>Packet Drop Threshold</TableHead>
+                  <TableHead className="text-center">Interface Name</TableHead>
+                  <TableHead className="text-center">Status</TableHead>
+                  <TableHead className="text-center">Traffic (In / Out)</TableHead>
+                  <TableHead className="text-center">Discard Rate</TableHead>
+                  <TableHead className="text-center">Error Rate</TableHead>
+                  <TableHead className="text-center">Packet Drop Threshold</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -613,41 +613,41 @@ function InterfaceRow({
   return (
     <TableRow>
       {/* Interface Name */}
-      <TableCell className="font-medium">{iface.if_name}</TableCell>
+      <TableCell className="font-medium text-center">{iface.if_name}</TableCell>
 
       {/* Status */}
-      <TableCell>
+      <TableCell className="text-center">
         <StatusBadge status={iface.oper_status === 1 ? "up" : "down"} />
       </TableCell>
 
       {/* Traffic (In / Out) */}
-      <TableCell>
-        <div className="flex flex-col text-sm">
+      <TableCell className="text-center">
+        <div className="flex flex-col text-sm items-center">
           <span className="text-blue-600">↓ {formatBytes(octetsIn)}</span>
           <span className="text-green-600">↑ {formatBytes(octetsOut)}</span>
         </div>
       </TableCell>
 
       {/* Discard Rate */}
-      <TableCell>
+      <TableCell className="text-center">
         <span className={`font-medium ${getRateColor(discardRate)}`}>
           {discardRate.toFixed(3)}%
         </span>
       </TableCell>
 
       {/* Error Rate */}
-      <TableCell>
+      <TableCell className="text-center">
         <span className={`font-medium ${getRateColor(errorRate)}`}>
           {errorRate.toFixed(3)}%
         </span>
       </TableCell>
 
       {/* Packet Drop Threshold - Inline Editing */}
-      <TableCell>
-        <div className="min-h-[40px] flex items-center">
+      <TableCell className="text-center">
+        <div className="min-h-[40px] flex items-center justify-center">
           {isEditing ? (
             <div className="flex flex-col gap-2 w-full">
-              <div className="flex gap-2 items-center">
+              <div className="flex gap-2 items-center justify-center">
                 <Input
                   type="number"
                   min="0"
@@ -680,7 +680,7 @@ function InterfaceRow({
               )}
             </div>
           ) : (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 justify-center">
               <span className="text-sm">
                 {iface.packet_drop_threshold || 100} drops
               </span>
