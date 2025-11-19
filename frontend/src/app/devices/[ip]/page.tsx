@@ -3,7 +3,7 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Pencil } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -644,53 +644,57 @@ function InterfaceRow({
 
       {/* Packet Drop Threshold - Inline Editing */}
       <TableCell>
-        {isEditing ? (
-          <div className="flex flex-col gap-2">
-            <div className="flex gap-2 items-center">
-              <Input
-                type="number"
-                min="0"
-                step="1"
-                value={threshold}
-                onChange={(e) => setThreshold(e.target.value)}
-                className="w-24"
-                disabled={isSaving}
-              />
-              <Button
-                size="sm"
-                onClick={handleSave}
-                disabled={isSaving}
-              >
-                {isSaving ? "..." : "Save"}
-              </Button>
+        <div className="min-h-[40px] flex items-center">
+          {isEditing ? (
+            <div className="flex flex-col gap-2 w-full">
+              <div className="flex gap-2 items-center">
+                <Input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={threshold}
+                  onChange={(e) => setThreshold(e.target.value)}
+                  className="w-24 h-8"
+                  disabled={isSaving}
+                />
+                <Button
+                  size="sm"
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="h-8"
+                >
+                  {isSaving ? "..." : "Save"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={handleCancel}
+                  disabled={isSaving}
+                  className="h-8"
+                >
+                  Cancel
+                </Button>
+              </div>
+              {error && (
+                <span className="text-xs text-red-600">{error}</span>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className="text-sm">
+                {iface.packet_drop_threshold || 100} drops
+              </span>
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={handleCancel}
-                disabled={isSaving}
+                onClick={() => setIsEditing(true)}
+                className="h-7 w-7 p-0 hover:bg-gray-100"
               >
-                Cancel
+                <Pencil className="h-3.5 w-3.5 text-gray-700" />
               </Button>
             </div>
-            {error && (
-              <span className="text-xs text-red-600">{error}</span>
-            )}
-          </div>
-        ) : (
-          <div className="flex items-center gap-2">
-            <span className="text-sm">
-              {iface.packet_drop_threshold || 100} drops
-            </span>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setIsEditing(true)}
-              className="h-6 w-6 p-0"
-            >
-              ✏️
-            </Button>
-          </div>
-        )}
+          )}
+        </div>
       </TableCell>
     </TableRow>
   );
