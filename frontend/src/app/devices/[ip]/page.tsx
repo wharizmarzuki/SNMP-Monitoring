@@ -36,6 +36,27 @@ import {
 import { deviceApi, queryApi } from "@/lib/api";
 import { Device, DeviceMetric, InterfaceMetric } from "@/types";
 
+// Helper function to format bytes to human-readable format
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+}
+
+// Calculate rate as percentage
+function calculateRate(part: number, total: number): number {
+  return total > 0 ? (part / total * 100) : 0;
+}
+
+// Get color class based on rate
+function getRateColor(rate: number): string {
+  if (rate < 0.1) return 'text-green-600';
+  if (rate < 1) return 'text-yellow-600';
+  return 'text-red-600';
+}
+
 export default function DeviceDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -471,7 +492,7 @@ export default function DeviceDetailPage() {
       <Card>
         <CardHeader>
           <CardTitle>Network Interfaces</CardTitle>
-          <CardDescription>Interface status and metrics</CardDescription>
+          <CardDescription>Interface status, traffic, and error metrics</CardDescription>
         </CardHeader>
         <CardContent>
           {interfaces.length === 0 ? (
@@ -482,40 +503,195 @@ export default function DeviceDetailPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
+                  <TableHead>Interface Name</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Octets In</TableHead>
-                  <TableHead>Octets Out</TableHead>
-                  <TableHead>Discards In</TableHead>
-                  <TableHead>Discards Out</TableHead>
-                  <TableHead>Errors In</TableHead>
-                  <TableHead>Errors Out</TableHead>
+                  <TableHead>Traffic (In / Out)</TableHead>
+                  <TableHead>Discard Rate</TableHead>
+                  <TableHead>Error Rate</TableHead>
+                  <TableHead>Packet Drop Threshold</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {interfaces.map((iface) => (
-                  <TableRow key={iface.if_index}>
-                    <TableCell className="font-medium">
-                      {iface.if_name}
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge
-                        status={iface.oper_status === 1 ? "up" : "down"}
-                      />
-                    </TableCell>
-                    <TableCell>{iface.octets_in.toLocaleString()}</TableCell>
-                    <TableCell>{iface.octets_out.toLocaleString()}</TableCell>
-                    <TableCell>{iface.discards_in}</TableCell>
-                    <TableCell>{iface.discards_out}</TableCell>
-                    <TableCell>{iface.errors_in}</TableCell>
-                    <TableCell>{iface.errors_out}</TableCell>
-                  </TableRow>
-                ))}
+                {interfaces.map((iface) => {
+                  const octetsIn = iface.octets_in || 0;
+                  const octetsOut = iface.octets_out || 0;
+                  const discardsIn = iface.discards_in || 0;
+                  const discardsOut = iface.discards_out || 0;
+                  const errorsIn = iface.errors_in || 0;
+                  const errorsOut = iface.errors_out || 0;
+
+                  const totalTraffic = octetsIn + octetsOut;
+                  const totalDiscards = discardsIn + discardsOut;
+                  const totalErrors = errorsIn + errorsOut;
+
+                  const discardRate = calculateRate(totalDiscards, totalTraffic);
+                  const errorRate = calculateRate(totalErrors, totalTraffic);
+
+                  return (
+                    <InterfaceRow
+                      key={iface.if_index}
+                      interface={iface}
+                      deviceIp={ip}
+                      octetsIn={octetsIn}
+                      octetsOut={octetsOut}
+                      discardRate={discardRate}
+                      errorRate={errorRate}
+                      onThresholdUpdate={() => {
+                        queryClient.invalidateQueries({
+                          queryKey: ["deviceInterfaces", ip],
+                        });
+                      }}
+                    />
+                  );
+                })}
               </TableBody>
             </Table>
           )}
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+// Interface Row Component with inline threshold editing
+function InterfaceRow({
+  interface: iface,
+  deviceIp,
+  octetsIn,
+  octetsOut,
+  discardRate,
+  errorRate,
+  onThresholdUpdate,
+}: {
+  interface: InterfaceMetric;
+  deviceIp: string;
+  octetsIn: number;
+  octetsOut: number;
+  discardRate: number;
+  errorRate: number;
+  onThresholdUpdate: () => void;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [threshold, setThreshold] = useState(
+    iface.packet_drop_threshold?.toString() || "100"
+  );
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSave = async () => {
+    const thresholdValue = parseFloat(threshold);
+    if (isNaN(thresholdValue) || thresholdValue < 0) {
+      setError("Threshold must be a positive number");
+      return;
+    }
+
+    setIsSaving(true);
+    setError(null);
+
+    try {
+      await deviceApi.updateInterfaceThreshold(
+        deviceIp,
+        iface.if_index,
+        thresholdValue
+      );
+      setIsEditing(false);
+      onThresholdUpdate();
+    } catch (err: any) {
+      console.error("Error updating threshold:", err);
+      setError(err.message || "Failed to update threshold");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setThreshold(iface.packet_drop_threshold?.toString() || "100");
+    setIsEditing(false);
+    setError(null);
+  };
+
+  return (
+    <TableRow>
+      {/* Interface Name */}
+      <TableCell className="font-medium">{iface.if_name}</TableCell>
+
+      {/* Status */}
+      <TableCell>
+        <StatusBadge status={iface.oper_status === 1 ? "up" : "down"} />
+      </TableCell>
+
+      {/* Traffic (In / Out) */}
+      <TableCell>
+        <div className="flex flex-col text-sm">
+          <span className="text-blue-600">↓ {formatBytes(octetsIn)}</span>
+          <span className="text-green-600">↑ {formatBytes(octetsOut)}</span>
+        </div>
+      </TableCell>
+
+      {/* Discard Rate */}
+      <TableCell>
+        <span className={`font-medium ${getRateColor(discardRate)}`}>
+          {discardRate.toFixed(3)}%
+        </span>
+      </TableCell>
+
+      {/* Error Rate */}
+      <TableCell>
+        <span className={`font-medium ${getRateColor(errorRate)}`}>
+          {errorRate.toFixed(3)}%
+        </span>
+      </TableCell>
+
+      {/* Packet Drop Threshold - Inline Editing */}
+      <TableCell>
+        {isEditing ? (
+          <div className="flex flex-col gap-2">
+            <div className="flex gap-2 items-center">
+              <Input
+                type="number"
+                min="0"
+                step="1"
+                value={threshold}
+                onChange={(e) => setThreshold(e.target.value)}
+                className="w-24"
+                disabled={isSaving}
+              />
+              <Button
+                size="sm"
+                onClick={handleSave}
+                disabled={isSaving}
+              >
+                {isSaving ? "..." : "Save"}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleCancel}
+                disabled={isSaving}
+              >
+                Cancel
+              </Button>
+            </div>
+            {error && (
+              <span className="text-xs text-red-600">{error}</span>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <span className="text-sm">
+              {iface.packet_drop_threshold || 100} drops
+            </span>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setIsEditing(true)}
+              className="h-6 w-6 p-0"
+            >
+              ✏️
+            </Button>
+          </div>
+        )}
+      </TableCell>
+    </TableRow>
   );
 }
