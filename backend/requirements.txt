@@ -11,3 +11,6 @@ pydantic-settings>=2.0.0
 
 # Network/SNMP
 pysnmp>=4.4.12
+
+# Caching
+redis==5.0.1
