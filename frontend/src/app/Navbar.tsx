@@ -20,16 +20,16 @@ export default function Navbar() {
   const router = useRouter();
   const [user, setUser] = useState<UserInfo | null>(null);
 
+  // Get cached user info on mount
+  useEffect(() => {
+    const cachedUser = authService.getCachedUser();
+    setUser(cachedUser);
+  }, []);
+
   // Hide navbar on login page
   if (pathname === "/login") {
     return null;
   }
-
-  useEffect(() => {
-    // Get cached user info
-    const cachedUser = authService.getCachedUser();
-    setUser(cachedUser);
-  }, []);
 
   const navItems = [
     { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
