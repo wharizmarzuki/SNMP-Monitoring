@@ -508,7 +508,7 @@ export default function DeviceDetailPage() {
                   <TableHead className="text-center">Traffic (In / Out)</TableHead>
                   <TableHead className="text-center">Discard Rate</TableHead>
                   <TableHead className="text-center">Error Rate</TableHead>
-                  <TableHead className="text-center">Packet Drop Threshold</TableHead>
+                  <TableHead className="text-center">Discard Rate Threshold (%)</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -573,15 +573,15 @@ function InterfaceRow({
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [threshold, setThreshold] = useState(
-    iface.packet_drop_threshold?.toString() || "100"
+    iface.packet_drop_threshold?.toString() || "0.1"
   );
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSave = async () => {
     const thresholdValue = parseFloat(threshold);
-    if (isNaN(thresholdValue) || thresholdValue < 0) {
-      setError("Threshold must be a positive number");
+    if (isNaN(thresholdValue) || thresholdValue < 0 || thresholdValue > 100) {
+      setError("Threshold must be between 0 and 100%");
       return;
     }
 
@@ -605,7 +605,7 @@ function InterfaceRow({
   };
 
   const handleCancel = () => {
-    setThreshold(iface.packet_drop_threshold?.toString() || "100");
+    setThreshold(iface.packet_drop_threshold?.toString() || "0.1");
     setIsEditing(false);
     setError(null);
   };
@@ -642,7 +642,7 @@ function InterfaceRow({
         </span>
       </TableCell>
 
-      {/* Packet Drop Threshold - Inline Editing */}
+      {/* Discard Rate Threshold - Inline Editing */}
       <TableCell className="text-center">
         <div className="min-h-[40px] flex items-center justify-center">
           {isEditing ? (
@@ -651,7 +651,9 @@ function InterfaceRow({
                 <Input
                   type="number"
                   min="0"
-                  step="1"
+                  max="100"
+                  step="0.1"
+                  placeholder="0.1"
                   value={threshold}
                   onChange={(e) => setThreshold(e.target.value)}
                   className="w-24 h-8"
@@ -682,7 +684,7 @@ function InterfaceRow({
           ) : (
             <div className="flex items-center gap-2 justify-center">
               <span className="text-sm">
-                {iface.packet_drop_threshold || 100} drops
+                {iface.packet_drop_threshold || 0.1}%
               </span>
               <Button
                 size="sm"

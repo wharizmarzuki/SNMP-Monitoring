@@ -217,8 +217,9 @@ async def update_interface_threshold_endpoint(
     repo: DeviceRepository = Depends(get_repository)
 ):
     """
-    Update the packet drop threshold for a specific interface.
-    Accepts any positive number (not limited to 0-100 like CPU/Memory thresholds).
+    Update the discard rate threshold for a specific interface.
+    Threshold is a percentage (0-100) of total traffic that triggers alerts.
+    Example: 0.1 means alert when discard rate exceeds 0.1% of traffic.
     """
     device = device_service.get_device_by_ip(ip, repo)
     if not device:

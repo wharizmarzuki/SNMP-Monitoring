@@ -165,8 +165,8 @@ class FailureThresholdUpdate(BaseModel):
 
 
 class InterfaceThresholdUpdate(BaseModel):
-    """Schema for updating interface packet drop thresholds (not limited to 100)"""
-    threshold_value: float = Field(..., description="Packet drop threshold (number of drops)", ge=0)
+    """Schema for updating interface discard rate thresholds (percentage-based)"""
+    threshold_value: float = Field(..., description="Discard rate threshold (percentage: 0-100)", ge=0, le=100)
 
 
 class ThresholdBatchUpdate(BaseModel):
