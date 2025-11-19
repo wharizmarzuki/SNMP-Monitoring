@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from typing import List
 from app.core import database, models
 from app.core import schemas
+from app.core.exceptions import DeviceNotFoundError, InterfaceNotFoundError, AlertNotFoundError, DiscoveryError
 from services import device_service, snmp_service
 from services.device_service import DeviceRepository, get_repository
 from services.snmp_service import SNMPClient, get_snmp_client
@@ -40,7 +41,7 @@ async def discovery_api(
         )
     except Exception as e:
         logger.error(f"Error during manual discovery: {e}")
-        raise HTTPException(status_code=500, detail=f"Discovery failed: {str(e)}")
+        raise DiscoveryError(str(e))
 
 
 @router.post("/", response_model=None)
@@ -55,20 +56,22 @@ async def create_device_endpoint(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/", response_model=List[schemas.DeviceInfo])
+@router.get("/", response_model=List[schemas.DeviceResponse])
 async def get_all_devices_endpoint(
     repo: DeviceRepository = Depends(get_repository)
 ):
-    # This function remains unchanged
-    return device_service.get_all_devices(repo)
+    """Get all devices with stable DTO response"""
+    devices = device_service.get_all_devices(repo)
+    return [schemas.DeviceResponse.model_validate(device) for device in devices]
 
-@router.get("/{ip}", response_model=schemas.DeviceInfo)
+@router.get("/{ip}", response_model=schemas.DeviceResponse)
 async def get_devices_endpoint(
     ip: str,
     repo: DeviceRepository = Depends(get_repository)
 ):
-    # This function remains unchanged
-    return device_service.get_device_by_ip(ip, repo)
+    """Get device by IP with stable DTO response"""
+    device = device_service.get_device_by_ip(ip, repo)
+    return schemas.DeviceResponse.model_validate(device)
 
 @router.delete("/{ip}")
 async def delete_devices_endpoint(
@@ -88,7 +91,7 @@ async def update_cpu_threshold_endpoint(
 ):
     device = device_service.get_device_by_ip(ip, repo)
     if not device:
-        raise HTTPException(status_code=4.04, detail=f"Device with IP {ip} not found")
+        raise DeviceNotFoundError(ip)
 
     device.cpu_threshold = threshold_data.threshold_value
     repo.db.commit()
@@ -105,7 +108,7 @@ async def update_memory_threshold_endpoint(
 ):
     device = device_service.get_device_by_ip(ip, repo)
     if not device:
-        raise HTTPException(status_code=4.04, detail=f"Device with IP {ip} not found")
+        raise DeviceNotFoundError(ip)
 
     device.memory_threshold = threshold_data.threshold_value
     repo.db.commit()
@@ -128,13 +131,43 @@ async def update_reachability_threshold_endpoint(
     """
     device = device_service.get_device_by_ip(ip, repo)
     if not device:
-        raise HTTPException(status_code=404, detail=f"Device with IP {ip} not found")
+        raise DeviceNotFoundError(ip)
 
     device.failure_threshold = threshold_data.threshold_value
     repo.db.commit()
     repo.db.refresh(device)
 
     return schemas.ThresholdResponse.model_validate(device)
+
+
+@router.put("/{ip}/thresholds", response_model=schemas.DeviceResponse)
+async def update_device_thresholds_batch(
+    ip: str,
+    thresholds: schemas.ThresholdBatchUpdate,
+    repo: DeviceRepository = Depends(get_repository)
+):
+    """
+    Batch update all thresholds for a device.
+
+    This endpoint allows updating multiple thresholds in a single request,
+    matching the frontend payload structure. Only provided thresholds will be updated.
+    """
+    device = device_service.get_device_by_ip(ip, repo)
+    if not device:
+        raise DeviceNotFoundError(ip)
+
+    # Update only provided thresholds
+    if thresholds.cpu_threshold is not None:
+        device.cpu_threshold = thresholds.cpu_threshold
+    if thresholds.memory_threshold is not None:
+        device.memory_threshold = thresholds.memory_threshold
+    if thresholds.failure_threshold is not None:
+        device.failure_threshold = thresholds.failure_threshold
+
+    repo.db.commit()
+    repo.db.refresh(device)
+
+    return schemas.DeviceResponse.model_validate(device)
 
 
 @router.put("/{ip}/alert/cpu", response_model=schemas.AlertSentResponse)
@@ -145,7 +178,7 @@ async def update_cpu_alert_sent_endpoint(
 ):
     device = device_service.get_device_by_ip(ip, repo)
     if not device:
-        raise HTTPException(status_code=4.04, detail=f"Device with IP {ip} not found")
+        raise DeviceNotFoundError(ip)
 
     device.cpu_alert_sent = alert_data.alert_sent
     repo.db.commit()
@@ -162,7 +195,7 @@ async def update_memory_alert_sent_endpoint(
 ):
     device = device_service.get_device_by_ip(ip, repo)
     if not device:
-        raise HTTPException(status_code=4.04, detail=f"Device with IP {ip} not found")
+        raise DeviceNotFoundError(ip)
 
     device.memory_alert_sent = alert_data.alert_sent
     repo.db.commit()
@@ -182,7 +215,7 @@ async def update_interface_threshold_endpoint(
     """
     device = device_service.get_device_by_ip(ip, repo)
     if not device:
-        raise HTTPException(status_code=404, detail=f"Device with IP {ip} not found")
+        raise DeviceNotFoundError(ip)
 
     interface = repo.db.query(models.Interface).filter(
         models.Interface.device_id == device.id,
@@ -190,7 +223,7 @@ async def update_interface_threshold_endpoint(
     ).first()
     
     if not interface:
-        raise HTTPException(status_code=404, detail="Interface not found")
+        raise InterfaceNotFoundError(ip, if_index)
 
     interface.packet_drop_threshold = threshold_data.threshold_value
     repo.db.commit()
@@ -210,10 +243,10 @@ async def acknowledge_cpu_alert(
     """Acknowledge CPU alert to stop receiving notifications until recovery."""
     device = device_service.get_device_by_ip(ip, repo)
     if not device:
-        raise HTTPException(status_code=404, detail=f"Device with IP {ip} not found")
+        raise DeviceNotFoundError(ip)
 
     if device.cpu_alert_state != "triggered":
-        raise HTTPException(status_code=400, detail="No active CPU alert to acknowledge")
+        raise AlertNotFoundError("CPU")
 
     device.cpu_alert_state = "acknowledged"
     device.cpu_acknowledged_at = datetime.now(timezone.utc)
@@ -235,7 +268,7 @@ async def resolve_cpu_alert(
     """Manually resolve CPU alert (mark as false positive or resolved)."""
     device = device_service.get_device_by_ip(ip, repo)
     if not device:
-        raise HTTPException(status_code=404, detail=f"Device with IP {ip} not found")
+        raise DeviceNotFoundError(ip)
 
     device.cpu_alert_state = "clear"
     device.cpu_acknowledged_at = None
@@ -258,10 +291,10 @@ async def acknowledge_memory_alert(
     """Acknowledge Memory alert to stop receiving notifications until recovery."""
     device = device_service.get_device_by_ip(ip, repo)
     if not device:
-        raise HTTPException(status_code=404, detail=f"Device with IP {ip} not found")
+        raise DeviceNotFoundError(ip)
 
     if device.memory_alert_state != "triggered":
-        raise HTTPException(status_code=400, detail="No active Memory alert to acknowledge")
+        raise AlertNotFoundError("Memory")
 
     device.memory_alert_state = "acknowledged"
     device.memory_acknowledged_at = datetime.now(timezone.utc)
@@ -283,7 +316,7 @@ async def resolve_memory_alert(
     """Manually resolve Memory alert (mark as false positive or resolved)."""
     device = device_service.get_device_by_ip(ip, repo)
     if not device:
-        raise HTTPException(status_code=404, detail=f"Device with IP {ip} not found")
+        raise DeviceNotFoundError(ip)
 
     device.memory_alert_state = "clear"
     device.memory_acknowledged_at = None
@@ -306,10 +339,10 @@ async def acknowledge_reachability_alert(
     """Acknowledge Reachability alert to stop receiving notifications until recovery."""
     device = device_service.get_device_by_ip(ip, repo)
     if not device:
-        raise HTTPException(status_code=404, detail=f"Device with IP {ip} not found")
+        raise DeviceNotFoundError(ip)
 
     if device.reachability_alert_state != "triggered":
-        raise HTTPException(status_code=400, detail="No active Reachability alert to acknowledge")
+        raise AlertNotFoundError("Reachability")
 
     device.reachability_alert_state = "acknowledged"
     device.reachability_acknowledged_at = datetime.now(timezone.utc)
@@ -331,7 +364,7 @@ async def resolve_reachability_alert(
     """Manually resolve Reachability alert (mark as false positive or resolved)."""
     device = device_service.get_device_by_ip(ip, repo)
     if not device:
-        raise HTTPException(status_code=404, detail=f"Device with IP {ip} not found")
+        raise DeviceNotFoundError(ip)
 
     device.reachability_alert_state = "clear"
     device.reachability_acknowledged_at = None
@@ -355,7 +388,7 @@ async def acknowledge_interface_status_alert(
     """Acknowledge interface operational status alert."""
     device = device_service.get_device_by_ip(ip, repo)
     if not device:
-        raise HTTPException(status_code=404, detail=f"Device with IP {ip} not found")
+        raise DeviceNotFoundError(ip)
 
     interface = repo.db.query(models.Interface).filter(
         models.Interface.device_id == device.id,
@@ -363,10 +396,10 @@ async def acknowledge_interface_status_alert(
     ).first()
 
     if not interface:
-        raise HTTPException(status_code=404, detail="Interface not found")
+        raise InterfaceNotFoundError(ip, if_index)
 
     if interface.oper_status_alert_state != "triggered":
-        raise HTTPException(status_code=400, detail="No active interface status alert to acknowledge")
+        raise AlertNotFoundError("interface status")
 
     interface.oper_status_alert_state = "acknowledged"
     interface.oper_status_acknowledged_at = datetime.now(timezone.utc)
@@ -389,7 +422,7 @@ async def resolve_interface_status_alert(
     """Manually resolve interface operational status alert."""
     device = device_service.get_device_by_ip(ip, repo)
     if not device:
-        raise HTTPException(status_code=404, detail=f"Device with IP {ip} not found")
+        raise DeviceNotFoundError(ip)
 
     interface = repo.db.query(models.Interface).filter(
         models.Interface.device_id == device.id,
@@ -397,7 +430,7 @@ async def resolve_interface_status_alert(
     ).first()
 
     if not interface:
-        raise HTTPException(status_code=404, detail="Interface not found")
+        raise InterfaceNotFoundError(ip, if_index)
 
     interface.oper_status_alert_state = "clear"
     interface.oper_status_acknowledged_at = None
@@ -421,7 +454,7 @@ async def acknowledge_interface_drops_alert(
     """Acknowledge interface packet drop alert."""
     device = device_service.get_device_by_ip(ip, repo)
     if not device:
-        raise HTTPException(status_code=404, detail=f"Device with IP {ip} not found")
+        raise DeviceNotFoundError(ip)
 
     interface = repo.db.query(models.Interface).filter(
         models.Interface.device_id == device.id,
@@ -429,10 +462,10 @@ async def acknowledge_interface_drops_alert(
     ).first()
 
     if not interface:
-        raise HTTPException(status_code=404, detail="Interface not found")
+        raise InterfaceNotFoundError(ip, if_index)
 
     if interface.packet_drop_alert_state != "triggered":
-        raise HTTPException(status_code=400, detail="No active packet drop alert to acknowledge")
+        raise AlertNotFoundError("packet drop")
 
     interface.packet_drop_alert_state = "acknowledged"
     interface.packet_drop_acknowledged_at = datetime.now(timezone.utc)
@@ -455,7 +488,7 @@ async def resolve_interface_drops_alert(
     """Manually resolve interface packet drop alert."""
     device = device_service.get_device_by_ip(ip, repo)
     if not device:
-        raise HTTPException(status_code=404, detail=f"Device with IP {ip} not found")
+        raise DeviceNotFoundError(ip)
 
     interface = repo.db.query(models.Interface).filter(
         models.Interface.device_id == device.id,
@@ -463,7 +496,7 @@ async def resolve_interface_drops_alert(
     ).first()
 
     if not interface:
-        raise HTTPException(status_code=404, detail="Interface not found")
+        raise InterfaceNotFoundError(ip, if_index)
 
     interface.packet_drop_alert_state = "clear"
     interface.packet_drop_acknowledged_at = None
@@ -486,7 +519,7 @@ async def update_maintenance_mode(
     """Enable or disable maintenance mode for a device to suppress all alerts."""
     device = device_service.get_device_by_ip(ip, repo)
     if not device:
-        raise HTTPException(status_code=404, detail=f"Device with IP {ip} not found")
+        raise DeviceNotFoundError(ip)
 
     device.maintenance_mode = data.enabled
     if data.enabled:
