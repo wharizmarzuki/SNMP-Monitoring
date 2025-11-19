@@ -3,12 +3,17 @@ import typing
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.core import database, models
+from app.core.security import get_current_user
 from services.snmp_service import SNMPClient, get_snmp_client
 from app.config.logging import logger
 
-from services.polling_service import perform_full_poll 
+from services.polling_service import perform_full_poll
 
-router = APIRouter(prefix="/polling", tags=["Polling"])
+router = APIRouter(
+    prefix="/polling",
+    tags=["Polling"],
+    dependencies=[Depends(get_current_user)]  # Require authentication for all polling endpoints
+)
 get_db = database.get_db
 
 

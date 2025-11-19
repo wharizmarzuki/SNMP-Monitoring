@@ -2,8 +2,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
 from app.core import database, models, schemas
+from app.core.security import get_current_user
 
-router = APIRouter(prefix="/recipients", tags=["Recipients"])
+router = APIRouter(
+    prefix="/recipients",
+    tags=["Recipients"],
+    dependencies=[Depends(get_current_user)]  # Require authentication for all recipient endpoints
+)
 get_db = database.get_db
 
 

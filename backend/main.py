@@ -4,7 +4,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from app.api.v1.endpoints import devices, polling, query, recipients
+from app.api.v1.endpoints import devices, polling, query, recipients, auth
 from app.core import models
 from app.core.database import engine, SessionLocal
 from app.core.exceptions import APIError
@@ -113,6 +113,7 @@ async def general_exception_handler(request: Request, exc: Exception):
 from app.api.middleware import add_middleware_to_app
 add_middleware_to_app(app)
 
+app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
 app.include_router(devices.router)
 app.include_router(polling.router)
 app.include_router(query.router)

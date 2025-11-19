@@ -8,13 +8,18 @@ from app.core import database, models
 from app.core import schemas
 from app.core.exceptions import DeviceNotFoundError, InterfaceNotFoundError, AlertNotFoundError, DiscoveryError
 from app.core.cache import cache
+from app.core.security import get_current_user
 from services import device_service, snmp_service
 from services.device_service import DeviceRepository, get_repository
 from services.snmp_service import SNMPClient, get_snmp_client
 from app.config.logging import logger
 from services.discovery_service import perform_full_discovery
 
-router = APIRouter(prefix="/device", tags=["Device"])
+router = APIRouter(
+    prefix="/device",
+    tags=["Device"],
+    dependencies=[Depends(get_current_user)]  # Require authentication for all device endpoints
+)
 
 
 @router.get("/discover", response_model=schemas.DiscoveryResponse)
