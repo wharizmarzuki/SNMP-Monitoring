@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Card,
@@ -25,6 +25,8 @@ import { Alert } from "@/types";
 
 export default function AlertsPage() {
   const queryClient = useQueryClient();
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
   const severityMap: Record<Alert['severity'], 'warning' | 'destructive' | 'default'> = {
     'Warning': 'default',
@@ -32,7 +34,7 @@ export default function AlertsPage() {
     'Critical': 'destructive',
   };
 
-  const { data: alertsData, isLoading } = useQuery<{ data: Alert[] }>({
+  const { data: alertsData, isLoading, error: queryError } = useQuery<{ data: Alert[] }>({
     queryKey: ["activeAlerts"],
     queryFn: () => queryApi.getActiveAlerts(),
   });
@@ -90,6 +92,15 @@ export default function AlertsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["activeAlerts"] });
+      setActionError(null);
+      setActionSuccess("Alert acknowledged successfully");
+      setTimeout(() => setActionSuccess(null), 3000);
+    },
+    onError: (error: any) => {
+      console.error("Error acknowledging alert:", error);
+      setActionSuccess(null);
+      const errorMessage = error.message || "Failed to acknowledge alert. Please try again.";
+      setActionError(errorMessage);
     },
   });
 
@@ -110,6 +121,15 @@ export default function AlertsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["activeAlerts"] });
+      setActionError(null);
+      setActionSuccess("Alert resolved successfully");
+      setTimeout(() => setActionSuccess(null), 3000);
+    },
+    onError: (error: any) => {
+      console.error("Error resolving alert:", error);
+      setActionSuccess(null);
+      const errorMessage = error.message || "Failed to resolve alert. Please try again.";
+      setActionError(errorMessage);
     },
   });
 
@@ -135,6 +155,27 @@ export default function AlertsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {/* Success Message */}
+          {actionSuccess && (
+            <div className="mb-4 p-3 bg-green-100 border border-green-300 text-green-800 rounded">
+              {actionSuccess}
+            </div>
+          )}
+
+          {/* Error Message */}
+          {actionError && (
+            <div className="mb-4 p-3 bg-red-100 border border-red-300 text-red-800 rounded">
+              {actionError}
+            </div>
+          )}
+
+          {/* Query Error */}
+          {queryError && (
+            <div className="mb-4 p-3 bg-red-100 border border-red-300 text-red-800 rounded">
+              Failed to load alerts. Please refresh the page.
+            </div>
+          )}
+
           {isLoading ? (
             <p className="text-sm text-muted-foreground">Loading alerts...</p>
           ) : alerts.length === 0 ? (

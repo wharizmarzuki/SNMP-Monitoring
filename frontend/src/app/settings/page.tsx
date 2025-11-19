@@ -37,9 +37,11 @@ export default function SettingsPage() {
   const [selectedDeviceForInterface, setSelectedDeviceForInterface] =
     useState("");
   const [isDiscovering, setIsDiscovering] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
   // Fetch recipients
-  const { data: recipientsData } = useQuery<{ data: Recipient[] }>({
+  const { data: recipientsData, error: recipientsError } = useQuery<{ data: Recipient[] }>({
     queryKey: ["recipients"],
     queryFn: () => configApi.getRecipients(),
   });
@@ -67,6 +69,15 @@ export default function SettingsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["recipients"] });
       setNewRecipient("");
+      setActionError(null);
+      setActionSuccess("Recipient added successfully");
+      setTimeout(() => setActionSuccess(null), 3000);
+    },
+    onError: (error: any) => {
+      console.error("Error adding recipient:", error);
+      setActionSuccess(null);
+      const errorMessage = error.message || "Failed to add recipient. Please try again.";
+      setActionError(errorMessage);
     },
   });
 
@@ -75,6 +86,15 @@ export default function SettingsPage() {
     mutationFn: (email: string) => configApi.deleteRecipient(email),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["recipients"] });
+      setActionError(null);
+      setActionSuccess("Recipient removed successfully");
+      setTimeout(() => setActionSuccess(null), 3000);
+    },
+    onError: (error: any) => {
+      console.error("Error deleting recipient:", error);
+      setActionSuccess(null);
+      const errorMessage = error.message || "Failed to remove recipient. Please try again.";
+      setActionError(errorMessage);
     },
   });
 
@@ -93,6 +113,15 @@ export default function SettingsPage() {
       queryClient.invalidateQueries({
         queryKey: ["deviceInterfaces", selectedDeviceForInterface],
       });
+      setActionError(null);
+      setActionSuccess("Interface threshold updated successfully");
+      setTimeout(() => setActionSuccess(null), 3000);
+    },
+    onError: (error: any) => {
+      console.error("Error updating interface threshold:", error);
+      setActionSuccess(null);
+      const errorMessage = error.message || "Failed to update interface threshold. Please try again.";
+      setActionError(errorMessage);
     },
   });
 
@@ -102,9 +131,16 @@ export default function SettingsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["devices"] });
       setIsDiscovering(false);
+      setActionError(null);
+      setActionSuccess("Network discovery completed successfully");
+      setTimeout(() => setActionSuccess(null), 3000);
     },
-    onError: () => {
+    onError: (error: any) => {
+      console.error("Error running discovery:", error);
       setIsDiscovering(false);
+      setActionSuccess(null);
+      const errorMessage = error.message || "Failed to run network discovery. Please try again.";
+      setActionError(errorMessage);
     },
   });
 
@@ -124,6 +160,27 @@ export default function SettingsPage() {
       <div className="flex items-center justify-between space-y-2">
         <h2 className="text-3xl font-bold tracking-tight">Settings</h2>
       </div>
+
+      {/* Success Message - shown above tabs */}
+      {actionSuccess && (
+        <div className="p-3 bg-green-100 border border-green-300 text-green-800 rounded">
+          {actionSuccess}
+        </div>
+      )}
+
+      {/* Error Message - shown above tabs */}
+      {actionError && (
+        <div className="p-3 bg-red-100 border border-red-300 text-red-800 rounded">
+          {actionError}
+        </div>
+      )}
+
+      {/* Query Error for recipients */}
+      {recipientsError && (
+        <div className="p-3 bg-red-100 border border-red-300 text-red-800 rounded">
+          Failed to load recipients. Please refresh the page.
+        </div>
+      )}
 
       <Tabs defaultValue="recipients" className="space-y-4">
         <TabsList>

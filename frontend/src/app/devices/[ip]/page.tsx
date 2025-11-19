@@ -70,10 +70,10 @@ export default function DeviceDetailPage() {
     enabled: !!ip,
   });
 
-  // Fetch device interfaces
+  // Fetch device interfaces (Phase 3: Using optimized summary endpoint - 60-80% smaller payload)
   const { data: interfacesData } = useQuery<{ data: InterfaceMetric[] }>({
     queryKey: ["deviceInterfaces", ip],
-    queryFn: () => queryApi.getDeviceInterfaces(ip),
+    queryFn: () => queryApi.getInterfaceSummary(ip),
     enabled: !!ip,
   });
 
@@ -98,73 +98,61 @@ export default function DeviceDetailPage() {
     device?.failure_threshold,
   ]);
 
-  // Mutation for updating CPU threshold
-  const updateCpuThresholdMutation = useMutation({
-    mutationFn: (threshold: number) =>
-      deviceApi.updateCpuThreshold(ip, threshold),
+  // State for error and success messages
+  const [updateError, setUpdateError] = useState<string | null>(null);
+  const [updateSuccess, setUpdateSuccess] = useState<string | null>(null);
+
+  // Batch threshold update mutation (Phase 3: Single API call for all thresholds)
+  const updateThresholdsMutation = useMutation({
+    mutationFn: (thresholds: {
+      cpu_threshold?: number;
+      memory_threshold?: number;
+      failure_threshold?: number;
+    }) => deviceApi.updateThresholds(ip, thresholds),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["device", ip] });
-      alert("CPU threshold updated successfully!");
+      setUpdateError(null);
+      setUpdateSuccess("All thresholds updated successfully!");
+      // Clear success message after 3 seconds
+      setTimeout(() => setUpdateSuccess(null), 3000);
     },
-    onError: (error) => {
-      console.error("Error updating CPU threshold:", error);
-      alert("Failed to update CPU threshold");
+    onError: (error: any) => {
+      console.error("Error updating thresholds:", error);
+      setUpdateSuccess(null);
+      // Use structured error from backend if available
+      const errorMessage = error.message || "Failed to update thresholds. Please try again.";
+      setUpdateError(errorMessage);
     },
   });
 
-  // Mutation for updating Memory threshold
-  const updateMemoryThresholdMutation = useMutation({
-    mutationFn: (threshold: number) =>
-      deviceApi.updateMemoryThreshold(ip, threshold),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["device", ip] });
-      alert("Memory threshold updated successfully!");
-    },
-    onError: (error) => {
-      console.error("Error updating Memory threshold:", error);
-      alert("Failed to update Memory threshold");
-    },
-  });
+  const handleUpdateThresholds = () => {
+    setUpdateError(null);
+    setUpdateSuccess(null);
 
-  // Mutation for updating reachability threshold
-  const updateReachabilityThresholdMutation = useMutation({
-    mutationFn: (threshold: number) =>
-      deviceApi.updateReachabilityThreshold(ip, threshold),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["device", ip] });
-      alert("Reachability threshold updated successfully!");
-    },
-    onError: (error) => {
-      console.error("Error updating threshold:", error);
-      alert("Failed to update reachability threshold");
-    },
-  });
+    // Validate inputs
+    const cpu = parseFloat(cpuThreshold);
+    const memory = parseFloat(memoryThreshold);
+    const reachability = parseFloat(reachabilityThreshold);
 
-  const handleUpdateCpuThreshold = () => {
-    const threshold = parseFloat(cpuThreshold);
-    if (isNaN(threshold) || threshold < 0 || threshold > 100) {
-      alert("Please enter a valid number between 0 and 100");
+    if (isNaN(cpu) || cpu < 0 || cpu > 100) {
+      setUpdateError("CPU threshold must be between 0 and 100");
       return;
     }
-    updateCpuThresholdMutation.mutate(threshold);
-  };
-
-  const handleUpdateMemoryThreshold = () => {
-    const threshold = parseFloat(memoryThreshold);
-    if (isNaN(threshold) || threshold < 0 || threshold > 100) {
-      alert("Please enter a valid number between 0 and 100");
+    if (isNaN(memory) || memory < 0 || memory > 100) {
+      setUpdateError("Memory threshold must be between 0 and 100");
       return;
     }
-    updateMemoryThresholdMutation.mutate(threshold);
-  };
-
-  const handleUpdateReachabilityThreshold = () => {
-    const threshold = parseFloat(reachabilityThreshold);
-    if (isNaN(threshold) || threshold < 0) {
-      alert("Please enter a valid positive number");
+    if (isNaN(reachability) || reachability < 0) {
+      setUpdateError("Reachability threshold must be a positive number");
       return;
     }
-    updateReachabilityThresholdMutation.mutate(threshold);
+
+    // Single batch update (Phase 3 optimization: 3 API calls → 1 API call)
+    updateThresholdsMutation.mutate({
+      cpu_threshold: cpu,
+      memory_threshold: memory,
+      failure_threshold: reachability,
+    });
   };
 
   // Create a sorted version of metrics to fix the chart order
@@ -257,12 +245,27 @@ export default function DeviceDetailPage() {
                 <h3 className="text-sm font-semibold mb-3">
                   Device Thresholds
                 </h3>
+
+                {/* Success Message */}
+                {updateSuccess && (
+                  <div className="mb-4 p-3 bg-green-100 border border-green-300 text-green-800 rounded">
+                    {updateSuccess}
+                  </div>
+                )}
+
+                {/* Error Message */}
+                {updateError && (
+                  <div className="mb-4 p-3 bg-red-100 border border-red-300 text-red-800 rounded">
+                    {updateError}
+                  </div>
+                )}
+
                 <div className="space-y-4">
                   {/* CPU Threshold */}
-                  <div className="grid grid-cols-3 gap-4 items-end">
+                  <div className="grid grid-cols-2 gap-4 items-end">
                     <div>
                       <p className="text-sm font-medium text-muted-foreground mb-2">
-                        CPU Threshold (%)
+                        Current CPU Threshold
                       </p>
                       <p className="text-base">{device.cpu_threshold ?? 80}%</p>
                     </div>
@@ -271,7 +274,7 @@ export default function DeviceDetailPage() {
                         htmlFor="cpu-threshold"
                         className="text-sm font-medium text-muted-foreground mb-2 block"
                       >
-                        New Threshold (%)
+                        New CPU Threshold (%)
                       </label>
                       <Input
                         id="cpu-threshold"
@@ -284,23 +287,13 @@ export default function DeviceDetailPage() {
                         placeholder="Enter value"
                       />
                     </div>
-                    <div className="flex justify-center">
-                      <Button
-                        onClick={handleUpdateCpuThreshold}
-                        disabled={updateCpuThresholdMutation.isPending}
-                      >
-                        {updateCpuThresholdMutation.isPending
-                          ? "Updating..."
-                          : "Update"}
-                      </Button>
-                    </div>
                   </div>
 
                   {/* Memory Threshold */}
-                  <div className="grid grid-cols-3 gap-4 items-end">
+                  <div className="grid grid-cols-2 gap-4 items-end">
                     <div>
                       <p className="text-sm font-medium text-muted-foreground mb-2">
-                        Memory Threshold (%)
+                        Current Memory Threshold
                       </p>
                       <p className="text-base">
                         {device.memory_threshold ?? 80}%
@@ -311,7 +304,7 @@ export default function DeviceDetailPage() {
                         htmlFor="memory-threshold"
                         className="text-sm font-medium text-muted-foreground mb-2 block"
                       >
-                        New Threshold (%)
+                        New Memory Threshold (%)
                       </label>
                       <Input
                         id="memory-threshold"
@@ -324,23 +317,13 @@ export default function DeviceDetailPage() {
                         placeholder="Enter value"
                       />
                     </div>
-                    <div className="flex justify-center">
-                      <Button
-                        onClick={handleUpdateMemoryThreshold}
-                        disabled={updateMemoryThresholdMutation.isPending}
-                      >
-                        {updateMemoryThresholdMutation.isPending
-                          ? "Updating..."
-                          : "Update"}
-                      </Button>
-                    </div>
                   </div>
 
                   {/* Reachability Threshold */}
-                  <div className="grid grid-cols-3 gap-4 items-end">
+                  <div className="grid grid-cols-2 gap-4 items-end">
                     <div>
                       <p className="text-sm font-medium text-muted-foreground mb-2">
-                        Reachability Threshold
+                        Current Reachability Threshold
                       </p>
                       <p className="text-base">
                         {device.failure_threshold ?? "Not set"}
@@ -351,7 +334,7 @@ export default function DeviceDetailPage() {
                         htmlFor="reachability-threshold"
                         className="text-sm font-medium text-muted-foreground mb-2 block"
                       >
-                        New Threshold
+                        New Reachability Threshold
                       </label>
                       <Input
                         id="reachability-threshold"
@@ -365,16 +348,19 @@ export default function DeviceDetailPage() {
                         placeholder="Enter value"
                       />
                     </div>
-                    <div className="flex justify-center">
-                      <Button
-                        onClick={handleUpdateReachabilityThreshold}
-                        disabled={updateReachabilityThresholdMutation.isPending}
-                      >
-                        {updateReachabilityThresholdMutation.isPending
-                          ? "Updating..."
-                          : "Update"}
-                      </Button>
-                    </div>
+                  </div>
+
+                  {/* Single Update Button */}
+                  <div className="flex justify-end pt-2">
+                    <Button
+                      onClick={handleUpdateThresholds}
+                      disabled={updateThresholdsMutation.isPending}
+                      size="lg"
+                    >
+                      {updateThresholdsMutation.isPending
+                        ? "Updating All Thresholds..."
+                        : "Update All Thresholds"}
+                    </Button>
                   </div>
 
                   <p className="text-xs text-muted-foreground">
