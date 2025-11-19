@@ -37,7 +37,13 @@ api.interceptors.response.use(
 export const deviceApi = {
   getAll: () => api.get("/device/"),
   getByIp: (ip: string) => api.get(`/device/${ip}`),
-  discover: () => api.get("/device/discover"),
+  discover: (network?: string, subnet?: string) => {
+    const params = new URLSearchParams();
+    if (network) params.append('network', network);
+    if (subnet) params.append('subnet', subnet);
+    const queryString = params.toString();
+    return api.get(`/device/discover${queryString ? `?${queryString}` : ''}`);
+  },
 
   // Batch threshold update (updated to match backend)
   updateThresholds: (ip: string, thresholds: {

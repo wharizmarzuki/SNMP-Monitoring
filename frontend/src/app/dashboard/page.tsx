@@ -35,32 +35,32 @@ import { queryApi } from "@/lib/api";
 import { NetworkSummary, Alert, TopDevice, NetworkThroughput } from "@/types";
 
 export default function DashboardPage() {
-  // Fetch network summary
-  const { data: networkSummary } = useQuery<{ data: NetworkSummary }>({
+  // Fetch network summary (Phase 3: With error handling)
+  const { data: networkSummary, isLoading: summaryLoading, error: summaryError } = useQuery<{ data: NetworkSummary }>({
     queryKey: ["networkSummary"],
     queryFn: () => queryApi.getNetworkSummary(),
   });
 
   // Fetch active alerts
-  const { data: activeAlerts } = useQuery<{ data: Alert[] }>({
+  const { data: activeAlerts, isLoading: alertsLoading, error: alertsError } = useQuery<{ data: Alert[] }>({
     queryKey: ["activeAlerts"],
     queryFn: () => queryApi.getActiveAlerts(),
   });
 
   // Fetch top CPU devices
-  const { data: topCpuDevices } = useQuery<{ data: TopDevice[] }>({
+  const { data: topCpuDevices, isLoading: cpuLoading, error: cpuError } = useQuery<{ data: TopDevice[] }>({
     queryKey: ["topCpuDevices"],
     queryFn: () => queryApi.getTopDevices("cpu"),
   });
 
   // Fetch top memory devices
-  const { data: topMemoryDevices } = useQuery<{ data: TopDevice[] }>({
+  const { data: topMemoryDevices, isLoading: memoryLoading, error: memoryError } = useQuery<{ data: TopDevice[] }>({
     queryKey: ["topMemoryDevices"],
     queryFn: () => queryApi.getTopDevices("memory"),
   });
 
   // Fetch network throughput
-  const { data: networkThroughput } = useQuery<{ data: NetworkThroughput[] }>({
+  const { data: networkThroughput, isLoading: throughputLoading, error: throughputError } = useQuery<{ data: NetworkThroughput[] }>({
     queryKey: ["networkThroughput"],
     queryFn: () => queryApi.getNetworkThroughput(),
   });
@@ -76,6 +76,14 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between space-y-2">
         <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
       </div>
+
+      {/* Global Error Banner */}
+      {(summaryError || alertsError || cpuError || memoryError || throughputError) && (
+        <div className="p-3 bg-red-100 border border-red-300 text-red-800 rounded">
+          <p className="font-semibold">Some dashboard data failed to load</p>
+          <p className="text-sm mt-1">Please refresh the page. If the problem persists, contact support.</p>
+        </div>
+      )}
 
       {/* KPI Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -110,7 +118,11 @@ export default function DashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {alerts.length === 0 ? (
+            {alertsLoading ? (
+              <p className="text-sm text-muted-foreground">Loading alerts...</p>
+            ) : alertsError ? (
+              <p className="text-sm text-red-600">Failed to load alerts</p>
+            ) : alerts.length === 0 ? (
               <p className="text-sm text-muted-foreground">No active alerts</p>
             ) : (
               <Table>
@@ -147,29 +159,37 @@ export default function DashboardPage() {
             <CardDescription>Devices with highest CPU usage</CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Device</TableHead>
-                  <TableHead className="text-right">Usage</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {cpuDevices.map((device) => (
-                  <TableRow key={device.ip_address}>
-                    <TableCell>
-                      <div className="font-medium">{device.hostname}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {device.ip_address}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {`${(device.value ?? 0).toFixed(1)}%`}
-                    </TableCell>
+            {cpuLoading ? (
+              <p className="text-sm text-muted-foreground">Loading CPU data...</p>
+            ) : cpuError ? (
+              <p className="text-sm text-red-600">Failed to load CPU data</p>
+            ) : cpuDevices.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No data available</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Device</TableHead>
+                    <TableHead className="text-right">Usage</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {cpuDevices.map((device) => (
+                    <TableRow key={device.ip_address}>
+                      <TableCell>
+                        <div className="font-medium">{device.hostname}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {device.ip_address}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {`${(device.value ?? 0).toFixed(1)}%`}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
 
@@ -181,29 +201,37 @@ export default function DashboardPage() {
             <CardDescription>Devices with highest memory usage</CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Device</TableHead>
-                  <TableHead className="text-right">Usage</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {memoryDevices.map((device) => (
-                  <TableRow key={device.ip_address}>
-                    <TableCell>
-                      <div className="font-medium">{device.hostname}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {device.ip_address}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {`${(device.value ?? 0).toFixed(1)}%`}
-                    </TableCell>
+            {memoryLoading ? (
+              <p className="text-sm text-muted-foreground">Loading memory data...</p>
+            ) : memoryError ? (
+              <p className="text-sm text-red-600">Failed to load memory data</p>
+            ) : memoryDevices.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No data available</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Device</TableHead>
+                    <TableHead className="text-right">Usage</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {memoryDevices.map((device) => (
+                    <TableRow key={device.ip_address}>
+                      <TableCell>
+                        <div className="font-medium">{device.hostname}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {device.ip_address}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {`${(device.value ?? 0).toFixed(1)}%`}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -217,39 +245,53 @@ export default function DashboardPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <AreaChart
-              data={throughput}
-              margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis
-                dataKey="timestamp"
-                tickFormatter={(value) => new Date(value).toLocaleTimeString()}
-              />
-              <YAxis />
-              <Tooltip
-                labelFormatter={(value) => new Date(value).toLocaleString()}
-              />
-              <Legend />
-              <Area
-                type="monotone"
-                dataKey="inbound_bps"
-                stackId="1"
-                stroke="#8884d8"
-                fill="#8884d8"
-                name="Inbound (bps)"
-              />
-              <Area
-                type="monotone"
-                dataKey="outbound_bps"
-                stackId="1"
-                stroke="#82ca9d"
-                fill="#82ca9d"
-                name="Outbound (bps)"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+          {throughputLoading ? (
+            <div className="h-[300px] flex items-center justify-center">
+              <p className="text-sm text-muted-foreground">Loading throughput data...</p>
+            </div>
+          ) : throughputError ? (
+            <div className="h-[300px] flex items-center justify-center">
+              <p className="text-sm text-red-600">Failed to load throughput data</p>
+            </div>
+          ) : throughput.length === 0 ? (
+            <div className="h-[300px] flex items-center justify-center">
+              <p className="text-sm text-muted-foreground">No throughput data available</p>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <AreaChart
+                data={throughput}
+                margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis
+                  dataKey="timestamp"
+                  tickFormatter={(value) => new Date(value).toLocaleTimeString()}
+                />
+                <YAxis />
+                <Tooltip
+                  labelFormatter={(value) => new Date(value).toLocaleString()}
+                />
+                <Legend />
+                <Area
+                  type="monotone"
+                  dataKey="inbound_bps"
+                  stackId="1"
+                  stroke="#8884d8"
+                  fill="#8884d8"
+                  name="Inbound (bps)"
+                />
+                <Area
+                  type="monotone"
+                  dataKey="outbound_bps"
+                  stackId="1"
+                  stroke="#82ca9d"
+                  fill="#82ca9d"
+                  name="Outbound (bps)"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
         </CardContent>
       </Card>
     </div>

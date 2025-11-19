@@ -37,9 +37,15 @@ export default function SettingsPage() {
   const [selectedDeviceForInterface, setSelectedDeviceForInterface] =
     useState("");
   const [isDiscovering, setIsDiscovering] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+
+  // Discovery network configuration
+  const [networkIp, setNetworkIp] = useState("192.168.254.1");
+  const [subnet, setSubnet] = useState("27");
 
   // Fetch recipients
-  const { data: recipientsData } = useQuery<{ data: Recipient[] }>({
+  const { data: recipientsData, error: recipientsError } = useQuery<{ data: Recipient[] }>({
     queryKey: ["recipients"],
     queryFn: () => configApi.getRecipients(),
   });
@@ -67,6 +73,15 @@ export default function SettingsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["recipients"] });
       setNewRecipient("");
+      setActionError(null);
+      setActionSuccess("Recipient added successfully");
+      setTimeout(() => setActionSuccess(null), 3000);
+    },
+    onError: (error: any) => {
+      console.error("Error adding recipient:", error);
+      setActionSuccess(null);
+      const errorMessage = error.message || "Failed to add recipient. Please try again.";
+      setActionError(errorMessage);
     },
   });
 
@@ -75,6 +90,15 @@ export default function SettingsPage() {
     mutationFn: (email: string) => configApi.deleteRecipient(email),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["recipients"] });
+      setActionError(null);
+      setActionSuccess("Recipient removed successfully");
+      setTimeout(() => setActionSuccess(null), 3000);
+    },
+    onError: (error: any) => {
+      console.error("Error deleting recipient:", error);
+      setActionSuccess(null);
+      const errorMessage = error.message || "Failed to remove recipient. Please try again.";
+      setActionError(errorMessage);
     },
   });
 
@@ -93,18 +117,35 @@ export default function SettingsPage() {
       queryClient.invalidateQueries({
         queryKey: ["deviceInterfaces", selectedDeviceForInterface],
       });
+      setActionError(null);
+      setActionSuccess("Interface threshold updated successfully");
+      setTimeout(() => setActionSuccess(null), 3000);
+    },
+    onError: (error: any) => {
+      console.error("Error updating interface threshold:", error);
+      setActionSuccess(null);
+      const errorMessage = error.message || "Failed to update interface threshold. Please try again.";
+      setActionError(errorMessage);
     },
   });
 
   // Discovery mutation
   const runDiscoveryMutation = useMutation({
-    mutationFn: () => deviceApi.discover(),
+    mutationFn: ({ network, subnet }: { network: string; subnet: string }) =>
+      deviceApi.discover(network, subnet),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["devices"] });
       setIsDiscovering(false);
+      setActionError(null);
+      setActionSuccess("Network discovery completed successfully");
+      setTimeout(() => setActionSuccess(null), 3000);
     },
-    onError: () => {
+    onError: (error: any) => {
+      console.error("Error running discovery:", error);
       setIsDiscovering(false);
+      setActionSuccess(null);
+      const errorMessage = error.message || "Failed to run network discovery. Please try again.";
+      setActionError(errorMessage);
     },
   });
 
@@ -115,8 +156,23 @@ export default function SettingsPage() {
   };
 
   const handleRunDiscovery = () => {
+    // Validate network IP
+    const ipRegex = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/;
+    if (!ipRegex.test(networkIp)) {
+      setActionError("Invalid network IP address format");
+      return;
+    }
+
+    // Validate subnet (CIDR notation)
+    const subnetNum = parseInt(subnet);
+    if (isNaN(subnetNum) || subnetNum < 0 || subnetNum > 32) {
+      setActionError("Subnet must be a number between 0 and 32");
+      return;
+    }
+
+    setActionError(null);
     setIsDiscovering(true);
-    runDiscoveryMutation.mutate();
+    runDiscoveryMutation.mutate({ network: networkIp, subnet: subnet });
   };
 
   return (
@@ -124,6 +180,27 @@ export default function SettingsPage() {
       <div className="flex items-center justify-between space-y-2">
         <h2 className="text-3xl font-bold tracking-tight">Settings</h2>
       </div>
+
+      {/* Success Message - shown above tabs */}
+      {actionSuccess && (
+        <div className="p-3 bg-green-100 border border-green-300 text-green-800 rounded">
+          {actionSuccess}
+        </div>
+      )}
+
+      {/* Error Message - shown above tabs */}
+      {actionError && (
+        <div className="p-3 bg-red-100 border border-red-300 text-red-800 rounded">
+          {actionError}
+        </div>
+      )}
+
+      {/* Query Error for recipients */}
+      {recipientsError && (
+        <div className="p-3 bg-red-100 border border-red-300 text-red-800 rounded">
+          Failed to load recipients. Please refresh the page.
+        </div>
+      )}
 
       <Tabs defaultValue="recipients" className="space-y-4">
         <TabsList>
@@ -269,24 +346,87 @@ export default function SettingsPage() {
             <CardHeader>
               <CardTitle>Network Discovery</CardTitle>
               <CardDescription>
-                Manually trigger network device discovery
+                Configure and trigger network device discovery
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <Button onClick={handleRunDiscovery} disabled={isDiscovering}>
-                {isDiscovering ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Discovering...
-                  </>
-                ) : (
-                  "Run Network Discovery Now"
-                )}
-              </Button>
-              <p className="text-sm text-muted-foreground mt-2">
-                This will scan the network for new devices and update the device
-                list.
-              </p>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                {/* Network IP Input */}
+                <div className="space-y-2">
+                  <label
+                    htmlFor="network-ip"
+                    className="text-sm font-medium"
+                  >
+                    Network IP Address
+                  </label>
+                  <Input
+                    id="network-ip"
+                    type="text"
+                    placeholder="192.168.254.1"
+                    value={networkIp}
+                    onChange={(e) => setNetworkIp(e.target.value)}
+                    disabled={isDiscovering}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Base IP address for the network to scan
+                  </p>
+                </div>
+
+                {/* Subnet Input */}
+                <div className="space-y-2">
+                  <label
+                    htmlFor="subnet"
+                    className="text-sm font-medium"
+                  >
+                    Subnet Mask (CIDR)
+                  </label>
+                  <Input
+                    id="subnet"
+                    type="number"
+                    placeholder="27"
+                    min="0"
+                    max="32"
+                    value={subnet}
+                    onChange={(e) => setSubnet(e.target.value)}
+                    disabled={isDiscovering}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    CIDR notation (e.g., 24 = /24, 27 = /27)
+                  </p>
+                </div>
+              </div>
+
+              {/* Example Info */}
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded text-sm">
+                <p className="font-medium text-blue-900 mb-1">Example:</p>
+                <p className="text-blue-800">
+                  Network: <code className="bg-blue-100 px-1 rounded">192.168.1.0</code> with Subnet: <code className="bg-blue-100 px-1 rounded">24</code> will scan 192.168.1.0/24 (256 addresses)
+                </p>
+                <p className="text-blue-800 mt-1">
+                  Network: <code className="bg-blue-100 px-1 rounded">192.168.254.1</code> with Subnet: <code className="bg-blue-100 px-1 rounded">27</code> will scan 192.168.254.1/27 (32 addresses)
+                </p>
+              </div>
+
+              {/* Discovery Button */}
+              <div className="flex items-center gap-4 pt-2">
+                <Button
+                  onClick={handleRunDiscovery}
+                  disabled={isDiscovering}
+                  size="lg"
+                >
+                  {isDiscovering ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Discovering...
+                    </>
+                  ) : (
+                    "Run Network Discovery"
+                  )}
+                </Button>
+                <p className="text-sm text-muted-foreground">
+                  This will scan the configured network range for SNMP-enabled devices
+                </p>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
