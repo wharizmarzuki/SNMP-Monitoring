@@ -11,11 +11,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.models import User
 from app.core.exceptions import APIError
-
-# Configuration - TODO: Move to settings
-SECRET_KEY = "snmp-monitoring-secret-key-change-in-production"  # IMPORTANT: Change in production
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_HOURS = 24
+from app.config.settings import settings
 
 # Password hashing context
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -46,9 +42,9 @@ def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta]
         Encoded JWT token string
     """
     to_encode = data.copy()
-    expire = datetime.utcnow() + (expires_delta or timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS))
+    expire = datetime.utcnow() + (expires_delta or timedelta(hours=settings.jwt_access_token_expire_hours))
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    encoded_jwt = jwt.encode(to_encode, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
     return encoded_jwt
 
 
@@ -66,7 +62,7 @@ def decode_token(token: str) -> Dict[str, Any]:
         HTTPException: If token is invalid or expired
     """
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
         return payload
     except JWTError as e:
         raise APIError(

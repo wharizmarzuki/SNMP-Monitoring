@@ -66,6 +66,38 @@ class Settings(BaseSettings):
     sender_email: str = Field(default="", validation_alias="SENDER_EMAIL")
     sender_password: str = Field(default="", validation_alias="SENDER_PASSWORD")
 
+    # Security / JWT Configuration
+    jwt_secret_key: str = Field(
+        default="CHANGE-THIS-IN-PRODUCTION-USE-SETUP-SCRIPT",
+        validation_alias="JWT_SECRET_KEY",
+        description="Secret key for JWT token signing - MUST be changed in production"
+    )
+    jwt_algorithm: str = Field(
+        default="HS256",
+        validation_alias="JWT_ALGORITHM",
+        description="JWT signing algorithm"
+    )
+    jwt_access_token_expire_hours: int = Field(
+        default=24,
+        validation_alias="JWT_ACCESS_TOKEN_EXPIRE_HOURS",
+        ge=1, le=720,
+        description="JWT token expiration in hours"
+    )
+
+    # Network Discovery Configuration
+    discovery_network: str = Field(
+        default="192.168.1.0/24",
+        validation_alias="DISCOVERY_NETWORK",
+        description="Network range for device discovery (CIDR notation)"
+    )
+
+    # Frontend Configuration
+    frontend_url: str = Field(
+        default="http://localhost:3000",
+        validation_alias="FRONTEND_URL",
+        description="Frontend application URL"
+    )
+
     # Redis Cache Configuration
     redis_host: str = Field(
         default="localhost",

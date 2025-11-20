@@ -5,7 +5,7 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from app.api.v1.endpoints import devices, polling, query, recipients, auth
+from app.api.v1.endpoints import devices, polling, query, recipients, auth, health
 from app.core import models
 from app.core.database import engine, SessionLocal
 from app.core.exceptions import APIError
@@ -27,10 +27,18 @@ async def run_discovery_on_startup():
     db: Session = SessionLocal()
     client = get_snmp_client()
     try:
+        # Parse network and subnet from DISCOVERY_NETWORK setting (e.g., "192.168.1.0/24")
+        network_cidr = settings.discovery_network
+        if "/" in network_cidr:
+            network, subnet = network_cidr.rsplit("/", 1)
+        else:
+            network = network_cidr
+            subnet = "24"
+
         await perform_full_discovery(
-            db, client, 
-            network="192.168.254.1", 
-            subnet="27"
+            db, client,
+            network=network,
+            subnet=subnet
         )
     except Exception as e:
         logger.error(f"Error during startup discovery: {e}")
@@ -41,11 +49,11 @@ async def run_discovery_on_startup():
 
 
 async def call_dashboard_hook():
-    """Waits 10 seconds, then calls localhost:3000 once."""
+    """Waits 10 seconds, then calls frontend login page once."""
     logger.info("Scheduled dashboard hook for 10 seconds from now...")
     await asyncio.sleep(10)
-    
-    url = "http://localhost:3000/login"
+
+    url = f"{settings.frontend_url}/login"
     
     try:
         # Use AsyncClient to ensure we don't block the event loop
@@ -152,6 +160,7 @@ async def general_exception_handler(request: Request, exc: Exception):
 from app.api.middleware import add_middleware_to_app
 add_middleware_to_app(app)
 
+app.include_router(health.router, tags=["Health"])
 app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
 app.include_router(devices.router)
 app.include_router(polling.router)

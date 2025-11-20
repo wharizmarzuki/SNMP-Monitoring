@@ -1,11 +1,18 @@
+# ============================================================================
+# SNMP Monitoring System - Backend Dependencies
+# ============================================================================
+
 # Web Framework
 fastapi>=0.104.0
 uvicorn[standard]>=0.24.0
 
+# HTTP Client (for frontend communication)
+httpx>=0.26.0
+
 # Database
 sqlalchemy>=2.0.0
 
-# Data Validation
+# Data Validation & Settings
 pydantic>=2.0.0
 pydantic-settings>=2.0.0
 
@@ -13,9 +20,15 @@ pydantic-settings>=2.0.0
 pysnmp>=4.4.12
 
 # Caching
-redis==5.0.1
+redis>=5.0.1
 
-# Authentication
-python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
-python-multipart==0.0.6
+# Authentication & Security
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+python-multipart>=0.0.6
+
+# Environment Variables
+python-dotenv>=1.0.0
+
+# Email (SMTP - uses built-in smtplib, no additional package needed)
+# smtplib and email modules are part of Python standard library

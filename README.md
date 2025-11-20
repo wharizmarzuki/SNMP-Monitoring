@@ -48,52 +48,89 @@ A comprehensive network monitoring solution built with FastAPI and Next.js that 
 
 - Python 3.12+
 - Node.js 18+
-- npm or yarn
-- Redis (optional but recommended for performance caching)
+- npm
+- Git
+- OpenSSL (for generating secure secrets)
+- Redis (optional but recommended for caching)
 
-### Installation
+### Automated Setup (Recommended) 🚀
 
-1. **Clone the repository**
+**One-command installation for both development and production:**
+
 ```bash
+# Clone the repository
 git clone https://github.com/wharizmarzuki/SNMP-Monitoring.git
 cd snmp-monitoring
+
+# Run interactive setup wizard
+./setup.sh
 ```
 
-2. **Redis Setup (Optional but Recommended)**
+The setup wizard will:
+- ✅ Check system dependencies
+- ✅ Prompt for all configuration (network range, SNMP settings, email, Redis, etc.)
+- ✅ **Automatically install and start Redis** (if you choose to enable caching)
+- ✅ Auto-generate secure JWT secret
+- ✅ Create `.env` files automatically
+- ✅ Install Python and Node.js dependencies
+- ✅ Initialize database
+- ✅ Create admin user with your credentials
+- ✅ Optionally start services
 
-For optimal performance with caching enabled, install and start Redis:
+**That's it!** The wizard handles everything interactively - no manual file editing or separate scripts required.
+
+#### For Production Setup
 
 ```bash
-# Automated setup (detects your OS and installs/starts Redis)
-./setup-redis.sh
+./setup.sh --production
 ```
 
-Or install manually:
-- **Ubuntu/Debian**: `sudo apt-get install redis-server && sudo systemctl start redis`
-- **macOS**: `brew install redis && brew services start redis`
-- **Docker**: `docker run -d -p 6379:6379 redis:7-alpine`
+Uses production-specific defaults with stricter validation.
 
-Verify installation: `redis-cli ping` (should return `PONG`)
+---
 
-> **Note**: The application will work without Redis but with reduced performance. See [DEPLOYMENT.md](DEPLOYMENT.md) for more details.
+### Quick Commands (Using Makefile)
 
-3. **Backend Setup**
+After setup, use these convenient commands:
+
+```bash
+make dev          # Start development servers
+make stop         # Stop all services
+make validate     # Validate configuration
+make health       # Check system health
+make test-email   # Send test email
+make status       # Show service status
+make help         # Show all available commands
+```
+
+---
+
+### Manual Setup (Alternative)
+
+If you prefer manual configuration:
+
+**1. Check Dependencies**
+```bash
+./scripts/check-dependencies.sh
+```
+
+**2. Backend Setup**
 ```bash
 cd backend
 
 # Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+python3 -m venv venv
+source venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
 
 # Configure environment
 cp .env.example .env
-# Edit .env with your settings (SNMP community, email credentials, etc.)
+# Edit .env with your settings
 ```
 
-4. **Frontend Setup**
+**3. Frontend Setup**
 ```bash
 cd frontend
 
@@ -102,72 +139,105 @@ npm install --legacy-peer-deps
 
 # Configure environment
 cp .env.example .env.local
-# Edit .env.local if needed (default: http://localhost:8000)
+# Edit .env.local if needed
 ```
 
-### Running the Application
+**4. Create Admin User**
+```bash
+cd backend
+source venv/bin/activate
+python ../scripts/setup_admin.py
+```
 
-#### Option 1: Simple Script (Recommended for Development)
-
+**5. Start Services**
 ```bash
 # From project root
 ./start-dev.sh
 ```
 
-This will start both backend and frontend services. Access:
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:8000
-- API Docs: http://localhost:8000/docs
+---
 
-Stop services:
+### Access the Application
+
+Once running, access:
+- **Frontend**: http://localhost:3000
+- **Backend API**: http://localhost:8000
+- **API Documentation**: http://localhost:8000/docs
+- **Health Check**: http://localhost:8000/health
+
+**Default admin login**: Use the credentials you provided during setup
+
+---
+
+### Validation & Testing
+
+**Validate your setup:**
 ```bash
-./stop-dev.sh
+./scripts/validate-setup.sh
+# or
+make validate
 ```
 
-#### Option 2: Manual (Separate Terminals)
-
-**Terminal 1 - Backend:**
+**Test email configuration:**
 ```bash
-cd backend
-source venv/bin/activate
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+python scripts/test-email.py
+# or
+make test-email
 ```
 
-**Terminal 2 - Frontend:**
+**Check system health:**
 ```bash
-cd frontend
-npm run dev
+curl http://localhost:8000/health | python3 -m json.tool
+# or
+make health
 ```
 
 ## Configuration
 
-### Backend Environment Variables
+### Automatic Configuration (Recommended)
 
-Edit `backend/.env`:
+The `./setup.sh` wizard configures everything interactively. No manual editing required!
+
+### Manual Configuration (If Needed)
+
+If you need to modify settings later, edit `backend/.env`:
 
 ```bash
+# Network Discovery
+DISCOVERY_NETWORK=192.168.1.0/24    # Network range for device discovery (CIDR)
+
 # SNMP Settings
-SNMP_COMMUNITY=public          # SNMP community string
-SNMP_TIMEOUT=10                # Connection timeout
-SNMP_RETRIES=3                 # Retry attempts
+SNMP_COMMUNITY=public               # SNMP community string
+SNMP_TIMEOUT=10                     # Connection timeout
+SNMP_RETRIES=3                      # Retry attempts
 
 # Database
 DATABASE_URL=sqlite:///./monitoring.db
 
 # Monitoring
-POLLING_INTERVAL=60            # Seconds between polls
-DISCOVERY_CONCURRENCY=20       # Concurrent discovery threads
-POLLING_CONCURRENCY=20         # Concurrent polling threads
+POLLING_INTERVAL=60                 # Seconds between polls
+DISCOVERY_CONCURRENCY=20            # Concurrent discovery threads
+POLLING_CONCURRENCY=20              # Concurrent polling threads
 
 # Email Alerts
+SMTP_SERVER=smtp.gmail.com
+SMTP_PORT=587
 SENDER_EMAIL=your@email.com
-SENDER_PASSWORD=your-app-password
+SENDER_PASSWORD=your-app-password   # Use Gmail App Password
+
+# Security / JWT
+JWT_SECRET_KEY=<auto-generated>     # Auto-generated by setup.sh
+JWT_ALGORITHM=HS256
+JWT_ACCESS_TOKEN_EXPIRE_HOURS=24
 
 # Redis Cache (Optional)
-CACHE_ENABLED=true               # Enable/disable caching
-REDIS_HOST=localhost             # Redis server hostname
-REDIS_PORT=6379                  # Redis server port
-REDIS_DB=0                       # Redis database number (0-15)
+CACHE_ENABLED=true                  # Enable/disable caching
+REDIS_HOST=localhost                # Redis server hostname
+REDIS_PORT=6379                     # Redis server port
+REDIS_DB=0                          # Redis database number (0-15)
+
+# Frontend URL
+FRONTEND_URL=http://localhost:3000  # Or production domain
 
 # Application
 LOG_LEVEL=INFO
@@ -177,11 +247,20 @@ DEBUG=false
 
 ### Frontend Environment Variables
 
-Edit `frontend/.env.local`:
+Edit `frontend/.env.local` (auto-created by setup.sh):
 
 ```bash
-NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_API_URL=http://localhost:8000  # Backend API URL
 ```
+
+### Gmail App Password Setup
+
+For email alerts to work with Gmail:
+1. Go to https://myaccount.google.com/apppasswords
+2. Generate an app password for "Mail"
+3. Use this password in `SENDER_PASSWORD` (not your regular Gmail password)
+
+The `./setup.sh` wizard provides guidance for this during setup.
 
 ## Project Structure
 

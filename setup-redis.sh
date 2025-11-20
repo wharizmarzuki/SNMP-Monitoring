@@ -2,10 +2,27 @@
 
 ###############################################################################
 # Redis Setup Script for SNMP Monitoring System
-# This script checks if Redis is installed and running, and offers to install it
+#
+# NOTE: This standalone script is now DEPRECATED!
+# Redis setup has been integrated into the main setup.sh script.
+#
+# Please use: ./setup.sh instead
+#
+# This script is kept for backward compatibility and manual Redis setup.
 ###############################################################################
 
 set -e  # Exit on error
+
+echo "========================================="
+echo "⚠️  NOTICE: Standalone Redis Setup"
+echo "========================================="
+echo ""
+echo "This script has been integrated into the main setup wizard."
+echo "For new installations, please use: ./setup.sh"
+echo ""
+echo "Continuing with standalone Redis setup..."
+echo ""
+sleep 2
 
 # Colors for output
 RED='\033[0;31m'
