@@ -157,7 +157,8 @@ export function setupAuthInterceptor() {
   api.interceptors.response.use(
     (response) => response,
     (error) => {
-      if (error.response?.status === 401) {
+      // Check both error formats (AxiosError and transformed error from api.ts)
+      if (error.response?.status === 401 || error.status === 401) {
         // Unauthorized - clear auth and redirect to login
         authService.logout();
 

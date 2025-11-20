@@ -46,15 +46,21 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
             // On protected page with valid token → show page
             setIsReady(true);
           }
-        } catch (error) {
-          // Token is invalid or expired → clear and redirect to login
-          console.log("Token validation failed, clearing auth");
-          authService.logout();
+        } catch (error: any) {
+          // Only logout on 401 (expired/invalid token)
+          if (error.status === 401 || error.code === "INVALID_TOKEN" || error.code === "INVALID_CREDENTIALS") {
+            console.log("Token expired/invalid, clearing auth");
+            authService.logout();
 
-          if (!isLoginPage) {
-            router.replace("/login");
+            if (!isLoginPage) {
+              router.replace("/login");
+            } else {
+              setIsReady(true);
+            }
           } else {
-            setIsReady(true);
+            // Network/server error - keep token, show error but allow access
+            console.error("Failed to validate token (non-auth error):", error);
+            setIsReady(true); // Continue anyway
           }
         }
       }
