@@ -51,6 +51,10 @@ export default function Navbar() {
     router.push("/login");
   };
 
+  const handleProfileClick = () => {
+    router.push("/settings/profile");
+  };
+
   return (
     <div className="w-full border-b bg-white">
       <div className="flex items-center justify-between gap-6 px-4 py-2">
@@ -92,11 +96,9 @@ export default function Navbar() {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/settings/profile" className="cursor-pointer">
-                    <User className="mr-2 h-4 w-4" />
-                    Profile Settings
-                  </Link>
+                <DropdownMenuItem onClick={handleProfileClick} className="cursor-pointer">
+                  <User className="mr-2 h-4 w-4" />
+                  Profile Settings
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-600">
