@@ -19,23 +19,14 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trash2, Plus, Save, Loader2 } from "lucide-react";
-import { deviceApi, configApi, queryApi } from "@/lib/api";
-import { Device, Recipient, InterfaceMetric } from "@/types";
+import { Trash2, Plus, Loader2 } from "lucide-react";
+import { deviceApi, configApi } from "@/lib/api";
+import { Recipient } from "@/types";
 
 export default function SettingsPage() {
   const queryClient = useQueryClient();
   const [newRecipient, setNewRecipient] = useState("");
-  const [selectedDeviceForInterface, setSelectedDeviceForInterface] =
-    useState("");
   const [isDiscovering, setIsDiscovering] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
@@ -50,22 +41,7 @@ export default function SettingsPage() {
     queryFn: () => configApi.getRecipients(),
   });
 
-  // Fetch devices
-  const { data: devicesData } = useQuery<{ data: Device[] }>({
-    queryKey: ["devices"],
-    queryFn: () => deviceApi.getAll(),
-  });
-
-  // Fetch interfaces for selected device
-  const { data: interfacesData } = useQuery<{ data: InterfaceMetric[] }>({
-    queryKey: ["deviceInterfaces", selectedDeviceForInterface],
-    queryFn: () => queryApi.getDeviceInterfaces(selectedDeviceForInterface),
-    enabled: !!selectedDeviceForInterface,
-  });
-
   const recipients = recipientsData?.data || [];
-  const devices = devicesData?.data || [];
-  const interfaces = interfacesData?.data || [];
 
   // Add recipient mutation
   const addRecipientMutation = useMutation({
@@ -98,33 +74,6 @@ export default function SettingsPage() {
       console.error("Error deleting recipient:", error);
       setActionSuccess(null);
       const errorMessage = error.message || "Failed to remove recipient. Please try again.";
-      setActionError(errorMessage);
-    },
-  });
-
-  // Update threshold mutation
-  const updateInterfaceThresholdMutation = useMutation({
-    mutationFn: ({
-      ip,
-      ifIndex,
-      threshold,
-    }: {
-      ip: string;
-      ifIndex: number;
-      threshold: number;
-    }) => deviceApi.updateInterfaceThreshold(ip, ifIndex, threshold),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["deviceInterfaces", selectedDeviceForInterface],
-      });
-      setActionError(null);
-      setActionSuccess("Interface threshold updated successfully");
-      setTimeout(() => setActionSuccess(null), 3000);
-    },
-    onError: (error: any) => {
-      console.error("Error updating interface threshold:", error);
-      setActionSuccess(null);
-      const errorMessage = error.message || "Failed to update interface threshold. Please try again.";
       setActionError(errorMessage);
     },
   });
@@ -205,7 +154,6 @@ export default function SettingsPage() {
       <Tabs defaultValue="recipients" className="space-y-4">
         <TabsList>
           <TabsTrigger value="recipients">Alert Recipients</TabsTrigger>
-          <TabsTrigger value="interfaces">Interface Thresholds</TabsTrigger>
           <TabsTrigger value="discovery">Discovery</TabsTrigger>
         </TabsList>
 
@@ -215,7 +163,7 @@ export default function SettingsPage() {
             <CardHeader>
               <CardTitle>Alert Recipients</CardTitle>
               <CardDescription>
-                Manage email addresses that receive alert notifications
+                Manage email addresses that receive alert notifications. Note: Your user email is automatically included as a recipient and will be updated when you change your email in Profile Settings.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -264,83 +212,6 @@ export default function SettingsPage() {
                     ))}
                   </TableBody>
                 </Table>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Interface Thresholds Tab */}
-        <TabsContent value="interfaces" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Interface Thresholds</CardTitle>
-              <CardDescription>
-                Configure packet drop thresholds for network interfaces
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Select Device</label>
-                <Select
-                  value={selectedDeviceForInterface}
-                  onValueChange={setSelectedDeviceForInterface}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a device" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {devices.map((device) => (
-                      <SelectItem
-                        key={device.ip_address}
-                        value={device.ip_address}
-                      >
-                        {device.hostname} ({device.ip_address})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {selectedDeviceForInterface && (
-                <>
-                  {interfaces.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      No interfaces found
-                    </p>
-                  ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Interface Name</TableHead>
-                          <TableHead>Discard Rate Threshold (%)</TableHead>
-                          <TableHead>Action</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {interfaces.map((iface) => (
-                          <InterfaceThresholdRow
-                            key={iface.if_index}
-                            interface={iface}
-                            deviceIp={selectedDeviceForInterface}
-                            onSave={(threshold) =>
-                              updateInterfaceThresholdMutation.mutate({
-                                ip: selectedDeviceForInterface,
-                                ifIndex: iface.if_index,
-                                threshold,
-                              })
-                            }
-                          />
-                        ))}
-                      </TableBody>
-                    </Table>
-                  )}
-                  {selectedDeviceForInterface && interfaces.length > 0 && (
-                    <p className="text-xs text-muted-foreground mt-4">
-                      Discard rate threshold: Percentage of total traffic (0-100%) that triggers an alert when exceeded.
-                      Recommended values: 0.01% (critical links), 0.1% (normal), 1.0% (tolerant).
-                    </p>
-                  )}
-                </>
               )}
             </CardContent>
           </Card>
@@ -438,48 +309,5 @@ export default function SettingsPage() {
         </TabsContent>
       </Tabs>
     </div>
-  );
-}
-
-// Interface Threshold Row Component
-function InterfaceThresholdRow({
-  interface: iface,
-  deviceIp,
-  onSave,
-}: {
-  interface: InterfaceMetric;
-  deviceIp: string;
-  onSave: (threshold: number) => void;
-}) {
-  const [threshold, setThreshold] = useState(
-    iface.packet_drop_threshold?.toString() || "0.1"
-  );
-
-  return (
-    <TableRow>
-      <TableCell className="font-medium">{iface.if_name}</TableCell>
-      <TableCell>
-        <Input
-          type="number"
-          min="0"
-          max="100"
-          step="0.1"
-          placeholder="0.1"
-          value={threshold}
-          onChange={(e) => setThreshold(e.target.value)}
-          className="w-32"
-        />
-      </TableCell>
-      <TableCell>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => onSave(parseFloat(threshold))}
-        >
-          <Save className="h-4 w-4 mr-2" />
-          Save
-        </Button>
-      </TableCell>
-    </TableRow>
   );
 }
