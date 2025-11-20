@@ -89,63 +89,6 @@ async def delete_devices_endpoint(
     return {"message": "Device deleted"}
 
 
-@router.put("/{ip}/threshold/cpu", response_model=schemas.ThresholdResponse)
-async def update_cpu_threshold_endpoint(
-    ip: str,
-    threshold_data: schemas.ThresholdUpdate,
-    repo: DeviceRepository = Depends(get_repository)
-):
-    device = device_service.get_device_by_ip(ip, repo)
-    if not device:
-        raise DeviceNotFoundError(ip)
-
-    device.cpu_threshold = threshold_data.threshold_value
-    repo.db.commit()
-    repo.db.refresh(device)
-
-    return schemas.ThresholdResponse.model_validate(device)
-
-
-@router.put("/{ip}/threshold/memory", response_model=schemas.ThresholdResponse)
-async def update_memory_threshold_endpoint(
-    ip: str,
-    threshold_data: schemas.ThresholdUpdate,
-    repo: DeviceRepository = Depends(get_repository)
-):
-    device = device_service.get_device_by_ip(ip, repo)
-    if not device:
-        raise DeviceNotFoundError(ip)
-
-    device.memory_threshold = threshold_data.threshold_value
-    repo.db.commit()
-    repo.db.refresh(device)
-
-    return schemas.ThresholdResponse.model_validate(device)
-
-
-@router.put("/{ip}/threshold/reachability", response_model=schemas.ThresholdResponse)
-async def update_reachability_threshold_endpoint(
-    ip: str,
-    threshold_data: schemas.FailureThresholdUpdate,
-    repo: DeviceRepository = Depends(get_repository)
-):
-    """
-    Update the failure threshold for device reachability.
-
-    The failure threshold determines how many consecutive poll failures
-    are required before a device is marked as unreachable.
-    """
-    device = device_service.get_device_by_ip(ip, repo)
-    if not device:
-        raise DeviceNotFoundError(ip)
-
-    device.failure_threshold = threshold_data.threshold_value
-    repo.db.commit()
-    repo.db.refresh(device)
-
-    return schemas.ThresholdResponse.model_validate(device)
-
-
 @router.put("/{ip}/thresholds", response_model=schemas.DeviceResponse)
 async def update_device_thresholds_batch(
     ip: str,
@@ -180,39 +123,6 @@ async def update_device_thresholds_batch(
 
     return schemas.DeviceResponse.model_validate(device)
 
-
-@router.put("/{ip}/alert/cpu", response_model=schemas.AlertSentResponse)
-async def update_cpu_alert_sent_endpoint(
-    ip: str,
-    alert_data: schemas.AlertSentUpdate,
-    repo: DeviceRepository = Depends(get_repository)
-):
-    device = device_service.get_device_by_ip(ip, repo)
-    if not device:
-        raise DeviceNotFoundError(ip)
-
-    device.cpu_alert_sent = alert_data.alert_sent
-    repo.db.commit()
-    repo.db.refresh(device)
-
-    return schemas.AlertSentResponse.model_validate(device)
-
-
-@router.put("/{ip}/alert/memory", response_model=schemas.AlertSentResponse)
-async def update_memory_alert_sent_endpoint(
-    ip: str,
-    alert_data: schemas.AlertSentUpdate,
-    repo: DeviceRepository = Depends(get_repository)
-):
-    device = device_service.get_device_by_ip(ip, repo)
-    if not device:
-        raise DeviceNotFoundError(ip)
-
-    device.memory_alert_sent = alert_data.alert_sent
-    repo.db.commit()
-    repo.db.refresh(device)
-
-    return schemas.AlertSentResponse.model_validate(device)
 
 @router.put("/{ip}/interface/{if_index}/threshold", response_model=schemas.InterfaceThresholdResponse)
 async def update_interface_threshold_endpoint(

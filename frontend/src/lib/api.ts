@@ -52,17 +52,11 @@ export const deviceApi = {
     failure_threshold?: number;
   }) => api.put(`/device/${ip}/thresholds`, thresholds),
 
-  // Individual threshold updates (kept for backward compatibility)
-  updateCpuThreshold: (ip: string, threshold: number) =>
-    api.put(`/device/${ip}/threshold/cpu`, { threshold_value: threshold }),
-  updateMemoryThreshold: (ip: string, threshold: number) =>
-    api.put(`/device/${ip}/threshold/memory`, { threshold_value: threshold }),
+  // Interface threshold update
   updateInterfaceThreshold: (ip: string, ifIndex: number, threshold: number) =>
     api.put(`/device/${ip}/interface/${ifIndex}/threshold`, {
       threshold_value: threshold,
     }),
-  updateReachabilityThreshold: (ip: string, threshold: number) =>
-    api.put(`/device/${ip}/threshold/reachability`, { threshold_value: threshold }),
 
   // Acknowledge alert endpoints
   acknowledgeDeviceAlert: (ip: string, alertType: "cpu" | "memory" | "reachability") =>
@@ -94,10 +88,6 @@ export const queryApi = {
   // Optimized interface summary endpoint (60-80% smaller payload)
   getInterfaceSummary: (ip: string) =>
     api.get(`/query/device/${ip}/interfaces/summary`),
-
-  // Full interface endpoint (kept for backward compatibility)
-  getDeviceInterfaces: (ip: string) =>
-    api.get(`/query/device/${ip}/interfaces`),
 
   getHistory: (ip: string, start: string, end: string) =>
     api.get(`/query/history/device?ip=${ip}&start=${start}&end=${end}`),

@@ -105,51 +105,6 @@ async def get_device_metrics_history(
 
 
 # -------------------------------
-#  FIXED: /device/{ip}/interfaces
-# -------------------------------
-@router.get("/device/{ip}/interfaces", response_model=List[schemas.InterfaceMetricResponse])
-async def get_device_interface_latest(
-    ip: str, 
-    db: Session = Depends(get_db)
-):
-    device = db.query(models.Device).filter(models.Device.ip_address == ip).first()
-    if not device:
-        raise DeviceNotFoundError(ip)
-
-    try:
-        subq = db.query(
-            models.InterfaceMetric.interface_id,
-            func.max(models.InterfaceMetric.timestamp).label("max_timestamp")
-        ).join(models.Interface).filter(models.Interface.device_id == device.id)\
-         .group_by(models.InterfaceMetric.interface_id).subquery()
-
-        results = db.query(
-            models.InterfaceMetric,
-            models.Interface.if_name,
-            models.Interface.if_index,
-            models.Interface.packet_drop_threshold
-        ).join(subq, (models.InterfaceMetric.interface_id == subq.c.interface_id) & \
-                     (models.InterfaceMetric.timestamp == subq.c.max_timestamp))\
-         .join(models.Interface, models.InterfaceMetric.interface_id == models.Interface.id)\
-         .all()
-
-        latest_metrics = []
-        for metric, if_name, if_index, packet_drop_threshold in results:
-
-            # Convert timestamp
-            metric.timestamp = to_utc_iso(metric.timestamp)
-
-            metric_data = schemas.InterfaceMetricResponse.model_validate(metric)
-            metric_data.if_name = if_name
-            metric_data.if_index = if_index
-            metric_data.packet_drop_threshold = packet_drop_threshold
-            latest_metrics.append(metric_data)
-
-        return latest_metrics
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting interface metrics: {str(e)}")
-
-
 @router.get("/device/{ip}/interfaces/summary", response_model=List[schemas.InterfaceSummaryResponse])
 async def get_device_interface_summary(
     ip: str,
