@@ -4,12 +4,14 @@ from sqlalchemy import or_, desc, func, select, and_
 from app.core import database, models, schemas
 from app.core.exceptions import DeviceNotFoundError
 from app.core.cache import cache
+from app.core.security import get_current_user
 from typing import List
 import datetime
 
 router = APIRouter(
     prefix="/query",
-    tags=["Query"]
+    tags=["Query"],
+    dependencies=[Depends(get_current_user)]  # Require authentication for all query endpoints
 )
 get_db = database.get_db
 

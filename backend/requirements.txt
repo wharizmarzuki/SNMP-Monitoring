@@ -14,3 +14,8 @@ pysnmp>=4.4.12
 
 # Caching
 redis==5.0.1
+
+# Authentication
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.6
