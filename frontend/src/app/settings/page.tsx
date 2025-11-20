@@ -63,7 +63,7 @@ export default function SettingsPage() {
 
   // Delete recipient mutation
   const deleteRecipientMutation = useMutation({
-    mutationFn: (email: string) => configApi.deleteRecipient(email),
+    mutationFn: (id: number) => configApi.deleteRecipient(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["recipients"] });
       setActionError(null);
@@ -202,7 +202,7 @@ export default function SettingsPage() {
                             variant="ghost"
                             size="sm"
                             onClick={() =>
-                              deleteRecipientMutation.mutate(recipient.email)
+                              deleteRecipientMutation.mutate(recipient.id)
                             }
                           >
                             <Trash2 className="h-4 w-4 text-destructive" />

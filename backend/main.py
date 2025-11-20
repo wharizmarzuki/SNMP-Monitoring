@@ -1,6 +1,6 @@
 import asyncio
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
@@ -92,6 +92,24 @@ async def api_error_handler(request: Request, exc: APIError):
             "error_code": exc.error_code,
             "message": exc.message,
             "details": exc.details
+        }
+    )
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """Handle FastAPI HTTPException and convert to consistent format"""
+    # Convert HTTPException detail to our standard format
+    # This handles any remaining HTTPExceptions from FastAPI or other libraries
+    error_code = "HTTP_ERROR"
+    message = str(exc.detail) if exc.detail else "An error occurred"
+
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error_code": error_code,
+            "message": message,
+            "details": {}
         }
     )
 

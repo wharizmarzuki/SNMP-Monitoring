@@ -182,20 +182,32 @@ async def change_email(
     current_user.email = email_data.new_email
     db.commit()
 
-    # If admin user, update alert recipient email as well
+    # If admin user, update or create alert recipient
+    recipient_action = None
     if current_user.is_admin:
         from app.core.models import AlertRecipient
 
-        # Find and update alert recipient
+        # Find existing recipient with old email
         recipient = db.query(AlertRecipient).filter(
             AlertRecipient.email == old_email
         ).first()
 
         if recipient:
+            # Update existing recipient
             recipient.email = email_data.new_email
             db.commit()
+            recipient_action = "updated"
+        else:
+            # Create new recipient if none exists
+            new_recipient = AlertRecipient(email=email_data.new_email)
+            db.add(new_recipient)
+            db.commit()
+            recipient_action = "created"
 
-    return MessageResponse(
-        message="Email changed successfully" +
-                (" and alert recipient updated" if current_user.is_admin else "")
-    )
+    # Build appropriate success message
+    if recipient_action:
+        message = f"Email changed successfully and alert recipient {recipient_action}"
+    else:
+        message = "Email changed successfully"
+
+    return MessageResponse(message=message)

@@ -81,7 +81,7 @@ export const deviceApi = {
 export const configApi = {
   getRecipients: () => api.get("/recipients/"),
   addRecipient: (email: string) => api.post("/recipients/", { email }),
-  deleteRecipient: (email: string) => api.delete(`/recipients/${email}`),
+  deleteRecipient: (id: number) => api.delete(`/recipients/${id}`),
 };
 
 // API endpoints for queries

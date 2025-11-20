@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { authService } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { User, Mail, Lock, CheckCircle2 } from "lucide-react";
 
 export default function ProfileSettingsPage() {
+  const queryClient = useQueryClient();
   const [passwordData, setPasswordData] = useState({
     current_password: "",
     new_password: "",
@@ -25,6 +26,7 @@ export default function ProfileSettingsPage() {
   const [emailError, setEmailError] = useState("");
   const [passwordSuccess, setPasswordSuccess] = useState(false);
   const [emailSuccess, setEmailSuccess] = useState(false);
+  const [emailSuccessMessage, setEmailSuccessMessage] = useState("");
 
   // Fetch current user
   const { data: user, refetch: refetchUser } = useQuery({
@@ -52,12 +54,19 @@ export default function ProfileSettingsPage() {
   const changeEmailMutation = useMutation({
     mutationFn: (data: { new_email: string; password: string }) =>
       authService.changeEmail(data),
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       setEmailError("");
       setEmailSuccess(true);
+      // Store the backend message to display to user
+      setEmailSuccessMessage(data?.message || "Email changed successfully");
       setEmailData({ new_email: "", password: "" });
       refetchUser(); // Refresh user data
-      setTimeout(() => setEmailSuccess(false), 5000);
+      // Invalidate recipients query to refresh the list in Settings page
+      queryClient.invalidateQueries({ queryKey: ["recipients"] });
+      setTimeout(() => {
+        setEmailSuccess(false);
+        setEmailSuccessMessage("");
+      }, 5000);
     },
     onError: (error: any) => {
       setEmailSuccess(false);
@@ -259,8 +268,7 @@ export default function ProfileSettingsPage() {
               <Alert className="bg-green-50 text-green-900 border-green-200">
                 <CheckCircle2 className="h-4 w-4" />
                 <AlertDescription>
-                  Email changed successfully!
-                  {user?.is_admin && " Alert notifications will be sent to the new email."}
+                  {emailSuccessMessage}
                 </AlertDescription>
               </Alert>
             )}

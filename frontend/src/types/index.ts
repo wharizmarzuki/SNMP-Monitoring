@@ -69,6 +69,7 @@ export interface NetworkThroughput {
 
 // Configuration types
 export interface Recipient {
+  id: number;
   email: string;
 }
 

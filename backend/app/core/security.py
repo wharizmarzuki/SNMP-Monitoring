@@ -10,6 +10,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.models import User
+from app.core.exceptions import APIError
 
 # Configuration - TODO: Move to settings
 SECRET_KEY = "snmp-monitoring-secret-key-change-in-production"  # IMPORTANT: Change in production
@@ -68,10 +69,10 @@ def decode_token(token: str) -> Dict[str, Any]:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
     except JWTError as e:
-        raise HTTPException(
+        raise APIError(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials",
-            headers={"WWW-Authenticate": "Bearer"},
+            error_code="INVALID_TOKEN",
+            message="Could not validate credentials"
         )
 
 
@@ -92,10 +93,10 @@ async def get_current_user(
     Raises:
         HTTPException: If token is invalid or user not found
     """
-    credentials_exception = HTTPException(
+    credentials_exception = APIError(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
+        error_code="INVALID_CREDENTIALS",
+        message="Could not validate credentials"
     )
 
     try:
@@ -103,7 +104,9 @@ async def get_current_user(
         username: str = payload.get("sub")
         if username is None:
             raise credentials_exception
-    except JWTError:
+    except (JWTError, APIError) as e:
+        if isinstance(e, APIError):
+            raise e
         raise credentials_exception
 
     # Get user from database
@@ -112,9 +115,10 @@ async def get_current_user(
         raise credentials_exception
 
     if not user.is_active:
-        raise HTTPException(
+        raise APIError(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Inactive user"
+            error_code="INACTIVE_USER",
+            message="User account is inactive"
         )
 
     return user

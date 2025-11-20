@@ -488,6 +488,7 @@ export default function DeviceDetailPage() {
         </Card>
       </div>
 
+      <div className="space-y-4">
       {/* Interface List */}
       <Card>
         <CardHeader>
@@ -500,15 +501,30 @@ export default function DeviceDetailPage() {
               No interface data available
             </p>
           ) : (
-            <Table>
+            // CHANGE 1: Added 'table-fixed' and 'w-full'
+            // 'table-fixed' forces the columns to respect the widths set in the header
+            <Table className="table-fixed w-full">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="text-center">Interface Name</TableHead>
-                  <TableHead className="text-center">Status</TableHead>
-                  <TableHead className="text-center">Traffic (In / Out)</TableHead>
-                  <TableHead className="text-center">Discard Rate</TableHead>
-                  <TableHead className="text-center">Error Rate</TableHead>
-                  <TableHead className="text-center">Discard Rate Threshold (%)</TableHead>
+                  {/* CHANGE 2: Added explicit widths to all headers */}
+                  
+                  {/* Wide column for Interface Name */}
+                  <TableHead className="text-center w-[220px]">Interface Name</TableHead>
+                  
+                  {/* Fixed small width for Status */}
+                  <TableHead className="text-center w-[100px]">Status</TableHead>
+                  
+                  {/* Flexible but defined width for Traffic */}
+                  <TableHead className="text-center w-[200px]">Traffic (In / Out)</TableHead>
+                  
+                  {/* Fixed widths for Rates */}
+                  <TableHead className="text-center w-[120px]">Discard Rate</TableHead>
+                  <TableHead className="text-center w-[120px]">Error Rate</TableHead>
+                  
+                  {/* CHANGE 3: Large reserved width (240px) for the Action column
+                      This ensures the column is already wide enough to hold 
+                      Inputs + Save/Cancel buttons without expanding. */}
+                  <TableHead className="text-center w-[240px]">Discard Rate Threshold (%)</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -549,6 +565,7 @@ export default function DeviceDetailPage() {
           )}
         </CardContent>
       </Card>
+    </div>
     </div>
   );
 }
