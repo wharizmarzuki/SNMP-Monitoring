@@ -1,4 +1,5 @@
 import asyncio
+import httpx
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
@@ -39,6 +40,24 @@ async def run_discovery_on_startup():
     logger.info("Startup discovery task finished.")
 
 
+async def call_dashboard_hook():
+    """Waits 10 seconds, then calls localhost:3000 once."""
+    logger.info("Scheduled dashboard hook for 10 seconds from now...")
+    await asyncio.sleep(10)
+    
+    url = "http://localhost:3000/login"
+    
+    try:
+        # Use AsyncClient to ensure we don't block the event loop
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url)
+            logger.info(f"Called {url} - Status: {response.status_code}")
+    except httpx.RequestError as e:
+        logger.error(f"Failed to reach {url}: {e}")
+    except Exception as e:
+        logger.error(f"Unexpected error calling dashboard: {e}")
+
+
 async def run_polling():
     """Run device polling every N seconds"""
     while True:
@@ -63,6 +82,8 @@ async def lifespan(app: FastAPI):
     logger.info("Application starting up...")
     
     asyncio.create_task(run_discovery_on_startup())
+
+    asyncio.create_task(call_dashboard_hook())
     
     logger.info("Starting background polling task...")
     polling_task = asyncio.create_task(run_polling())

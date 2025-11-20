@@ -271,6 +271,7 @@ class InterfaceSummaryResponse(BaseModel):
     discards_out: int | None
     errors_in: int | None
     errors_out: int | None
+    packet_drop_threshold: float
 
     model_config = ConfigDict(from_attributes=True)
 

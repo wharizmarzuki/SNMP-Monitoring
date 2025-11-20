@@ -181,6 +181,7 @@ async def get_device_interface_summary(
             db.query(
                 models.Interface.if_index,
                 models.Interface.if_name,
+                models.Interface.packet_drop_threshold,
                 models.InterfaceMetric.oper_status,
                 models.InterfaceMetric.admin_status,
                 models.InterfaceMetric.octets_in,
@@ -210,14 +211,15 @@ async def get_device_interface_summary(
             if_index=intf[0],
             if_name=intf[1],
             if_descr=None,  # Not stored in current model
-            oper_status=intf[2],
-            admin_status=intf[3],
-            octets_in=int(intf[4]) if intf[4] is not None else None,
-            octets_out=int(intf[5]) if intf[5] is not None else None,
-            discards_in=int(intf[6]) if intf[6] is not None else None,
-            discards_out=int(intf[7]) if intf[7] is not None else None,
-            errors_in=int(intf[8]) if intf[8] is not None else None,
-            errors_out=int(intf[9]) if intf[9] is not None else None
+            oper_status=intf[3],
+            admin_status=intf[4],
+            octets_in=int(intf[5]) if intf[5] is not None else None,
+            octets_out=int(intf[6]) if intf[6] is not None else None,
+            discards_in=int(intf[7]) if intf[7] is not None else None,
+            discards_out=int(intf[8]) if intf[8] is not None else None,
+            errors_in=int(intf[9]) if intf[9] is not None else None,
+            errors_out=int(intf[10]) if intf[10] is not None else None,
+            packet_drop_threshold=intf[2]
         ) for intf in interfaces]
 
     except Exception as e:
