@@ -36,12 +36,10 @@ export default function SettingsPage() {
   const [subnet, setSubnet] = useState("27");
 
   // Fetch recipients
-  const { data: recipientsData, error: recipientsError } = useQuery<{ data: Recipient[] }>({
+  const { data: recipients = [], error: recipientsError } = useQuery<Recipient[]>({
     queryKey: ["recipients"],
     queryFn: () => configApi.getRecipients(),
   });
-
-  const recipients = recipientsData?.data || [];
 
   // Add recipient mutation
   const addRecipientMutation = useMutation({

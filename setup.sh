@@ -64,6 +64,10 @@ print_warning() {
     echo -e "${YELLOW}⚠${NC} $1"
 }
 
+print_info() {
+    echo -e "${CYAN}ℹ${NC} $1"
+}
+
 prompt_input() {
     local prompt=$1
     local default=$2
@@ -287,6 +291,12 @@ while ! validate_email "$SENDER_EMAIL"; do
 done
 
 prompt_input "Sender email password (app-specific password)" "" SENDER_PASSWORD true
+
+while [ -z "$SENDER_PASSWORD" ]; do
+    echo ""
+    print_error "Password cannot be empty"
+    prompt_input "Sender email password (app-specific password)" "" SENDER_PASSWORD true
+done
 echo ""
 
 # Redis Configuration
@@ -646,7 +656,11 @@ print_step "Creating admin user configuration..."
 # Create a temporary Python script to create admin user
 cat > "$BACKEND_DIR/temp_create_admin.py" << EOF
 import sys
-sys.path.insert(0, '$BACKEND_DIR')
+import os
+
+# Ensure we're in the backend directory for correct relative path resolution
+os.chdir('$BACKEND_DIR')
+sys.path.insert(0, '.')
 
 from sqlalchemy.orm import Session
 from app.core.database import SessionLocal, engine
@@ -684,7 +698,7 @@ try:
     ).first()
 
     if not existing_recipient:
-        recipient = models.AlertRecipient(email="$ADMIN_EMAIL", is_active=True)
+        recipient = models.AlertRecipient(email="$ADMIN_EMAIL")
         db.add(recipient)
         db.commit()
         print("Admin email added to alert recipients")
@@ -708,6 +722,15 @@ cd "$SCRIPT_DIR"
 
 print_success "Database initialized and admin user created"
 echo ""
+
+# Clean up any database file in wrong location (root directory)
+if [ -f "$SCRIPT_DIR/monitoring.db" ]; then
+    print_warning "Found database file in root directory (wrong location)"
+    print_step "Removing $SCRIPT_DIR/monitoring.db..."
+    rm -f "$SCRIPT_DIR/monitoring.db"
+    print_success "Cleanup complete - database is now only in backend/"
+    echo ""
+fi
 
 # ==============================================================================
 # Step 6: Final Steps
