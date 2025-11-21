@@ -60,6 +60,19 @@ export const deviceApi = {
     return response.data;
   },
 
+  // Create device with SNMP validation
+  create: async (deviceData: { ip_address: string; hostname?: string; validate?: boolean }) => {
+    const params = deviceData.validate === false ? '?validate=false' : '';
+    const response = await api.post(`/device/${params}`, deviceData);
+    return response.data;
+  },
+
+  // Delete device
+  delete: async (ip: string) => {
+    const response = await api.delete(`/device/${ip}`);
+    return response.data;
+  },
+
   discover: async (network?: string, subnet?: string) => {
     const params = new URLSearchParams();
     if (network) params.append('network', network);
@@ -81,6 +94,15 @@ export const deviceApi = {
       `/device/${ip}/interface/${ifIndex}/threshold`,
       { threshold_value: threshold }
     );
+    return response.data;
+  },
+
+  // Maintenance mode
+  updateMaintenanceMode: async (
+    ip: string,
+    data: { enabled: boolean; duration_minutes?: number; reason?: string }
+  ) => {
+    const response = await api.put(`/device/${ip}/maintenance`, data);
     return response.data;
   },
 
@@ -170,6 +192,42 @@ export const queryApi = {
 
   getNetworkThroughput: async () => {
     const response = await api.get<ThroughputDatapoint[]>("/query/network-throughput");
+    return response.data;
+  },
+};
+
+// API endpoints for polling
+export const pollingApi = {
+  triggerPoll: async () => {
+    const response = await api.get("/polling/");
+    return response.data;
+  },
+};
+
+// API endpoints for health monitoring
+export const healthApi = {
+  getHealth: async () => {
+    const response = await api.get("/health");
+    return response.data;
+  },
+
+  getDatabase: async () => {
+    const response = await api.get("/health/database");
+    return response.data;
+  },
+
+  getRedis: async () => {
+    const response = await api.get("/health/redis");
+    return response.data;
+  },
+
+  getServices: async () => {
+    const response = await api.get("/health/services");
+    return response.data;
+  },
+
+  ping: async () => {
+    const response = await api.get("/ping");
     return response.data;
   },
 };
