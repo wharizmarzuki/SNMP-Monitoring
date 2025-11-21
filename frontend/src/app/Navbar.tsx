@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { LayoutDashboard, HardDrive, Bell, FileText, Settings, User, LogOut } from "lucide-react";
-import { authService, UserInfo } from "@/lib/auth";
+import { authService } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -14,17 +14,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useUser } from "@/providers/UserProvider";
 
 export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
-  const [user, setUser] = useState<UserInfo | null>(null);
-
-  // Get cached user info on mount
-  useEffect(() => {
-    const cachedUser = authService.getCachedUser();
-    setUser(cachedUser);
-  }, []);
+  const { user, setUser } = useUser();
 
   // Hide navbar on login page
   if (pathname === "/login") {
@@ -48,6 +43,7 @@ export default function Navbar() {
 
   const handleLogout = () => {
     authService.logout();
+    setUser(null); // Clear user context
     router.push("/login");
   };
 
