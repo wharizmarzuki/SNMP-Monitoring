@@ -53,13 +53,42 @@ async def discovery_api(
 @router.post("/", response_model=None)
 async def create_device_endpoint(
     device_info: schemas.DeviceInfo,
-    repo: DeviceRepository = Depends(get_repository) 
+    validate: bool = True,
+    repo: DeviceRepository = Depends(get_repository),
+    client: SNMPClient = Depends(get_snmp_client)
 ):
-    # This function remains unchanged
+    """
+    Create a new device with optional SNMP validation.
+
+    By default (validate=True), the endpoint will attempt to reach the device
+    via SNMP before adding it to prevent adding unreachable devices.
+
+    Set validate=false to skip validation (not recommended).
+    """
+    if validate:
+        # Try to reach device via SNMP first
+        logger.info(f"Validating SNMP connectivity to {device_info.ip_address}...")
+        try:
+            # Query sysDescr (1.3.6.1.2.1.1.1.0) as basic connectivity test
+            sys_descr = client.get(device_info.ip_address, "1.3.6.1.2.1.1.1.0")
+            if not sys_descr:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Device {device_info.ip_address} is not reachable via SNMP. Check IP address, SNMP community string, and network connectivity."
+                )
+            logger.info(f"SNMP validation successful for {device_info.ip_address}")
+        except Exception as e:
+            logger.error(f"SNMP validation failed for {device_info.ip_address}: {e}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"SNMP validation failed: {str(e)}. Device may be unreachable or SNMP may be disabled."
+            )
+
     try:
         await device_service.create_device(device_info, repo)
         return {"message": "Device created successfully"}
     except Exception as e:
+        logger.error(f"Error creating device {device_info.ip_address}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/", response_model=List[schemas.DeviceResponse])

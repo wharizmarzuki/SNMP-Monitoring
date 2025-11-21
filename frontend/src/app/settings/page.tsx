@@ -20,8 +20,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trash2, Plus, Loader2 } from "lucide-react";
-import { deviceApi, configApi } from "@/lib/api";
+import { Trash2, Plus, Loader2, Activity, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
+import { deviceApi, configApi, healthApi } from "@/lib/api";
 import { Recipient } from "@/types";
 
 export default function SettingsPage() {
@@ -39,6 +39,13 @@ export default function SettingsPage() {
   const { data: recipients = [], error: recipientsError } = useQuery<Recipient[]>({
     queryKey: ["recipients"],
     queryFn: () => configApi.getRecipients(),
+  });
+
+  // Fetch system health
+  const { data: healthData, isLoading: healthLoading, refetch: refetchHealth } = useQuery({
+    queryKey: ["systemHealth"],
+    queryFn: () => healthApi.getServices(),
+    refetchInterval: 30000, // Refresh every 30 seconds
   });
 
   // Add recipient mutation
@@ -153,6 +160,7 @@ export default function SettingsPage() {
         <TabsList>
           <TabsTrigger value="recipients">Alert Recipients</TabsTrigger>
           <TabsTrigger value="discovery">Discovery</TabsTrigger>
+          <TabsTrigger value="health">System Health</TabsTrigger>
         </TabsList>
 
         {/* Alert Recipients Tab */}
@@ -302,6 +310,132 @@ export default function SettingsPage() {
                   This will scan the configured network range for SNMP-enabled devices
                 </p>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* System Health Tab */}
+        <TabsContent value="health" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Activity className="h-5 w-5" />
+                    System Health
+                  </CardTitle>
+                  <CardDescription>
+                    Monitor the health of backend services and dependencies
+                  </CardDescription>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => refetchHealth()}
+                  disabled={healthLoading}
+                >
+                  <Loader2 className={`h-4 w-4 mr-2 ${healthLoading ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {healthLoading ? (
+                <p className="text-sm text-muted-foreground">Loading health status...</p>
+              ) : healthData ? (
+                <div className="space-y-6">
+                  {/* Overall Status */}
+                  <div className="flex items-center gap-3 p-4 bg-muted/50 rounded-lg">
+                    {healthData.overall_status === "healthy" ? (
+                      <CheckCircle2 className="h-6 w-6 text-green-600" />
+                    ) : (
+                      <AlertCircle className="h-6 w-6 text-amber-600" />
+                    )}
+                    <div>
+                      <p className="font-semibold">
+                        Overall Status:{" "}
+                        <span
+                          className={
+                            healthData.overall_status === "healthy"
+                              ? "text-green-600"
+                              : "text-amber-600"
+                          }
+                        >
+                          {healthData.overall_status === "healthy" ? "Healthy" : "Degraded"}
+                        </span>
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Last checked: {new Date(healthData.timestamp).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Services Status */}
+                  <div>
+                    <h3 className="text-sm font-semibold mb-3">Service Status</h3>
+                    <div className="grid gap-4">
+                      {healthData.services?.map((service: any, idx: number) => (
+                        <div
+                          key={idx}
+                          className="flex items-start justify-between p-4 border rounded-lg"
+                        >
+                          <div className="flex items-start gap-3">
+                            {service.status === "healthy" ? (
+                              <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5" />
+                            ) : service.status === "disabled" ? (
+                              <XCircle className="h-5 w-5 text-gray-400 mt-0.5" />
+                            ) : (
+                              <XCircle className="h-5 w-5 text-red-600 mt-0.5" />
+                            )}
+                            <div>
+                              <p className="font-medium capitalize">{service.service}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {service.message}
+                              </p>
+                              {service.status === "unhealthy" && (
+                                <p className="text-xs text-red-600 mt-1">
+                                  Action required: Check service configuration
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end">
+                            <span
+                              className={`px-2 py-1 text-xs font-medium rounded ${
+                                service.status === "healthy"
+                                  ? "bg-green-100 text-green-800"
+                                  : service.status === "disabled"
+                                  ? "bg-gray-100 text-gray-800"
+                                  : "bg-red-100 text-red-800"
+                              }`}
+                            >
+                              {service.status}
+                            </span>
+                            {service.response_time_ms > 0 && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {service.response_time_ms}ms
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Environment Info */}
+                  {healthData.environment && (
+                    <div className="p-4 bg-blue-50 border border-blue-200 rounded">
+                      <p className="text-sm text-blue-900">
+                        <strong>Environment:</strong> {healthData.environment}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-red-600">
+                  Failed to load health status. Please try refreshing.
+                </p>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

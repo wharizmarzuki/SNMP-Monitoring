@@ -3,7 +3,7 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Pencil } from "lucide-react";
+import { ArrowLeft, Pencil, Trash2, RefreshCw, Wrench } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -21,7 +21,19 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { StatusBadge } from "@/components/StatusBadge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   LineChart,
   Line,
@@ -33,7 +45,7 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from "recharts";
-import { deviceApi, queryApi } from "@/lib/api";
+import { deviceApi, queryApi, pollingApi } from "@/lib/api";
 import { Device, DeviceMetric, InterfaceMetric } from "@/types";
 
 // Helper function to format bytes to human-readable format
@@ -123,6 +135,24 @@ export default function DeviceDetailPage() {
   const [updateError, setUpdateError] = useState<string | null>(null);
   const [updateSuccess, setUpdateSuccess] = useState<string | null>(null);
 
+  // State for delete confirmation
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+
+  // State for maintenance mode
+  const [maintenanceEnabled, setMaintenanceEnabled] = useState(false);
+  const [maintenanceDuration, setMaintenanceDuration] = useState("60");
+  const [maintenanceReason, setMaintenanceReason] = useState("");
+
+  // Update maintenance state when device data loads
+  useEffect(() => {
+    if (device?.maintenance_mode !== undefined) {
+      setMaintenanceEnabled(device.maintenance_mode);
+    }
+    if (device?.maintenance_reason) {
+      setMaintenanceReason(device.maintenance_reason);
+    }
+  }, [device?.maintenance_mode, device?.maintenance_reason]);
+
   // Batch threshold update mutation (Phase 3: Single API call for all thresholds)
   const updateThresholdsMutation = useMutation({
     mutationFn: (thresholds: {
@@ -143,6 +173,50 @@ export default function DeviceDetailPage() {
       // Use structured error from backend if available
       const errorMessage = error.message || "Failed to update thresholds. Please try again.";
       setUpdateError(errorMessage);
+    },
+  });
+
+  // Delete device mutation
+  const deleteDeviceMutation = useMutation({
+    mutationFn: () => deviceApi.delete(ip),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["devices"] });
+      router.push("/devices");
+    },
+    onError: (error: any) => {
+      console.error("Failed to delete device:", error);
+      alert(`Failed to delete device: ${error.message || "Unknown error"}`);
+    },
+  });
+
+  // Maintenance mode mutation
+  const maintenanceModeMutation = useMutation({
+    mutationFn: (data: { enabled: boolean; duration_minutes?: number; reason?: string }) =>
+      deviceApi.updateMaintenanceMode(ip, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["device", ip] });
+      setUpdateSuccess("Maintenance mode updated successfully!");
+      setTimeout(() => setUpdateSuccess(null), 3000);
+    },
+    onError: (error: any) => {
+      setUpdateError(error.message || "Failed to update maintenance mode");
+    },
+  });
+
+  // Manual polling mutation
+  const manualPollMutation = useMutation({
+    mutationFn: () => pollingApi.triggerPoll(),
+    onSuccess: () => {
+      setUpdateSuccess("Manual poll triggered! Data will refresh shortly.");
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ["device", ip] });
+        queryClient.invalidateQueries({ queryKey: ["deviceMetrics", ip] });
+        queryClient.invalidateQueries({ queryKey: ["deviceInterfaces", ip] });
+        setUpdateSuccess(null);
+      }, 3000);
+    },
+    onError: (error: any) => {
+      setUpdateError(error.message || "Failed to trigger manual poll");
     },
   });
 
@@ -176,6 +250,32 @@ export default function DeviceDetailPage() {
     });
   };
 
+  const handleMaintenanceModeToggle = (checked: boolean) => {
+    setMaintenanceEnabled(checked);
+    if (!checked) {
+      // Disable maintenance mode immediately
+      maintenanceModeMutation.mutate({ enabled: false });
+    }
+  };
+
+  const handleUpdateMaintenanceMode = () => {
+    const duration = parseInt(maintenanceDuration);
+    if (isNaN(duration) || duration < 0) {
+      setUpdateError("Duration must be a positive number");
+      return;
+    }
+
+    maintenanceModeMutation.mutate({
+      enabled: maintenanceEnabled,
+      duration_minutes: duration,
+      reason: maintenanceReason || undefined,
+    });
+  };
+
+  const confirmDelete = () => {
+    deleteDeviceMutation.mutate();
+  };
+
   // Create a sorted version of metrics to fix the chart order
   const sortedMetrics = useMemo(() => {
     // .slice() creates a copy so we don't mutate the original
@@ -185,7 +285,7 @@ export default function DeviceDetailPage() {
 
   return (
     <div className="flex-1 space-y-4 p-8 pt-6">
-      <div className="flex items-center gap-4">
+      <div className="flex items-center justify-between gap-4">
         <Button
           variant="ghost"
           size="sm"
@@ -194,6 +294,26 @@ export default function DeviceDetailPage() {
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Devices
         </Button>
+
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => manualPollMutation.mutate()}
+            disabled={manualPollMutation.isPending}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${manualPollMutation.isPending ? 'animate-spin' : ''}`} />
+            {manualPollMutation.isPending ? "Polling..." : "Refresh Data"}
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => setDeleteDialogOpen(true)}
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Delete Device
+          </Button>
+        </div>
       </div>
 
       <div className="flex items-center justify-between space-y-2">
@@ -390,6 +510,89 @@ export default function DeviceDetailPage() {
                   </p>
                 </div>
               </div>
+
+              {/* Maintenance Mode Section */}
+              <div className="border-t pt-4 mt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-sm font-semibold flex items-center gap-2">
+                      <Wrench className="h-4 w-4" />
+                      Maintenance Mode
+                    </h3>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Suppress all alerts for this device during maintenance windows
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="maintenance-toggle" className="text-sm">
+                      {maintenanceEnabled ? "Enabled" : "Disabled"}
+                    </Label>
+                    <Switch
+                      id="maintenance-toggle"
+                      checked={maintenanceEnabled}
+                      onCheckedChange={handleMaintenanceModeToggle}
+                      disabled={maintenanceModeMutation.isPending}
+                    />
+                  </div>
+                </div>
+
+                {maintenanceEnabled && (
+                  <div className="space-y-4 p-4 bg-amber-50 border border-amber-200 rounded">
+                    {device?.maintenance_until && (
+                      <div className="text-sm text-amber-900">
+                        <strong>Active until:</strong>{" "}
+                        {new Date(device.maintenance_until + "Z").toLocaleString()}
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="maintenance-duration">
+                          Duration (minutes)
+                        </Label>
+                        <Input
+                          id="maintenance-duration"
+                          type="number"
+                          min="1"
+                          value={maintenanceDuration}
+                          onChange={(e) => setMaintenanceDuration(e.target.value)}
+                          disabled={maintenanceModeMutation.isPending}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="maintenance-reason">Reason (Optional)</Label>
+                        <Input
+                          id="maintenance-reason"
+                          type="text"
+                          placeholder="e.g., Scheduled upgrade"
+                          value={maintenanceReason}
+                          onChange={(e) => setMaintenanceReason(e.target.value)}
+                          disabled={maintenanceModeMutation.isPending}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end">
+                      <Button
+                        onClick={handleUpdateMaintenanceMode}
+                        disabled={maintenanceModeMutation.isPending}
+                        size="sm"
+                      >
+                        {maintenanceModeMutation.isPending
+                          ? "Updating..."
+                          : "Update Maintenance Window"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {device?.maintenance_mode && device?.maintenance_reason && (
+                  <div className="mt-2 text-sm text-amber-700">
+                    <strong>Reason:</strong> {device.maintenance_reason}
+                  </div>
+                )}
+              </div>
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">
@@ -565,6 +768,33 @@ export default function DeviceDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Device?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete{" "}
+              <span className="font-semibold">
+                {device?.hostname} ({device?.ip_address})
+              </span>
+              ? This will remove all associated metrics, interfaces, and alerts.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteDeviceMutation.isPending}
+            >
+              {deleteDeviceMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
     </div>
   );
