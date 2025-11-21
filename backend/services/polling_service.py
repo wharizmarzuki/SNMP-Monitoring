@@ -206,37 +206,83 @@ async def poll_interfaces(device: models.Device, client: SNMPClient, db: Session
 
 async def perform_full_poll(db: Session, client: SNMPClient):
     """
-    This is the core logic, extracted from your old API endpoint.
-    It fetches all devices and runs the polling tasks.
+    Polls all devices with proper session isolation to prevent race conditions.
+
+    Each concurrent polling task gets its own database session to avoid
+    SQLAlchemy session sharing issues and SQLite lock contention.
+
+    The main session (db) is only used to fetch the list of device IDs,
+    then each polling task creates and manages its own session.
     """
     logger.info("Starting scheduled full poll...")
     try:
+        # Use main session only to fetch device IDs (read-only operation)
         all_devices = db.query(models.Device).all()
-        if not all_devices:
+        device_ids = [d.id for d in all_devices]
+
+        if not device_ids:
             logger.info("No devices in database to poll.")
             return
 
         semaphore = asyncio.Semaphore(settings.polling_concurrency)
+        successful_polls = 0
+        failed_polls = 0
 
-        async def limited_polling(device: models.Device):
+        async def limited_polling(device_id: int):
+            """
+            Each task gets its own database session to avoid race conditions.
+
+            This follows SQLAlchemy best practices: one AsyncSession per task.
+            Each task independently:
+            1. Creates its own session
+            2. Fetches the device
+            3. Performs polling operations
+            4. Commits its work
+            5. Closes the session
+            """
+            nonlocal successful_polls, failed_polls
+
             async with semaphore:
-                poll_succeeded = await poll_device(device, client, db)
+                # Create a NEW session for this task - critical for avoiding race conditions
+                task_db = database.SessionLocal()
+                try:
+                    # Re-fetch device in this task's session
+                    device = task_db.query(models.Device).filter_by(id=device_id).first()
+                    if not device:
+                        logger.warning(f"Device with ID {device_id} not found")
+                        return
 
-                if poll_succeeded:
-                    # Only poll interfaces if device poll succeeded
-                    await poll_interfaces(device, client, db)
-                else:
-                    # Clear interface alerts when device is unreachable
-                    if not device.is_reachable:
-                        clear_interface_alerts(device, db)
-                        logger.debug(f"Skipped interface poll for unreachable device {device.ip_address}")
+                    # Perform polling with this task's dedicated session
+                    poll_succeeded = await poll_device(device, client, task_db)
 
-        tasks = [limited_polling(device) for device in all_devices]
-        await asyncio.gather(*tasks)
-        
-        db.commit()
-        logger.info(f"Poll complete and data committed for {len(all_devices)} devices.")
+                    if poll_succeeded:
+                        # Only poll interfaces if device poll succeeded
+                        await poll_interfaces(device, client, task_db)
+                        successful_polls += 1
+                    else:
+                        # Clear interface alerts when device is unreachable
+                        if not device.is_reachable:
+                            clear_interface_alerts(device, task_db)
+                            logger.debug(f"Skipped interface poll for unreachable device {device.ip_address}")
+                        failed_polls += 1
+
+                    # Each task commits its own work independently
+                    task_db.commit()
+
+                except Exception as e:
+                    logger.error(f"Error polling device {device_id}: {e}")
+                    task_db.rollback()
+                    failed_polls += 1
+                finally:
+                    # Always close the session
+                    task_db.close()
+
+        # Create tasks with device IDs instead of device objects
+        tasks = [limited_polling(device_id) for device_id in device_ids]
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+        logger.info(f"Poll complete: {successful_polls} successful, {failed_polls} failed out of {len(device_ids)} devices.")
 
     except Exception as e:
         logger.error(f"Error during scheduled poll: {e}")
-        db.rollback()
+        # No need to rollback db since it was only used for reading device IDs
