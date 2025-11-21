@@ -3,17 +3,20 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { authService } from "@/lib/auth";
+import { useUser } from "@/providers/UserProvider";
 
 /**
  * AuthGuard component that protects routes from unauthorized access
  * - Redirects to /login if user is not authenticated
  * - Redirects to /dashboard if user is authenticated and tries to access /login
  * - Validates token by calling /auth/me to ensure it's not expired
+ * - Updates UserContext so Navbar and other components can display user info
  */
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [isReady, setIsReady] = useState(false);
+  const { setUser } = useUser();
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -22,12 +25,14 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
 
       // No token and not on login page → redirect to login
       if (!hasToken && !isLoginPage) {
+        setUser(null); // Clear user context
         router.replace("/login");
         return;
       }
 
       // No token and on login page → show login page
       if (!hasToken && isLoginPage) {
+        setUser(null); // Clear user context
         setIsReady(true);
         return;
       }
@@ -36,7 +41,10 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
       if (hasToken) {
         try {
           // Validate token by fetching user info
-          await authService.getCurrentUser();
+          const userInfo = await authService.getCurrentUser();
+
+          // Update user context so Navbar displays immediately
+          setUser(userInfo);
 
           // Token is valid
           if (isLoginPage) {
@@ -51,6 +59,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
           if (error.status === 401 || error.code === "INVALID_TOKEN" || error.code === "INVALID_CREDENTIALS") {
             console.log("Token expired/invalid, clearing auth");
             authService.logout();
+            setUser(null); // Clear user context
 
             if (!isLoginPage) {
               router.replace("/login");
@@ -60,6 +69,11 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
           } else {
             // Network/server error - keep token, show error but allow access
             console.error("Failed to validate token (non-auth error):", error);
+            // Try to load cached user if available
+            const cachedUser = authService.getCachedUser();
+            if (cachedUser) {
+              setUser(cachedUser);
+            }
             setIsReady(true); // Continue anyway
           }
         }
@@ -67,7 +81,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
     };
 
     checkAuth();
-  }, [pathname, router]);
+  }, [pathname, router, setUser]);
 
   // On login page, show immediately (no loading state)
   if (pathname === "/login") {

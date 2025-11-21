@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { authService } from "@/lib/auth";
+import { useUser } from "@/providers/UserProvider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +14,7 @@ import { User, Mail, Lock, CheckCircle2 } from "lucide-react";
 
 export default function ProfileSettingsPage() {
   const queryClient = useQueryClient();
+  const { updateUser } = useUser();
   const [passwordData, setPasswordData] = useState({
     current_password: "",
     new_password: "",
@@ -54,13 +56,19 @@ export default function ProfileSettingsPage() {
   const changeEmailMutation = useMutation({
     mutationFn: (data: { new_email: string; password: string }) =>
       authService.changeEmail(data),
-    onSuccess: (data: any) => {
+    onSuccess: async (data: any) => {
       setEmailError("");
       setEmailSuccess(true);
       // Store the backend message to display to user
       setEmailSuccessMessage(data?.message || "Email changed successfully");
       setEmailData({ new_email: "", password: "" });
-      refetchUser(); // Refresh user data
+
+      // Refresh user data and update UserContext for Navbar
+      const updatedUser = await refetchUser();
+      if (updatedUser.data) {
+        updateUser(updatedUser.data);
+      }
+
       // Invalidate recipients query to refresh the list in Settings page
       queryClient.invalidateQueries({ queryKey: ["recipients"] });
       setTimeout(() => {
