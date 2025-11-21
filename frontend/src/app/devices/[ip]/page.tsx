@@ -78,29 +78,29 @@ export default function DeviceDetailPage() {
   }, []);
 
   // Fetch device info
-  const { data: deviceData } = useQuery<{ data: Device }>({
+  const { data: deviceData } = useQuery<Device>({
     queryKey: ["device", ip],
     queryFn: () => deviceApi.getByIp(ip),
     enabled: !!ip,
   });
 
   // Fetch device metrics (time series)
-  const { data: metricsData } = useQuery<{ data: DeviceMetric[] }>({
+  const { data: metricsData } = useQuery<DeviceMetric[]>({
     queryKey: ["deviceMetrics", ip],
     queryFn: () => queryApi.getDeviceMetrics(ip),
     enabled: !!ip,
   });
 
   // Fetch device interfaces (Phase 3: Using optimized summary endpoint - 60-80% smaller payload)
-  const { data: interfacesData } = useQuery<{ data: InterfaceMetric[] }>({
+  const { data: interfacesData } = useQuery<InterfaceMetric[]>({
     queryKey: ["deviceInterfaces", ip],
     queryFn: () => queryApi.getInterfaceSummary(ip),
     enabled: !!ip,
   });
 
-  const device = deviceData?.data;
-  const metrics = metricsData?.data || [];
-  const interfaces = interfacesData?.data || [];
+  const device = deviceData;
+  const metrics = metricsData || [];
+  const interfaces = interfacesData || [];
 
   // Populate threshold inputs when device data loads
   useEffect(() => {

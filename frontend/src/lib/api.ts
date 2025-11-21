@@ -152,8 +152,13 @@ export const queryApi = {
   },
 
   getHistory: async (ip: string, start: string, end: string) => {
-    const response = await api.get<HistoryRecordResponse[]>(
-      `/query/history/device?ip=${ip}&start=${start}&end=${end}`
+    const response = await api.post<HistoryRecordResponse[]>(
+      `/query/history/device`,
+      {
+        ip_address: ip,
+        start_datetime: start,
+        end_datetime: end
+      }
     );
     return response.data;
   },

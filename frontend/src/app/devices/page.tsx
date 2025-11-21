@@ -25,12 +25,12 @@ import { Device } from "@/types";
 export default function DevicesPage() {
   const router = useRouter();
 
-  const { data: devicesData, isLoading } = useQuery<{ data: Device[] }>({
+  const { data: devicesData, isLoading } = useQuery<Device[]>({
     queryKey: ["devices"],
     queryFn: () => deviceApi.getAll(),
   });
 
-  const devices = devicesData?.data || [];
+  const devices = devicesData || [];
 
   const handleRowClick = (ip: string) => {
     router.push(`/devices/${ip}`);
