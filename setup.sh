@@ -291,6 +291,12 @@ while ! validate_email "$SENDER_EMAIL"; do
 done
 
 prompt_input "Sender email password (app-specific password)" "" SENDER_PASSWORD true
+
+while [ -z "$SENDER_PASSWORD" ]; do
+    echo ""
+    print_error "Password cannot be empty"
+    prompt_input "Sender email password (app-specific password)" "" SENDER_PASSWORD true
+done
 echo ""
 
 # Redis Configuration
@@ -688,7 +694,7 @@ try:
     ).first()
 
     if not existing_recipient:
-        recipient = models.AlertRecipient(email="$ADMIN_EMAIL", is_active=True)
+        recipient = models.AlertRecipient(email="$ADMIN_EMAIL")
         db.add(recipient)
         db.commit()
         print("Admin email added to alert recipients")
