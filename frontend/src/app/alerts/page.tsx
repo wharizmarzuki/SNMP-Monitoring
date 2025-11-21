@@ -34,12 +34,12 @@ export default function AlertsPage() {
     'Critical': 'destructive',
   };
 
-  const { data: alertsData, isLoading, error: queryError } = useQuery<{ data: Alert[] }>({
+  const { data: alertsData, isLoading, error: queryError } = useQuery<Alert[]>({
     queryKey: ["activeAlerts"],
     queryFn: () => queryApi.getActiveAlerts(),
   });
 
-  const alerts = alertsData?.data || [];
+  const alerts = alertsData || [];
 
   // Helper function to parse alert and determine alert type
   const parseAlert = (alert: Alert) => {

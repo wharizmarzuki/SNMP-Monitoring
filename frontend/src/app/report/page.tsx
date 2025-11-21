@@ -19,20 +19,20 @@ export default function ReportPage() {
   const [reportGenerated, setReportGenerated] = useState(false);
 
   // Fetch all devices for dropdown
-  const { data: devicesData } = useQuery<{ data: Device[] }>({
+  const { data: devicesData } = useQuery<Device[]>({
     queryKey: ['devices'],
     queryFn: () => deviceApi.getAll(),
   });
 
   // Fetch history data when report is generated
-  const { data: historyData, isLoading } = useQuery<{ data: HistoryRecord[] }>({
+  const { data: historyData, isLoading } = useQuery<HistoryRecord[]>({
     queryKey: ['deviceHistory', selectedDevice, startDate, endDate],
     queryFn: () => queryApi.getHistory(selectedDevice, startDate, endDate),
     enabled: reportGenerated && !!selectedDevice && !!startDate && !!endDate,
   });
 
-  const devices = devicesData?.data || [];
-  const historyRecords = historyData?.data || [];
+  const devices = devicesData || [];
+  const historyRecords = historyData || [];
 
   const handleGenerateReport = () => {
     if (selectedDevice && startDate && endDate) {

@@ -36,40 +36,40 @@ import { NetworkSummary, Alert, TopDevice, NetworkThroughput } from "@/types";
 
 export default function DashboardPage() {
   // Fetch network summary (Phase 3: With error handling)
-  const { data: networkSummary, isLoading: summaryLoading, error: summaryError } = useQuery<{ data: NetworkSummary }>({
+  const { data: networkSummary, isLoading: summaryLoading, error: summaryError } = useQuery<NetworkSummary>({
     queryKey: ["networkSummary"],
     queryFn: () => queryApi.getNetworkSummary(),
   });
 
   // Fetch active alerts
-  const { data: activeAlerts, isLoading: alertsLoading, error: alertsError } = useQuery<{ data: Alert[] }>({
+  const { data: activeAlerts, isLoading: alertsLoading, error: alertsError } = useQuery<Alert[]>({
     queryKey: ["activeAlerts"],
     queryFn: () => queryApi.getActiveAlerts(),
   });
 
   // Fetch top CPU devices
-  const { data: topCpuDevices, isLoading: cpuLoading, error: cpuError } = useQuery<{ data: TopDevice[] }>({
+  const { data: topCpuDevices, isLoading: cpuLoading, error: cpuError } = useQuery<TopDevice[]>({
     queryKey: ["topCpuDevices"],
     queryFn: () => queryApi.getTopDevices("cpu"),
   });
 
   // Fetch top memory devices
-  const { data: topMemoryDevices, isLoading: memoryLoading, error: memoryError } = useQuery<{ data: TopDevice[] }>({
+  const { data: topMemoryDevices, isLoading: memoryLoading, error: memoryError } = useQuery<TopDevice[]>({
     queryKey: ["topMemoryDevices"],
     queryFn: () => queryApi.getTopDevices("memory"),
   });
 
   // Fetch network throughput
-  const { data: networkThroughput, isLoading: throughputLoading, error: throughputError } = useQuery<{ data: NetworkThroughput[] }>({
+  const { data: networkThroughput, isLoading: throughputLoading, error: throughputError } = useQuery<NetworkThroughput[]>({
     queryKey: ["networkThroughput"],
     queryFn: () => queryApi.getNetworkThroughput(),
   });
 
-  const summary = networkSummary?.data;
-  const alerts = activeAlerts?.data || [];
-  const cpuDevices = topCpuDevices?.data || [];
-  const memoryDevices = topMemoryDevices?.data || [];
-  const throughput = networkThroughput?.data || [];
+  const summary = networkSummary;
+  const alerts = activeAlerts || [];
+  const cpuDevices = topCpuDevices || [];
+  const memoryDevices = topMemoryDevices || [];
+  const throughput = networkThroughput || [];
 
   return (
     <div className="flex-1 space-y-4 p-8 pt-6">
