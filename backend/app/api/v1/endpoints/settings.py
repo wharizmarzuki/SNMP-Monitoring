@@ -24,17 +24,17 @@ def get_application_settings(db: Session = Depends(get_db)):
         # Initialize settings from .env defaults
         env_settings = get_settings()
         settings = models.ApplicationSettings(
-            snmp_community=env_settings.SNMP_COMMUNITY,
-            snmp_timeout=env_settings.SNMP_TIMEOUT,
-            snmp_retries=env_settings.SNMP_RETRIES,
-            polling_interval=env_settings.POLLING_INTERVAL,
-            discovery_concurrency=env_settings.DISCOVERY_CONCURRENCY,
-            polling_concurrency=env_settings.POLLING_CONCURRENCY,
-            smtp_server=env_settings.SMTP_SERVER,
-            smtp_port=env_settings.SMTP_PORT,
-            sender_email=env_settings.SENDER_EMAIL,
-            sender_password=env_settings.SENDER_PASSWORD,
-            discovery_network=env_settings.DISCOVERY_NETWORK
+            snmp_community=env_settings.snmp_community,
+            snmp_timeout=env_settings.snmp_timeout,
+            snmp_retries=env_settings.snmp_retries,
+            polling_interval=env_settings.polling_interval,
+            discovery_concurrency=env_settings.discovery_concurrency,
+            polling_concurrency=env_settings.polling_concurrency,
+            smtp_server=env_settings.smtp_server,
+            smtp_port=env_settings.smtp_port,
+            sender_email=env_settings.sender_email,
+            sender_password=env_settings.sender_password,
+            discovery_network=env_settings.discovery_network
         )
         db.add(settings)
         db.commit()
