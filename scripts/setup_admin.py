@@ -13,6 +13,7 @@ The script will:
 5. Add the email as an alert recipient
 """
 import sys
+import os
 import re
 import getpass
 from pathlib import Path
@@ -20,6 +21,9 @@ from pathlib import Path
 # Add backend to path
 backend_path = Path(__file__).parent.parent / "backend"
 sys.path.insert(0, str(backend_path))
+
+# Change working directory to backend to ensure database is created there
+os.chdir(str(backend_path))
 
 from sqlalchemy.orm import Session
 from app.core.database import SessionLocal, engine
