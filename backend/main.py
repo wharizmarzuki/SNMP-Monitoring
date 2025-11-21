@@ -5,7 +5,8 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from app.api.v1.endpoints import devices, polling, query, recipients, auth, health, settings
+from app.api.v1.endpoints import devices, polling, query, recipients, auth, health
+from app.api.v1.endpoints import settings as settings_router
 from app.core import models
 from app.core.database import engine, SessionLocal
 from app.core.exceptions import APIError
@@ -175,4 +176,4 @@ app.include_router(devices.router)
 app.include_router(polling.router)
 app.include_router(query.router)
 app.include_router(recipients.router)
-app.include_router(settings.router)
+app.include_router(settings_router.router)
