@@ -41,9 +41,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { StatusDot } from "@/components/StatusBadge";
-import { deviceApi } from "@/lib/api";
+import { deviceApi, pollingApi } from "@/lib/api";
 import { Device } from "@/types";
-import { Plus, Trash2, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { Plus, Trash2, Loader2, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
 
 export default function DevicesPage() {
   const router = useRouter();
@@ -100,6 +100,22 @@ export default function DevicesPage() {
     onError: (error: any) => {
       console.error("Failed to delete device:", error);
       alert(`Failed to delete device: ${error.message || "Unknown error"}`);
+    },
+  });
+
+  // Manual polling mutation - triggers poll for ALL devices
+  const manualPollMutation = useMutation({
+    mutationFn: () => pollingApi.triggerPoll(),
+    onSuccess: () => {
+      // Wait 3 seconds for polling to complete, then refresh data
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ["devices"] });
+        queryClient.invalidateQueries({ queryKey: ["network-summary"] });
+      }, 3000);
+    },
+    onError: (error: any) => {
+      console.error("Failed to trigger poll:", error);
+      alert(`Failed to refresh data: ${error.message || "Unknown error"}`);
     },
   });
 
@@ -172,14 +188,25 @@ export default function DevicesPage() {
       <div className="flex items-center justify-between space-y-2">
         <h2 className="text-3xl font-bold tracking-tight">Devices</h2>
 
-        {/* Add Device Button */}
-        <Dialog open={addDeviceOpen} onOpenChange={setAddDeviceOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Device
-            </Button>
-          </DialogTrigger>
+        <div className="flex gap-2">
+          {/* Refresh Data Button */}
+          <Button
+            variant="outline"
+            onClick={() => manualPollMutation.mutate()}
+            disabled={manualPollMutation.isPending}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${manualPollMutation.isPending ? 'animate-spin' : ''}`} />
+            {manualPollMutation.isPending ? "Polling..." : "Refresh Data"}
+          </Button>
+
+          {/* Add Device Button */}
+          <Dialog open={addDeviceOpen} onOpenChange={setAddDeviceOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Device
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Add New Device</DialogTitle>
@@ -296,6 +323,7 @@ export default function DevicesPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <Card>

@@ -26,14 +26,16 @@ router = APIRouter(
 async def discovery_api(
     network: str = "192.168.254.1",
     subnet: str = "27",
-    client: SNMPClient = Depends(get_snmp_client),
-    db: Session = Depends(database.get_db) 
+    db: Session = Depends(database.get_db)
 ):
     """
     API Endpoint to manually trigger a full network discovery.
     """
     logger.info("Manual discovery triggered via API...")
     try:
+        # Get SNMP client with runtime settings from database
+        client = get_snmp_client(db)
+
         # --- THIS ENDPOINT IS NOW A SIMPLE WRAPPER ---
         result_data = await perform_full_discovery(db, client, network, subnet)
         
@@ -55,7 +57,7 @@ async def create_device_endpoint(
     device_info: schemas.DeviceInfo,
     validate: bool = True,
     repo: DeviceRepository = Depends(get_repository),
-    client: SNMPClient = Depends(get_snmp_client)
+    db: Session = Depends(database.get_db)
 ):
     """
     Create a new device with optional SNMP validation.
@@ -66,11 +68,14 @@ async def create_device_endpoint(
     Set validate=false to skip validation (not recommended).
     """
     if validate:
+        # Get SNMP client with runtime settings from database
+        client = get_snmp_client(db)
+
         # Try to reach device via SNMP first
         logger.info(f"Validating SNMP connectivity to {device_info.ip_address}...")
         try:
             # Query sysDescr (1.3.6.1.2.1.1.1.0) as basic connectivity test
-            sys_descr = client.get(device_info.ip_address, "1.3.6.1.2.1.1.1.0")
+            sys_descr = await client.get(device_info.ip_address, ["1.3.6.1.2.1.1.1.0"])
             if not sys_descr:
                 raise HTTPException(
                     status_code=400,

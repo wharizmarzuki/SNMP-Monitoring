@@ -14,7 +14,7 @@ from pysnmp.hlapi.v3arch.asyncio import (
     ObjectIdentity,
 )
 from app.core import database
-from app.config.settings import settings
+from app.config.settings import settings, get_runtime_settings
 from app.core import schemas
 from abc import ABC, abstractmethod
 from services.device_service import DeviceRepository, SQLAlchemyDeviceRepository, update_device
@@ -23,25 +23,36 @@ COMMUNITY = settings.snmp_community
 
 def get_repository(db: Session = Depends(database.get_db)) -> DeviceRepository:
     return SQLAlchemyDeviceRepository(db)
-    
+
 
 class SNMPClient(ABC):
     @abstractmethod
     async def get(self, host: str, oids: list[str]) -> Optional[dict]:
         pass
-    
+
     @abstractmethod
     async def bulk_walk(self, host: str, oids: list[str]) -> dict:
         pass
 
 
-def get_snmp_client() -> SNMPClient:
-    return PySNMPClient(community=COMMUNITY)
+def get_snmp_client(db_session: Optional[Session] = None) -> SNMPClient:
+    """
+    Get SNMP client with runtime settings.
+    If db_session is provided, uses database settings; otherwise uses .env defaults.
+    """
+    runtime_config = get_runtime_settings(db_session)
+    return PySNMPClient(
+        community=runtime_config["snmp_community"],
+        timeout=runtime_config["snmp_timeout"],
+        retries=runtime_config["snmp_retries"]
+    )
 
 
 class PySNMPClient(SNMPClient):
-    def __init__(self, community: str = COMMUNITY):
+    def __init__(self, community: str = COMMUNITY, timeout: int = 10, retries: int = 3):
         self.community = community
+        self.timeout = timeout
+        self.retries = retries
     
     async def get(self, host: str, oids: list[str]) -> Optional[dict]:
         port = 161

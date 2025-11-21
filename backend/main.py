@@ -5,12 +5,12 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from app.api.v1.endpoints import devices, polling, query, recipients, auth, health
+from app.api.v1.endpoints import devices, polling, query, recipients, auth, health, settings
 from app.core import models
 from app.core.database import engine, SessionLocal
 from app.core.exceptions import APIError
 from services.snmp_service import get_snmp_client
-from app.config.settings import settings
+from app.config.settings import settings, get_runtime_settings
 from app.config.logging import logger
 
 from services.polling_service import perform_full_poll
@@ -22,13 +22,16 @@ models.Base.metadata.create_all(engine)
 async def run_discovery_on_startup():
     """Run a single discovery scan on startup."""
     logger.info("Scheduling one-time discovery scan on startup...")
-    await asyncio.sleep(5) 
-    
+    await asyncio.sleep(5)
+
     db: Session = SessionLocal()
-    client = get_snmp_client()
     try:
-        # Parse network and subnet from DISCOVERY_NETWORK setting (e.g., "192.168.1.0/24")
-        network_cidr = settings.discovery_network
+        # Get runtime settings (database takes priority over .env)
+        runtime_config = get_runtime_settings(db)
+        client = get_snmp_client(db)
+
+        # Parse network and subnet from discovery_network setting (e.g., "192.168.1.0/24")
+        network_cidr = runtime_config["discovery_network"]
         if "/" in network_cidr:
             network, subnet = network_cidr.rsplit("/", 1)
         else:
@@ -67,16 +70,22 @@ async def call_dashboard_hook():
 
 
 async def run_polling():
-    """Run device polling every N seconds"""
+    """Run device polling every N seconds (configurable via database settings)"""
     while True:
-        logger.info(f"Background poller sleeping for {settings.polling_interval} seconds...")
-        await asyncio.sleep(settings.polling_interval)
-        
-        logger.info("Background poller starting run...")
         db: Session = SessionLocal()
-        client = get_snmp_client() 
-        
         try:
+            # Get runtime settings (database takes priority over .env)
+            runtime_config = get_runtime_settings(db)
+            polling_interval = runtime_config["polling_interval"]
+
+            logger.info(f"Background poller sleeping for {polling_interval} seconds...")
+            await asyncio.sleep(polling_interval)
+
+            logger.info("Background poller starting run...")
+
+            # Create SNMP client with runtime settings
+            client = get_snmp_client(db)
+
             await perform_full_poll(db, client)
         except Exception as e:
             logger.error(f"Unhandled error in polling loop: {e}")
@@ -166,3 +175,4 @@ app.include_router(devices.router)
 app.include_router(polling.router)
 app.include_router(query.router)
 app.include_router(recipients.router)
+app.include_router(settings.router)
