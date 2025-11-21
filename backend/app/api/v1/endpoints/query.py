@@ -64,10 +64,16 @@ async def get_network_summary(db: Session = Depends(get_db)):
             models.Device.is_reachable == True
         ).count()
 
+        # Count devices that are down
+        devices_down = db.query(models.Device).filter(
+            models.Device.is_reachable == False
+        ).count()
+
         result = {
             "total_devices": total_devices,
             "devices_in_alert": total_alerts,
-            "devices_up": devices_up
+            "devices_up": devices_up,
+            "devices_down": devices_down
         }
 
         # Cache for 30 seconds

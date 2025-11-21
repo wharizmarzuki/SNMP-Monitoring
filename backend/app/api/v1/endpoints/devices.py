@@ -77,6 +77,8 @@ async def get_devices_endpoint(
 ):
     """Get device by IP with stable DTO response"""
     device = device_service.get_device_by_ip(ip, repo)
+    if not device:
+        raise DeviceNotFoundError(ip)
     return schemas.DeviceResponse.model_validate(device)
 
 @router.delete("/{ip}")

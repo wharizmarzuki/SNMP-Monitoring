@@ -223,6 +223,7 @@ class NetworkSummaryResponse(BaseModel):
     total_devices: int
     devices_in_alert: int
     devices_up: int
+    devices_down: int
 
 class DeviceMetricResponse(BaseModel):
     """

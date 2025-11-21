@@ -80,30 +80,31 @@ class TestDeviceEndpoints:
         """Test updating interface threshold"""
         response = client.put(
             f"/device/{sample_device.ip_address}/interface/{sample_interface.if_index}/threshold",
-            json={"threshold_value": 1000}
+            json={"threshold_value": 5.0}  # Valid percentage value (0-100)
         )
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert "message" in data
+        assert data["packet_drop_threshold"] == 5.0
+        assert data["if_index"] == sample_interface.if_index
 
-    def test_acknowledge_device_alert(self, client, sample_device):
+    def test_acknowledge_device_alert(self, client, device_with_cpu_alert):
         """Test acknowledging a device alert"""
         response = client.put(
-            f"/device/{sample_device.ip_address}/alert/cpu/acknowledge"
+            f"/device/{device_with_cpu_alert.ip_address}/alert/cpu/acknowledge"
         )
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert data["state"] == "acknowledged"
         assert "acknowledged_at" in data
 
-    def test_resolve_device_alert(self, client, sample_device):
+    def test_resolve_device_alert(self, client, device_with_cpu_alert):
         """Test resolving a device alert"""
         # First acknowledge
-        client.put(f"/device/{sample_device.ip_address}/alert/cpu/acknowledge")
+        client.put(f"/device/{device_with_cpu_alert.ip_address}/alert/cpu/acknowledge")
 
         # Then resolve
         response = client.put(
-            f"/device/{sample_device.ip_address}/alert/cpu/resolve"
+            f"/device/{device_with_cpu_alert.ip_address}/alert/cpu/resolve"
         )
         assert response.status_code == status.HTTP_200_OK
         data = response.json()

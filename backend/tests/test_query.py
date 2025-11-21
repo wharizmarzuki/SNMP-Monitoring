@@ -98,6 +98,6 @@ class TestQueryEndpoints:
         response = client.get("/query/network-summary")
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        required_fields = ["total_devices", "devices_up", "devices_down", "active_alerts"]
+        required_fields = ["total_devices", "devices_up", "devices_down", "devices_in_alert"]
         for field in required_fields:
             assert field in data, f"Missing required field in network summary: {field}"
