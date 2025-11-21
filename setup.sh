@@ -64,6 +64,10 @@ print_warning() {
     echo -e "${YELLOW}⚠${NC} $1"
 }
 
+print_info() {
+    echo -e "${CYAN}ℹ${NC} $1"
+}
+
 prompt_input() {
     local prompt=$1
     local default=$2
