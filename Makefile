@@ -264,6 +264,60 @@ format-frontend: ## Format frontend code with prettier
 		npx prettier --write . 2>/dev/null || echo "$(YELLOW)prettier not installed$(NC)"
 
 # ==============================================================================
+# Testing Commands
+# ==============================================================================
+
+test: ## Run all backend tests
+	@echo "$(BLUE)Running backend tests...$(NC)"
+	@cd $(BACKEND_DIR) && \
+		. venv/bin/activate && \
+		pytest
+	@echo "$(GREEN)✓ Tests completed$(NC)"
+
+test-verbose: ## Run tests with verbose output
+	@echo "$(BLUE)Running tests (verbose)...$(NC)"
+	@cd $(BACKEND_DIR) && \
+		. venv/bin/activate && \
+		pytest -vv
+
+test-coverage: ## Run tests with coverage report
+	@echo "$(BLUE)Running tests with coverage...$(NC)"
+	@cd $(BACKEND_DIR) && \
+		. venv/bin/activate && \
+		pytest --cov=app --cov-report=html --cov-report=term
+	@echo "$(GREEN)✓ Coverage report generated in backend/htmlcov/$(NC)"
+
+test-device: ## Run device endpoint tests only
+	@echo "$(BLUE)Running device tests...$(NC)"
+	@cd $(BACKEND_DIR) && \
+		. venv/bin/activate && \
+		pytest -m device
+
+test-query: ## Run query endpoint tests only
+	@echo "$(BLUE)Running query tests...$(NC)"
+	@cd $(BACKEND_DIR) && \
+		. venv/bin/activate && \
+		pytest -m query
+
+test-alert: ## Run alert workflow tests only
+	@echo "$(BLUE)Running alert tests...$(NC)"
+	@cd $(BACKEND_DIR) && \
+		. venv/bin/activate && \
+		pytest -m alert
+
+test-integration: ## Run integration tests only
+	@echo "$(BLUE)Running integration tests...$(NC)"
+	@cd $(BACKEND_DIR) && \
+		. venv/bin/activate && \
+		pytest -m integration
+
+test-watch: ## Run tests in watch mode
+	@echo "$(BLUE)Running tests in watch mode...$(NC)"
+	@cd $(BACKEND_DIR) && \
+		. venv/bin/activate && \
+		pytest-watch
+
+# ==============================================================================
 # Status & Info Commands
 # ==============================================================================
 

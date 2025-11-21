@@ -1,4 +1,19 @@
 import axios, { AxiosError } from "axios";
+import type { components } from "@/types/api";
+
+// Type aliases from generated OpenAPI types
+export type DeviceResponse = components["schemas"]["DeviceResponse"];
+export type NetworkSummaryResponse = components["schemas"]["NetworkSummaryResponse"];
+export type ActiveAlertResponse = components["schemas"]["ActiveAlertResponse"];
+export type DeviceMetricResponse = components["schemas"]["DeviceMetricResponse"];
+export type InterfaceSummaryResponse = components["schemas"]["InterfaceSummaryResponse"];
+export type TopDeviceResponse = components["schemas"]["TopDeviceResponse"];
+export type ThroughputDatapoint = components["schemas"]["ThroughputDatapoint"];
+export type RecipientResponse = components["schemas"]["RecipientResponse"];
+export type HistoryRecordResponse = components["schemas"]["HistoryRecordResponse"];
+export type AlertStateResponse = components["schemas"]["AlertStateResponse"];
+export type ThresholdBatchUpdate = components["schemas"]["ThresholdBatchUpdate"];
+export type DiscoveryResponse = components["schemas"]["DiscoveryResponse"];
 
 // Configure base URL - update this to match your backend
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -33,64 +48,123 @@ api.interceptors.response.use(
   }
 );
 
-// API endpoints for devices
+// API endpoints for devices with proper typing
 export const deviceApi = {
-  getAll: () => api.get("/device/"),
-  getByIp: (ip: string) => api.get(`/device/${ip}`),
-  discover: (network?: string, subnet?: string) => {
+  getAll: async () => {
+    const response = await api.get<DeviceResponse[]>("/device/");
+    return response.data;
+  },
+
+  getByIp: async (ip: string) => {
+    const response = await api.get<DeviceResponse>(`/device/${ip}`);
+    return response.data;
+  },
+
+  discover: async (network?: string, subnet?: string) => {
     const params = new URLSearchParams();
     if (network) params.append('network', network);
     if (subnet) params.append('subnet', subnet);
     const queryString = params.toString();
-    return api.get(`/device/discover${queryString ? `?${queryString}` : ''}`);
+    const response = await api.get<DiscoveryResponse>(`/device/discover${queryString ? `?${queryString}` : ''}`);
+    return response.data;
   },
 
-  // Batch threshold update (updated to match backend)
-  updateThresholds: (ip: string, thresholds: {
-    cpu_threshold?: number;
-    memory_threshold?: number;
-    failure_threshold?: number;
-  }) => api.put(`/device/${ip}/thresholds`, thresholds),
+  // Batch threshold update (typed with generated schema)
+  updateThresholds: async (ip: string, thresholds: ThresholdBatchUpdate) => {
+    const response = await api.put<DeviceResponse>(`/device/${ip}/thresholds`, thresholds);
+    return response.data;
+  },
 
   // Interface threshold update
-  updateInterfaceThreshold: (ip: string, ifIndex: number, threshold: number) =>
-    api.put(`/device/${ip}/interface/${ifIndex}/threshold`, {
-      threshold_value: threshold,
-    }),
+  updateInterfaceThreshold: async (ip: string, ifIndex: number, threshold: number) => {
+    const response = await api.put<AlertStateResponse>(
+      `/device/${ip}/interface/${ifIndex}/threshold`,
+      { threshold_value: threshold }
+    );
+    return response.data;
+  },
 
   // Acknowledge alert endpoints
-  acknowledgeDeviceAlert: (ip: string, alertType: "cpu" | "memory" | "reachability") =>
-    api.put(`/device/${ip}/alert/${alertType}/acknowledge`),
-  acknowledgeInterfaceAlert: (ip: string, ifIndex: number, alertType: "status" | "drops") =>
-    api.put(`/device/${ip}/interface/${ifIndex}/alert/${alertType}/acknowledge`),
+  acknowledgeDeviceAlert: async (ip: string, alertType: "cpu" | "memory" | "reachability") => {
+    const response = await api.put<AlertStateResponse>(`/device/${ip}/alert/${alertType}/acknowledge`);
+    return response.data;
+  },
+
+  acknowledgeInterfaceAlert: async (ip: string, ifIndex: number, alertType: "status" | "drops") => {
+    const response = await api.put<AlertStateResponse>(
+      `/device/${ip}/interface/${ifIndex}/alert/${alertType}/acknowledge`
+    );
+    return response.data;
+  },
 
   // Resolve alert endpoints
-  resolveDeviceAlert: (ip: string, alertType: "cpu" | "memory" | "reachability") =>
-    api.put(`/device/${ip}/alert/${alertType}/resolve`),
-  resolveInterfaceAlert: (ip: string, ifIndex: number, alertType: "status" | "drops") =>
-    api.put(`/device/${ip}/interface/${ifIndex}/alert/${alertType}/resolve`),
+  resolveDeviceAlert: async (ip: string, alertType: "cpu" | "memory" | "reachability") => {
+    const response = await api.put<AlertStateResponse>(`/device/${ip}/alert/${alertType}/resolve`);
+    return response.data;
+  },
+
+  resolveInterfaceAlert: async (ip: string, ifIndex: number, alertType: "status" | "drops") => {
+    const response = await api.put<AlertStateResponse>(
+      `/device/${ip}/interface/${ifIndex}/alert/${alertType}/resolve`
+    );
+    return response.data;
+  },
 };
 
-// API endpoints for configuration
+// API endpoints for configuration with proper typing
 export const configApi = {
-  getRecipients: () => api.get("/recipients/"),
-  addRecipient: (email: string) => api.post("/recipients/", { email }),
-  deleteRecipient: (id: number) => api.delete(`/recipients/${id}`),
+  getRecipients: async () => {
+    const response = await api.get<RecipientResponse[]>("/recipients/");
+    return response.data;
+  },
+
+  addRecipient: async (email: string) => {
+    const response = await api.post<RecipientResponse>("/recipients/", { email });
+    return response.data;
+  },
+
+  deleteRecipient: async (id: number) => {
+    await api.delete(`/recipients/${id}`);
+  },
 };
 
-// API endpoints for queries
+// API endpoints for queries with proper typing
 export const queryApi = {
-  getNetworkSummary: () => api.get("/query/network-summary"),
-  getTopDevices: (metric: "cpu" | "memory") =>
-    api.get(`/query/top-devices?metric=${metric}`),
-  getDeviceMetrics: (ip: string) => api.get(`/query/device/${ip}/metrics`),
+  getNetworkSummary: async () => {
+    const response = await api.get<NetworkSummaryResponse>("/query/network-summary");
+    return response.data;
+  },
+
+  getTopDevices: async (metric: "cpu" | "memory") => {
+    const response = await api.get<TopDeviceResponse[]>(`/query/top-devices?metric=${metric}`);
+    return response.data;
+  },
+
+  getDeviceMetrics: async (ip: string) => {
+    const response = await api.get<DeviceMetricResponse[]>(`/query/device/${ip}/metrics`);
+    return response.data;
+  },
 
   // Optimized interface summary endpoint (60-80% smaller payload)
-  getInterfaceSummary: (ip: string) =>
-    api.get(`/query/device/${ip}/interfaces/summary`),
+  getInterfaceSummary: async (ip: string) => {
+    const response = await api.get<InterfaceSummaryResponse[]>(`/query/device/${ip}/interfaces/summary`);
+    return response.data;
+  },
 
-  getHistory: (ip: string, start: string, end: string) =>
-    api.get(`/query/history/device?ip=${ip}&start=${start}&end=${end}`),
-  getActiveAlerts: () => api.get("/query/alerts/active"),
-  getNetworkThroughput: () => api.get("/query/network-throughput"),
+  getHistory: async (ip: string, start: string, end: string) => {
+    const response = await api.get<HistoryRecordResponse[]>(
+      `/query/history/device?ip=${ip}&start=${start}&end=${end}`
+    );
+    return response.data;
+  },
+
+  getActiveAlerts: async () => {
+    const response = await api.get<ActiveAlertResponse[]>("/query/alerts/active");
+    return response.data;
+  },
+
+  getNetworkThroughput: async () => {
+    const response = await api.get<ThroughputDatapoint[]>("/query/network-throughput");
+    return response.data;
+  },
 };
