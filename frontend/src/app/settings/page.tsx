@@ -365,7 +365,7 @@ export default function SettingsPage() {
                         </span>
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        Last checked: {new Date(healthData.timestamp).toLocaleString()}
+                        Last checked: {new Date(healthData.timestamp + "Z").toLocaleString()}
                       </p>
                     </div>
                   </div>

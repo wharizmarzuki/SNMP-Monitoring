@@ -53,7 +53,7 @@ async def call_dashboard_hook():
     logger.info("Scheduled dashboard hook for 10 seconds from now...")
     await asyncio.sleep(10)
 
-    url = f"{settings.frontend_url}/login"
+    url = f"{settings.frontend_url}"
     
     try:
         # Use AsyncClient to ensure we don't block the event loop
