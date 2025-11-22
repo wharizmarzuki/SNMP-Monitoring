@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useTheme } from "next-themes";
 import { Server, Activity, AlertTriangle, Network } from "lucide-react";
 import { KpiCard } from "@/components/KpiCard";
 import {
@@ -45,6 +46,7 @@ import { TableSkeleton } from "@/components/skeletons/TableSkeleton";
 export default function DashboardPage() {
   const [timeRange, setTimeRange] = useState<number>(60);
   const [interval, setInterval] = useState<number>(1);
+  const { resolvedTheme } = useTheme();
 
   // Smart interval restrictions based on time range (Option 1)
   const getAvailableIntervals = (minutes: number): number[] => {
@@ -236,22 +238,37 @@ export default function DashboardPage() {
                     })()}
                     margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
                   >
-                    <CartesianGrid strokeDasharray="3 3" />
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke={resolvedTheme === 'dark' ? 'hsl(262 27.9% 25%)' : 'hsl(220 13% 85%)'}
+                    />
                     <XAxis
                       dataKey="timestamp"
                       tickFormatter={(value) => new Date(value).toLocaleTimeString()}
+                      stroke={resolvedTheme === 'dark' ? 'hsl(217.9 10.6% 64.9%)' : 'hsl(220 8.9% 46.1%)'}
                     />
                     <YAxis
                       label={{ value: 'Utilization %', angle: -90, position: 'insideLeft' }}
                       domain={[0, 100]}
                       ticks={[0, 25, 50, 75, 100]}
                       tickFormatter={(value) => `${value}`}
+                      stroke={resolvedTheme === 'dark' ? 'hsl(217.9 10.6% 64.9%)' : 'hsl(220 8.9% 46.1%)'}
                     />
                     <Tooltip
                       labelFormatter={(value) => new Date(value).toLocaleString()}
                       formatter={(value: number) => `${value.toFixed(1)}%`}
+                      contentStyle={{
+                        backgroundColor: resolvedTheme === 'dark' ? 'hsl(262 70% 4.1%)' : 'hsl(0 0% 100%)',
+                        border: `1px solid ${resolvedTheme === 'dark' ? 'hsl(262 27.9% 16.9%)' : 'hsl(220 13% 91%)'}`,
+                        borderRadius: '0.5rem',
+                        color: resolvedTheme === 'dark' ? 'hsl(210 20% 98%)' : 'hsl(224 71.4% 4.1%)'
+                      }}
                     />
-                    <Legend />
+                    <Legend
+                      wrapperStyle={{
+                        color: resolvedTheme === 'dark' ? 'hsl(210 20% 98%)' : 'hsl(224 71.4% 4.1%)'
+                      }}
+                    />
                     {/* Dynamically create Area components for each device */}
                     {Array.from(new Set(utilization.map(u => u.hostname || u.ip_address || 'Unknown'))).map((deviceName, index) => {
                       const colors = ['#8884d8', '#82ca9d', '#ffc658', '#ff7c7c', '#8dd1e1', '#d084d0', '#82d882'];

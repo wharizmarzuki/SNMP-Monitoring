@@ -64,7 +64,7 @@ export default function Navbar() {
                 href={href}
                 className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
                   isActive(href)
-                    ? "bg-accent text-accent-foreground"
+                    ? "bg-primary/10 text-primary"
                     : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                 }`}
               >
