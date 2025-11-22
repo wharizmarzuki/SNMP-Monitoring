@@ -159,11 +159,10 @@ export function setupAuthInterceptor() {
     (error) => {
       // Check both error formats (AxiosError and transformed error from api.ts)
       if (error.response?.status === 401 || error.status === 401) {
-        // Unauthorized - clear auth and redirect to login
-        authService.logout();
-
-        // Only redirect on client side
-        if (typeof window !== "undefined") {
+        // Don't redirect if already on login page (to allow error messages to show)
+        if (typeof window !== "undefined" && !window.location.pathname.includes("/login")) {
+          // Unauthorized - clear auth and redirect to login
+          authService.logout();
           window.location.href = "/login";
         }
       }

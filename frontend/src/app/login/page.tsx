@@ -66,9 +66,10 @@ export default function LoginPage() {
                 type="text"
                 placeholder="Enter your username"
                 value={credentials.username}
-                onChange={(e) =>
-                  setCredentials({ ...credentials, username: e.target.value })
-                }
+                onChange={(e) => {
+                  setCredentials({ ...credentials, username: e.target.value });
+                  setError(""); // Clear error on input change
+                }}
                 required
                 autoComplete="username"
                 autoFocus
@@ -83,9 +84,10 @@ export default function LoginPage() {
                 type="password"
                 placeholder="Enter your password"
                 value={credentials.password}
-                onChange={(e) =>
-                  setCredentials({ ...credentials, password: e.target.value })
-                }
+                onChange={(e) => {
+                  setCredentials({ ...credentials, password: e.target.value });
+                  setError(""); // Clear error on input change
+                }}
                 required
                 autoComplete="current-password"
                 disabled={isLoading}

@@ -38,6 +38,9 @@ import {
 } from "recharts";
 import { queryApi } from "@/lib/api";
 import { NetworkSummary, Alert, TopDevice, DeviceUtilization } from "@/types";
+import { DashboardCardsSkeleton } from "@/components/skeletons/CardSkeleton";
+import { ChartSkeleton } from "@/components/skeletons/ChartSkeleton";
+import { TableSkeleton } from "@/components/skeletons/TableSkeleton";
 
 export default function DashboardPage() {
   const [timeRange, setTimeRange] = useState<number>(60);
@@ -117,26 +120,30 @@ export default function DashboardPage() {
         {/* Left Column (spans 2 columns on large screens) */}
         <div className="lg:col-span-2 space-y-4">
           {/* KPI Cards */}
-          <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
-            <KpiCard
-              title="Total Devices"
-              value={summary?.total_devices || 0}
-              icon={Server}
-              description="Monitored network devices"
-            />
-            <KpiCard
-              title="Devices Up"
-              value={summary?.devices_up || 0}
-              icon={Activity}
-              description="Currently online"
-            />
-            <KpiCard
-              title="Devices in Alert"
-              value={summary?.devices_in_alert || 0}
-              icon={AlertTriangle}
-              description="Requiring attention"
-            />
-          </div>
+          {summaryLoading ? (
+            <DashboardCardsSkeleton />
+          ) : (
+            <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
+              <KpiCard
+                title="Total Devices"
+                value={summary?.total_devices || 0}
+                icon={Server}
+                description="Monitored network devices"
+              />
+              <KpiCard
+                title="Devices Up"
+                value={summary?.devices_up || 0}
+                icon={Activity}
+                description="Currently online"
+              />
+              <KpiCard
+                title="Devices in Alert"
+                value={summary?.devices_in_alert || 0}
+                icon={AlertTriangle}
+                description="Requiring attention"
+              />
+            </div>
+          )}
 
           {/* Device Bandwidth Utilization Chart */}
           <Card>
@@ -184,8 +191,14 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               {utilizationLoading ? (
-                <div className="h-[400px] flex items-center justify-center">
-                  <p className="text-sm text-muted-foreground">Loading utilization data...</p>
+                <div className="h-[400px] flex items-end gap-2 p-4">
+                  {Array.from({ length: 12 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="flex-1 animate-pulse rounded-md bg-slate-200 dark:bg-slate-800"
+                      style={{ height: `${Math.random() * 60 + 40}%` }}
+                    />
+                  ))}
                 </div>
               ) : utilizationError ? (
                 <div className="h-[400px] flex items-center justify-center">
@@ -273,7 +286,16 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             {alertsLoading ? (
-              <p className="text-sm text-muted-foreground">Loading alerts...</p>
+              <div className="space-y-3">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="flex gap-4">
+                    <div className="h-4 flex-1 animate-pulse rounded-md bg-slate-200 dark:bg-slate-800" />
+                    <div className="h-4 flex-1 animate-pulse rounded-md bg-slate-200 dark:bg-slate-800" />
+                    <div className="h-4 flex-1 animate-pulse rounded-md bg-slate-200 dark:bg-slate-800" />
+                    <div className="h-4 flex-1 animate-pulse rounded-md bg-slate-200 dark:bg-slate-800" />
+                  </div>
+                ))}
+              </div>
             ) : alertsError ? (
               <p className="text-sm text-red-600">Failed to load alerts</p>
             ) : alerts.length === 0 ? (
@@ -314,7 +336,14 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             {cpuLoading ? (
-              <p className="text-sm text-muted-foreground">Loading CPU data...</p>
+              <div className="space-y-3">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="flex gap-4">
+                    <div className="h-4 flex-1 animate-pulse rounded-md bg-slate-200 dark:bg-slate-800" />
+                    <div className="h-4 w-16 animate-pulse rounded-md bg-slate-200 dark:bg-slate-800" />
+                  </div>
+                ))}
+              </div>
             ) : cpuError ? (
               <p className="text-sm text-red-600">Failed to load CPU data</p>
             ) : cpuDevices.length === 0 ? (
@@ -356,7 +385,14 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             {memoryLoading ? (
-              <p className="text-sm text-muted-foreground">Loading memory data...</p>
+              <div className="space-y-3">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="flex gap-4">
+                    <div className="h-4 flex-1 animate-pulse rounded-md bg-slate-200 dark:bg-slate-800" />
+                    <div className="h-4 w-16 animate-pulse rounded-md bg-slate-200 dark:bg-slate-800" />
+                  </div>
+                ))}
+              </div>
             ) : memoryError ? (
               <p className="text-sm text-red-600">Failed to load memory data</p>
             ) : memoryDevices.length === 0 ? (

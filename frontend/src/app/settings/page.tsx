@@ -24,6 +24,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Trash2, Plus, Loader2, Activity, CheckCircle2, XCircle, AlertCircle, Save } from "lucide-react";
 import { deviceApi, configApi, healthApi, ApplicationSettings, ApplicationSettingsUpdate } from "@/lib/api";
 import { Recipient } from "@/types";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function SettingsPage() {
   const queryClient = useQueryClient();
@@ -241,7 +242,14 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               {settingsLoading ? (
-                <p className="text-sm text-muted-foreground">Loading settings...</p>
+                <div className="space-y-4">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="space-y-2">
+                      <Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-10 w-full" />
+                    </div>
+                  ))}
+                </div>
               ) : settingsForm ? (
                 <>
                   <div className="grid grid-cols-2 gap-4">
@@ -475,7 +483,14 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               {settingsLoading ? (
-                <p className="text-sm text-muted-foreground">Loading settings...</p>
+                <div className="space-y-4">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="space-y-2">
+                      <Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-10 w-full" />
+                    </div>
+                  ))}
+                </div>
               ) : settingsForm ? (
                 <>
                   <div className="grid grid-cols-3 gap-4">
@@ -531,7 +546,14 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               {settingsLoading ? (
-                <p className="text-sm text-muted-foreground">Loading settings...</p>
+                <div className="space-y-4">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="space-y-2">
+                      <Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-10 w-full" />
+                    </div>
+                  ))}
+                </div>
               ) : settingsForm ? (
                 <>
                   <div className="grid grid-cols-3 gap-4">
@@ -634,7 +656,17 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent>
               {healthLoading ? (
-                <p className="text-sm text-muted-foreground">Loading health status...</p>
+                <div className="space-y-4">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="flex items-center justify-between">
+                      <div className="space-y-2 flex-1">
+                        <Skeleton className="h-5 w-32" />
+                        <Skeleton className="h-4 w-48" />
+                      </div>
+                      <Skeleton className="h-6 w-20" />
+                    </div>
+                  ))}
+                </div>
               ) : healthData ? (
                 <div className="space-y-6">
                   {/* Overall Status */}

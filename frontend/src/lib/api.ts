@@ -30,6 +30,7 @@ export const api = axios.create({
 api.interceptors.response.use(
   (response) => response,
   (error: AxiosError<{error_code: string, message: string, details?: any}>) => {
+    // Handle structured API errors
     if (error.response?.data) {
       const { error_code, message, details } = error.response.data;
 
@@ -44,7 +45,35 @@ api.interceptors.response.use(
         status: error.response.status
       });
     }
-    return Promise.reject(error);
+
+    // Handle network errors, timeouts, and other non-API errors
+    let errorMessage = "An unexpected error occurred";
+
+    if (error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK') {
+      errorMessage = "Unable to connect to server. Please check your connection.";
+    } else if (error.code === 'ETIMEDOUT') {
+      errorMessage = "Request timeout. Please try again.";
+    } else if (error.response?.status === 401) {
+      errorMessage = "Invalid username or password";
+    } else if (error.response?.status === 403) {
+      errorMessage = "Access denied";
+    } else if (error.response?.status === 404) {
+      errorMessage = "Resource not found";
+    } else if (error.response?.status === 500) {
+      errorMessage = "Server error. Please try again later.";
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+
+    console.error("Network/API Error:", errorMessage, error);
+
+    // Return structured error with message property
+    return Promise.reject({
+      code: error.code || 'UNKNOWN_ERROR',
+      message: errorMessage,
+      status: error.response?.status,
+      originalError: error
+    });
   }
 );
 
