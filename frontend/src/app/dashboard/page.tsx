@@ -166,6 +166,8 @@ export default function DashboardPage() {
                     <YAxis
                       label={{ value: 'Utilization %', angle: -90, position: 'insideLeft' }}
                       domain={[0, 100]}
+                      ticks={[0, 25, 50, 75, 100]}
+                      tickFormatter={(value) => `${value}`}
                     />
                     <Tooltip
                       labelFormatter={(value) => new Date(value).toLocaleString()}
