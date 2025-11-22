@@ -301,6 +301,10 @@ export const pollingApi = {
     const response = await api.get("/polling/");
     return response.data;
   },
+  getStatus: async () => {
+    const response = await api.get<{ is_polling: boolean; polling_type: string | null }>("/polling/status");
+    return response.data;
+  },
 };
 
 // API endpoints for health monitoring
