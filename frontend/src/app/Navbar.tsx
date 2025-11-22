@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useUser } from "@/providers/UserProvider";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -52,19 +53,19 @@ export default function Navbar() {
   };
 
   return (
-    <div className="w-full border-b bg-white">
+    <div className="w-full border-b border-border bg-card">
       <div className="flex items-center justify-between gap-6 px-4 py-2">
         <div className="flex items-center gap-6">
-          <div className="text-lg font-semibold">NetSNMP</div>
+          <div className="text-lg font-semibold text-foreground">NetSNMP</div>
           <nav className="flex gap-2">
             {navItems.map(({ href, icon: Icon, label }) => (
               <Link
                 key={href}
                 href={href}
-                className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-slate-100 hover:text-slate-900 transition-colors ${
+                className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
                   isActive(href)
-                    ? "bg-slate-100 text-slate-900"
-                    : "text-slate-700"
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                 }`}
               >
                 <Icon className="h-4 w-4" />
@@ -74,8 +75,9 @@ export default function Navbar() {
           </nav>
         </div>
 
-        {/* User menu */}
+        {/* Theme toggle and User menu */}
         <div className="flex items-center gap-2">
+          <ThemeToggle />
           {user && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -97,7 +99,7 @@ export default function Navbar() {
                   Profile Settings
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-600">
+                <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-destructive">
                   <LogOut className="mr-2 h-4 w-4" />
                   Logout
                 </DropdownMenuItem>

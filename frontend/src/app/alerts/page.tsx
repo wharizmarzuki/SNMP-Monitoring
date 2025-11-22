@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { CheckCircle } from "lucide-react";
 import { queryApi, deviceApi } from "@/lib/api";
 import { Alert } from "@/types";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function AlertsPage() {
   const queryClient = useQueryClient();
@@ -177,7 +178,19 @@ export default function AlertsPage() {
           )}
 
           {isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading alerts...</p>
+            <div className="space-y-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="flex gap-4">
+                  <div className="h-4 flex-1 animate-pulse rounded-md bg-muted/50" />
+                  <div className="h-4 flex-1 animate-pulse rounded-md bg-muted/50" />
+                  <div className="h-4 flex-1 animate-pulse rounded-md bg-muted/50" />
+                  <div className="h-4 flex-1 animate-pulse rounded-md bg-muted/50" />
+                  <div className="h-4 flex-1 animate-pulse rounded-md bg-muted/50" />
+                  <div className="h-4 flex-1 animate-pulse rounded-md bg-muted/50" />
+                  <div className="h-4 w-24 animate-pulse rounded-md bg-muted/50" />
+                </div>
+              ))}
+            </div>
           ) : alerts.length === 0 ? (
             <div className="text-center py-8">
               <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-2" />

@@ -44,6 +44,7 @@ import { StatusDot } from "@/components/StatusBadge";
 import { deviceApi, pollingApi } from "@/lib/api";
 import { Device } from "@/types";
 import { Plus, Trash2, Loader2, CheckCircle2, AlertCircle, RefreshCw, Search, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { TableSkeleton } from "@/components/skeletons/TableSkeleton";
 
 export default function DevicesPage() {
   const router = useRouter();
@@ -385,7 +386,19 @@ export default function DevicesPage() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading devices...</p>
+            <div className="space-y-3">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="flex gap-4">
+                  <div className="h-4 w-16 animate-pulse rounded-md bg-muted/50" />
+                  <div className="h-4 flex-1 animate-pulse rounded-md bg-muted/50" />
+                  <div className="h-4 w-32 animate-pulse rounded-md bg-muted/50" />
+                  <div className="h-4 w-24 animate-pulse rounded-md bg-muted/50" />
+                  <div className="h-4 w-24 animate-pulse rounded-md bg-muted/50" />
+                  <div className="h-4 w-24 animate-pulse rounded-md bg-muted/50" />
+                  <div className="h-4 w-20 animate-pulse rounded-md bg-muted/50" />
+                </div>
+              ))}
+            </div>
           ) : devices.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               No devices found. Use network discovery or add devices manually.

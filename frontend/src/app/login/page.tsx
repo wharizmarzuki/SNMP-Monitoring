@@ -41,7 +41,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
+    <div className="flex items-center justify-center min-h-screen bg-background">
       <Card className="w-full max-w-md mx-4">
         <CardHeader className="space-y-1 text-center">
           <CardTitle className="text-2xl font-bold tracking-tight">
@@ -66,9 +66,10 @@ export default function LoginPage() {
                 type="text"
                 placeholder="Enter your username"
                 value={credentials.username}
-                onChange={(e) =>
-                  setCredentials({ ...credentials, username: e.target.value })
-                }
+                onChange={(e) => {
+                  setCredentials({ ...credentials, username: e.target.value });
+                  setError(""); // Clear error on input change
+                }}
                 required
                 autoComplete="username"
                 autoFocus
@@ -83,9 +84,10 @@ export default function LoginPage() {
                 type="password"
                 placeholder="Enter your password"
                 value={credentials.password}
-                onChange={(e) =>
-                  setCredentials({ ...credentials, password: e.target.value })
-                }
+                onChange={(e) => {
+                  setCredentials({ ...credentials, password: e.target.value });
+                  setError(""); // Clear error on input change
+                }}
                 required
                 autoComplete="current-password"
                 disabled={isLoading}
