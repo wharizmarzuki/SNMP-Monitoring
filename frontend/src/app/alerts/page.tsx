@@ -187,32 +187,32 @@ export default function AlertsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Device</TableHead>
-                  <TableHead>IP Address</TableHead>
-                  <TableHead>Metric</TableHead>
-                  <TableHead>Current Value</TableHead>
-                  <TableHead>Remarks</TableHead>
-                  <TableHead>Severity</TableHead>
-                  <TableHead>Action</TableHead>
+                  <TableHead className="text-center">Device</TableHead>
+                  <TableHead className="text-center">IP Address</TableHead>
+                  <TableHead className="text-center">Metric</TableHead>
+                  <TableHead className="text-center">Current Value</TableHead>
+                  <TableHead className="text-center">Remarks</TableHead>
+                  <TableHead className="text-center">Severity</TableHead>
+                  <TableHead className="text-center">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {alerts.map((alert, index) => (
                   <TableRow key={index}>
-                    <TableCell className="font-medium">
+                    <TableCell className="font-medium text-center">
                       {alert.hostname}
                     </TableCell>
-                    <TableCell>{alert.ip_address}</TableCell>
-                    <TableCell>{alert.metric}</TableCell>
-                    <TableCell>{alert.current_value}</TableCell>
-                    <TableCell>{alert.threshold}</TableCell>
-                    <TableCell>
+                    <TableCell className="text-center">{alert.ip_address}</TableCell>
+                    <TableCell className="text-center">{alert.metric}</TableCell>
+                    <TableCell className="text-center">{alert.current_value}</TableCell>
+                    <TableCell className="text-center">{alert.threshold}</TableCell>
+                    <TableCell className="text-center">
                       <Badge variant={severityMap[alert.severity] || 'default'}>
                         {alert.severity}
                       </Badge>
                     </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
+                    <TableCell className="text-center">
+                      <div className="flex gap-2 justify-center">
                         <Button
                           size="sm"
                           variant="outline"

@@ -287,6 +287,7 @@ class ActiveAlertResponse(BaseModel):
     state: str = "triggered"  # Phase 2: clear/triggered/acknowledged
     acknowledged_at: datetime | None = None  # Phase 2: When acknowledged
     if_index: int | None = None  # For interface alerts only
+    severity: str = "Warning"  # Severity level: Warning, High, Critical
 
 class TopDeviceResponse(BaseModel):
     """

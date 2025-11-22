@@ -240,8 +240,14 @@ export const queryApi = {
     return response.data;
   },
 
-  getDeviceUtilization: async () => {
-    const response = await api.get<import("@/types").DeviceUtilization[]>("/query/device-utilization");
+  getDeviceUtilization: async (minutes?: number, intervalMinutes?: number) => {
+    const params = new URLSearchParams();
+    if (minutes) params.append('minutes', minutes.toString());
+    if (intervalMinutes) params.append('interval_minutes', intervalMinutes.toString());
+    const queryString = params.toString();
+    const response = await api.get<import("@/types").DeviceUtilization[]>(
+      `/query/device-utilization${queryString ? `?${queryString}` : ''}`
+    );
     return response.data;
   },
 };

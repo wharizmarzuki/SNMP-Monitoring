@@ -43,7 +43,7 @@ import { Label } from "@/components/ui/label";
 import { StatusDot } from "@/components/StatusBadge";
 import { deviceApi, pollingApi } from "@/lib/api";
 import { Device } from "@/types";
-import { Plus, Trash2, Loader2, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
+import { Plus, Trash2, Loader2, CheckCircle2, AlertCircle, RefreshCw, Search, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 
 export default function DevicesPage() {
   const router = useRouter();
@@ -62,12 +62,43 @@ export default function DevicesPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deviceToDelete, setDeviceToDelete] = useState<Device | null>(null);
 
+  // Search and sort state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<"hostname" | null>(null);
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+
   const { data: devicesData, isLoading } = useQuery<Device[]>({
     queryKey: ["devices"],
     queryFn: () => deviceApi.getAll(),
   });
 
-  const devices = devicesData || [];
+  // Filter and sort devices
+  const devices = React.useMemo(() => {
+    let filtered = devicesData || [];
+
+    // Apply search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (device) =>
+          device.hostname?.toLowerCase().includes(query) ||
+          device.ip_address?.toLowerCase().includes(query) ||
+          device.vendor?.toLowerCase().includes(query)
+      );
+    }
+
+    // Apply sorting
+    if (sortBy === "hostname") {
+      filtered = [...filtered].sort((a, b) => {
+        const aValue = a.hostname || "";
+        const bValue = b.hostname || "";
+        const comparison = aValue.localeCompare(bValue);
+        return sortOrder === "asc" ? comparison : -comparison;
+      });
+    }
+
+    return filtered;
+  }, [devicesData, searchQuery, sortBy, sortOrder]);
 
   // Add device mutation
   const addDeviceMutation = useMutation({
@@ -183,12 +214,31 @@ export default function DevicesPage() {
     router.push(`/devices/${ip}`);
   };
 
+  const handleSort = () => {
+    if (sortBy === "hostname") {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy("hostname");
+      setSortOrder("asc");
+    }
+  };
+
   return (
     <div className="flex-1 space-y-4 p-8 pt-6">
       <div className="flex items-center justify-between space-y-2">
         <h2 className="text-3xl font-bold tracking-tight">Devices</h2>
 
         <div className="flex gap-2">
+          {/* Search Input */}
+          <div className="relative">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search devices..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-8 w-[250px]"
+            />
+          </div>
           {/* Refresh Data Button */}
           <Button
             variant="outline"
@@ -345,7 +395,23 @@ export default function DevicesPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Status</TableHead>
-                  <TableHead>Hostname</TableHead>
+                  <TableHead>
+                    <button
+                      onClick={handleSort}
+                      className="flex items-center gap-1 hover:text-foreground transition-colors"
+                    >
+                      Hostname
+                      {sortBy === "hostname" ? (
+                        sortOrder === "asc" ? (
+                          <ArrowUp className="h-4 w-4" />
+                        ) : (
+                          <ArrowDown className="h-4 w-4" />
+                        )
+                      ) : (
+                        <ArrowUpDown className="h-4 w-4 opacity-50" />
+                      )}
+                    </button>
+                  </TableHead>
                   <TableHead>IP Address</TableHead>
                   <TableHead>Vendor</TableHead>
                   <TableHead className="w-24">Actions</TableHead>
