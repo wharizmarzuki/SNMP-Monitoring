@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.api.v1.endpoints import devices, polling, query, recipients, auth, health
 from app.api.v1.endpoints import settings as settings_router
+from app.api.v1.endpoints import device_config, device_alerts
 from app.core import models
 from app.core.database import engine, SessionLocal
 from app.core.exceptions import APIError
@@ -173,6 +174,8 @@ add_middleware_to_app(app)
 app.include_router(health.router, tags=["Health"])
 app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
 app.include_router(devices.router)
+app.include_router(device_config.router)
+app.include_router(device_alerts.router)
 app.include_router(polling.router)
 app.include_router(query.router)
 app.include_router(recipients.router)

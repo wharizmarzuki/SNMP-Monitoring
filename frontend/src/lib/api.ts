@@ -135,28 +135,36 @@ export const deviceApi = {
     return response.data;
   },
 
-  // Acknowledge alert endpoints
+  // Acknowledge alert endpoints (using consolidated endpoints)
   acknowledgeDeviceAlert: async (ip: string, alertType: "cpu" | "memory" | "reachability") => {
-    const response = await api.put<AlertStateResponse>(`/device/${ip}/alert/${alertType}/acknowledge`);
-    return response.data;
-  },
-
-  acknowledgeInterfaceAlert: async (ip: string, ifIndex: number, alertType: "status" | "drops") => {
-    const response = await api.put<AlertStateResponse>(
-      `/device/${ip}/interface/${ifIndex}/alert/${alertType}/acknowledge`
+    const response = await api.patch<AlertStateResponse>(
+      `/device/${ip}/alerts/${alertType}`,
+      { action: "acknowledge" }
     );
     return response.data;
   },
 
-  // Resolve alert endpoints
+  acknowledgeInterfaceAlert: async (ip: string, ifIndex: number, alertType: "status" | "drops") => {
+    const response = await api.patch<AlertStateResponse>(
+      `/device/${ip}/interfaces/${ifIndex}/alerts/${alertType}`,
+      { action: "acknowledge" }
+    );
+    return response.data;
+  },
+
+  // Resolve alert endpoints (using consolidated endpoints)
   resolveDeviceAlert: async (ip: string, alertType: "cpu" | "memory" | "reachability") => {
-    const response = await api.put<AlertStateResponse>(`/device/${ip}/alert/${alertType}/resolve`);
+    const response = await api.patch<AlertStateResponse>(
+      `/device/${ip}/alerts/${alertType}`,
+      { action: "resolve" }
+    );
     return response.data;
   },
 
   resolveInterfaceAlert: async (ip: string, ifIndex: number, alertType: "status" | "drops") => {
-    const response = await api.put<AlertStateResponse>(
-      `/device/${ip}/interface/${ifIndex}/alert/${alertType}/resolve`
+    const response = await api.patch<AlertStateResponse>(
+      `/device/${ip}/interfaces/${ifIndex}/alerts/${alertType}`,
+      { action: "resolve" }
     );
     return response.data;
   },
