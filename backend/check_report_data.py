@@ -24,8 +24,24 @@ def check_report_data():
     print("REPORT DATA DIAGNOSTIC")
     print("=" * 70)
 
-    # Check devices
-    device_count = db.query(models.Device).count()
+    # Check if database tables exist
+    try:
+        device_count = db.query(models.Device).count()
+    except Exception as e:
+        if "no such table" in str(e).lower():
+            print("\n❌ DATABASE NOT INITIALIZED")
+            print("   The database exists but has no tables!")
+            print("\n💡 SOLUTION:")
+            print("   1. Start the backend service:")
+            print("      cd backend")
+            print("      python -m app.main")
+            print("\n   2. This will automatically create all database tables")
+            print("   3. Then run this diagnostic script again")
+            print("\n" + "=" * 70)
+            return
+        else:
+            raise
+
     print(f"\n📱 DEVICES:")
     print(f"   Total devices: {device_count}")
 
