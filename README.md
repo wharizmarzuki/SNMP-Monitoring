@@ -15,7 +15,7 @@ A comprehensive network monitoring solution built with FastAPI and Next.js that 
 - **Interactive Dashboard**: Visual overview of network health with KPI cards
 - **Device Details**: Comprehensive per-device metrics and historical data
 - **Alert Console**: View, acknowledge, and manage network alerts
-- **rting**: Generate network performance rts
+- **Reporting**: Generate network performance reports
 - **Settings Management**: Configure alert recipients and thresholds
 
 ### Technical Highlights
@@ -42,6 +42,29 @@ A comprehensive network monitoring solution built with FastAPI and Next.js that 
 - **Data Fetching**: TanStack Query (React Query)
 - **Charts**: Recharts
 
+## Screenshots
+
+### Dashboard
+![Dashboard](docs/images/dashboard.png)
+*Real-time network monitoring dashboard with KPI cards, device status, and performance charts*
+
+### Device Details
+![Device Details](docs/images/device-details.png)
+![Device Details2](docs/images/device-details2.png)
+*Comprehensive device metrics with historical data and threshold configuration*
+
+### Alert Management
+![Alert Management](docs/images/alerts.png)
+*Active alerts console with acknowledge and resolve capabilities*
+
+### Settings
+![Settings](docs/images/settings.png)
+*Configure alert recipients, thresholds, and trigger network discovery*
+
+### Login Page
+![Login](docs/images/login.png)
+*Secure JWT-based authentication with modern, responsive design*
+
 ## Quick Start
 
 ### Prerequisites
@@ -53,6 +76,45 @@ A comprehensive network monitoring solution built with FastAPI and Next.js that 
 - OpenSSL (for generating secure secrets)
 - Redis (optional but recommended for caching)
 
+#### Installing Python 3.12
+
+If your system doesn't have Python 3.12+, install it first:
+
+**Ubuntu/Debian:**
+```bash
+# Add deadsnakes PPA repository
+sudo add-apt-repository ppa:deadsnakes/ppa
+sudo apt update
+
+# Install Python 3.12
+sudo apt install python3.12 python3.12-venv python3.12-dev
+
+# Verify installation
+python3.12 --version
+```
+
+**macOS (with Homebrew):**
+```bash
+# Install Python 3.12
+brew install python@3.12
+
+# Verify installation
+python3.12 --version
+```
+
+**Windows:**
+Download Python 3.12+ from [python.org](https://www.python.org/downloads/) and run the installer.
+
+**Alternative - Using pyenv:**
+```bash
+# Install pyenv (if not installed)
+curl https://pyenv.run | bash
+
+# Install Python 3.12
+pyenv install 3.12
+pyenv global 3.12
+```
+
 ### Automated Setup (Recommended) 🚀
 
 **One-command installation for both development and production:**
@@ -60,7 +122,7 @@ A comprehensive network monitoring solution built with FastAPI and Next.js that 
 ```bash
 # Clone the repository
 git clone https://github.com/wharizmarzuki/SNMP-Monitoring.git
-cd snmp-monitoring
+cd SNMP-Monitoring
 
 # Run interactive setup wizard
 ./setup.sh

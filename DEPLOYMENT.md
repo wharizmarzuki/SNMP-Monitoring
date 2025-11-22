@@ -11,6 +11,64 @@ This guide covers running the SNMP monitoring system for both local development 
 
 ---
 
+## System Requirements
+
+### Minimum Resource Requirements
+
+The following table shows recommended server specifications based on the number of devices you plan to monitor:
+
+| Monitored Devices | CPU Cores | RAM   | Disk Space | Network Bandwidth | Notes |
+|-------------------|-----------|-------|------------|-------------------|-------|
+| **1-10**          | 1 core    | 2 GB  | 10 GB      | 10 Mbps           | Development/Small office |
+| **10-50**         | 2 cores   | 4 GB  | 20 GB      | 20 Mbps           | Small business |
+| **50-100**        | 4 cores   | 8 GB  | 50 GB      | 50 Mbps           | Medium business |
+| **100-250**       | 8 cores   | 16 GB | 100 GB     | 100 Mbps          | Large enterprise |
+| **250-500**       | 16 cores  | 32 GB | 200 GB     | 200 Mbps          | Very large enterprise |
+
+### Notes on Resource Requirements
+
+**CPU:**
+- More cores improve concurrent device polling performance
+- Frontend build requires at least 1 GB of available RAM temporarily
+
+**RAM:**
+- Backend uses ~200 MB base + ~10 MB per 100 devices
+- Redis cache: ~100-500 MB depending on cache size
+- Frontend (Next.js): ~300-500 MB during development
+- Database grows at ~1-2 MB per device per month
+
+**Disk Space:**
+- Backend: ~100 MB
+- Frontend: ~200 MB (node_modules)
+- Database growth: ~1-2 MB per device per month
+- Logs: ~10-50 MB per month
+- Redis (optional): ~100-500 MB
+
+**Network Bandwidth:**
+- SNMP queries: ~1-5 KB per device per poll
+- Email alerts: ~10-50 KB per alert
+- Frontend dashboard: ~500 KB initial load, ~5-10 KB per refresh
+
+### Recommended Operating Systems
+
+- **Ubuntu 22.04 LTS or 24.04 LTS** (recommended)
+- **Debian 11 or 12**
+- **RHEL/CentOS 8+**
+- **macOS 12+ (Monterey or later)**
+- **Windows 10/11** (with WSL2 recommended)
+
+### Software Requirements
+
+| Component | Minimum Version | Recommended Version |
+|-----------|----------------|---------------------|
+| Python    | 3.12.0         | 3.12.7+             |
+| Node.js   | 18.0.0         | 20.x LTS            |
+| npm       | 9.0.0          | 10.x                |
+| Redis     | 5.0.0          | 7.2+ (optional)     |
+| Git       | 2.20.0         | 2.40+               |
+
+---
+
 ## Local Development
 
 ### Prerequisites
