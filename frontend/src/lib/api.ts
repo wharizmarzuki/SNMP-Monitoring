@@ -215,12 +215,16 @@ export const queryApi = {
   },
 
   getHistory: async (ip: string, start: string, end: string) => {
+    // Append time component to dates (start of day for start_time, end of day for end_time)
+    const startDateTime = start.includes('T') ? start : `${start}T00:00:00`;
+    const endDateTime = end.includes('T') ? end : `${end}T23:59:59`;
+
     const response = await api.post<HistoryRecordResponse[]>(
       `/query/history/device`,
       {
         ip_address: ip,
-        start_datetime: start,
-        end_datetime: end
+        start_time: startDateTime,
+        end_time: endDateTime
       }
     );
     return response.data;
@@ -274,6 +278,49 @@ export const healthApi = {
 
   ping: async () => {
     const response = await api.get("/ping");
+    return response.data;
+  },
+};
+
+// API endpoints for reports
+export const reportApi = {
+  getNetworkThroughput: async (startDate: string, endDate: string) => {
+    const response = await api.get<import("@/types/report").NetworkThroughputDatapoint[]>(
+      "/query/report/network-throughput",
+      { params: { start_date: startDate, end_date: endDate } }
+    );
+    return response.data;
+  },
+
+  getDeviceUtilization: async (startDate: string, endDate: string) => {
+    const response = await api.get<import("@/types/report").ReportDeviceUtilizationDatapoint[]>(
+      "/query/report/device-utilization",
+      { params: { start_date: startDate, end_date: endDate } }
+    );
+    return response.data;
+  },
+
+  getPacketDrops: async (startDate: string, endDate: string) => {
+    const response = await api.get<import("@/types/report").PacketDropRecord[]>(
+      "/query/report/packet-drops",
+      { params: { start_date: startDate, end_date: endDate } }
+    );
+    return response.data;
+  },
+
+  getUptimeSummary: async (startDate: string, endDate: string) => {
+    const response = await api.get<import("@/types/report").UptimeSummaryResponse>(
+      "/query/report/uptime-summary",
+      { params: { start_date: startDate, end_date: endDate } }
+    );
+    return response.data;
+  },
+
+  getAvailability: async (startDate: string, endDate: string) => {
+    const response = await api.get<import("@/types/report").AvailabilityRecord[]>(
+      "/query/report/availability",
+      { params: { start_date: startDate, end_date: endDate } }
+    );
     return response.data;
   },
 };
