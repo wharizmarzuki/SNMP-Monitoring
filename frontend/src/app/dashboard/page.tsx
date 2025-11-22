@@ -20,8 +20,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  BarChart,
-  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -32,7 +30,7 @@ import {
   Area,
 } from "recharts";
 import { queryApi } from "@/lib/api";
-import { NetworkSummary, Alert, TopDevice, NetworkThroughput, DeviceUtilization } from "@/types";
+import { NetworkSummary, Alert, TopDevice, DeviceUtilization } from "@/types";
 
 export default function DashboardPage() {
   // Fetch network summary (Phase 3: With error handling)
@@ -59,12 +57,6 @@ export default function DashboardPage() {
     queryFn: () => queryApi.getTopDevices("memory"),
   });
 
-  // Fetch network throughput
-  const { data: networkThroughput, isLoading: throughputLoading, error: throughputError } = useQuery<NetworkThroughput[]>({
-    queryKey: ["networkThroughput"],
-    queryFn: () => queryApi.getNetworkThroughput(),
-  });
-
   // Fetch device utilization
   const { data: deviceUtilization, isLoading: utilizationLoading, error: utilizationError } = useQuery<DeviceUtilization[]>({
     queryKey: ["deviceUtilization"],
@@ -75,7 +67,6 @@ export default function DashboardPage() {
   const alerts = activeAlerts || [];
   const cpuDevices = topCpuDevices || [];
   const memoryDevices = topMemoryDevices || [];
-  const throughput = networkThroughput || [];
   const utilization = deviceUtilization || [];
 
   return (
@@ -85,7 +76,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Global Error Banner */}
-      {(summaryError || alertsError || cpuError || memoryError || throughputError || utilizationError) && (
+      {(summaryError || alertsError || cpuError || memoryError || utilizationError) && (
         <div className="p-3 bg-red-100 border border-red-300 text-red-800 rounded">
           <p className="font-semibold">Some dashboard data failed to load</p>
           <p className="text-sm mt-1">Please refresh the page. If the problem persists, contact support.</p>
@@ -243,66 +234,7 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Network Throughput */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Network Throughput</CardTitle>
-          <CardDescription>
-            Inbound and outbound traffic over time
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {throughputLoading ? (
-            <div className="h-[300px] flex items-center justify-center">
-              <p className="text-sm text-muted-foreground">Loading throughput data...</p>
-            </div>
-          ) : throughputError ? (
-            <div className="h-[300px] flex items-center justify-center">
-              <p className="text-sm text-red-600">Failed to load throughput data</p>
-            </div>
-          ) : throughput.length === 0 ? (
-            <div className="h-[300px] flex items-center justify-center">
-              <p className="text-sm text-muted-foreground">No throughput data available</p>
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={300}>
-              <AreaChart
-                data={throughput}
-                margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="timestamp"
-                  tickFormatter={(value) => new Date(value).toLocaleTimeString()}
-                />
-                <YAxis />
-                <Tooltip
-                  labelFormatter={(value) => new Date(value).toLocaleString()}
-                />
-                <Legend />
-                <Area
-                  type="monotone"
-                  dataKey="inbound_bps"
-                  stackId="1"
-                  stroke="#8884d8"
-                  fill="#8884d8"
-                  name="Inbound (bps)"
-                />
-                <Area
-                  type="monotone"
-                  dataKey="outbound_bps"
-                  stackId="1"
-                  stroke="#82ca9d"
-                  fill="#82ca9d"
-                  name="Outbound (bps)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Device Utilization Chart */}
+      {/* Device Bandwidth Utilization */}
       <Card>
         <CardHeader>
           <CardTitle>Device Bandwidth Utilization</CardTitle>
