@@ -17,6 +17,7 @@ from app.config.logging import logger
 
 from services.polling_service import perform_full_poll
 from services.discovery_service import perform_full_discovery
+from services.polling_state import get_polling_state
 
 models.Base.metadata.create_all(engine)
 
@@ -73,6 +74,8 @@ async def call_dashboard_hook():
 
 async def run_polling():
     """Run device polling every N seconds (configurable via database settings)"""
+    polling_state = get_polling_state()
+
     while True:
         db: Session = SessionLocal()
         try:
@@ -83,12 +86,25 @@ async def run_polling():
             logger.info(f"Background poller sleeping for {polling_interval} seconds...")
             await asyncio.sleep(polling_interval)
 
+            # Check if manual polling is already running
+            if await polling_state.is_polling():
+                logger.info("Skipping automatic poll - manual poll in progress")
+                continue
+
             logger.info("Background poller starting run...")
 
-            # Create SNMP client with runtime settings
-            client = get_snmp_client(db)
+            # Mark polling as active
+            await polling_state.start_polling(polling_type="automatic")
 
-            await perform_full_poll(db, client)
+            try:
+                # Create SNMP client with runtime settings
+                client = get_snmp_client(db)
+
+                await perform_full_poll(db, client)
+            finally:
+                # Always mark polling as complete
+                await polling_state.end_polling()
+
         except Exception as e:
             logger.error(f"Unhandled error in polling loop: {e}")
             db.rollback()

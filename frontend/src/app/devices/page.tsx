@@ -135,6 +135,14 @@ export default function DevicesPage() {
     },
   });
 
+  // Query polling status - check every 2 seconds
+  const { data: pollingStatus } = useQuery({
+    queryKey: ["polling-status"],
+    queryFn: () => pollingApi.getStatus(),
+    refetchInterval: 2000, // Poll every 2 seconds
+    refetchIntervalInBackground: true,
+  });
+
   // Manual polling mutation - triggers poll for ALL devices
   const manualPollMutation = useMutation({
     mutationFn: () => pollingApi.triggerPoll(),
@@ -244,10 +252,14 @@ export default function DevicesPage() {
           <Button
             variant="outline"
             onClick={() => manualPollMutation.mutate()}
-            disabled={manualPollMutation.isPending}
+            disabled={manualPollMutation.isPending || pollingStatus?.is_polling}
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${manualPollMutation.isPending ? 'animate-spin' : ''}`} />
-            {manualPollMutation.isPending ? "Polling..." : "Refresh Data"}
+            <RefreshCw className={`h-4 w-4 mr-2 ${(manualPollMutation.isPending || pollingStatus?.is_polling) ? 'animate-spin' : ''}`} />
+            {pollingStatus?.is_polling
+              ? `Polling (${pollingStatus.polling_type})...`
+              : manualPollMutation.isPending
+                ? "Polling..."
+                : "Refresh Data"}
           </Button>
 
           {/* Add Device Button */}
