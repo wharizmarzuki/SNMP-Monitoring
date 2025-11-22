@@ -42,6 +42,35 @@ A comprehensive network monitoring solution built with FastAPI and Next.js that 
 - **Data Fetching**: TanStack Query (React Query)
 - **Charts**: Recharts
 
+## Screenshots
+
+### Dashboard
+<!-- TODO: Add screenshot -->
+![Dashboard](docs/images/dashboard.png)
+*Real-time network monitoring dashboard with KPI cards, device status, and performance charts*
+
+### Device Details
+<!-- TODO: Add screenshot -->
+![Device Details](docs/images/device-details.png)
+*Comprehensive device metrics with historical data and threshold configuration*
+
+### Alert Management
+<!-- TODO: Add screenshot -->
+![Alert Management](docs/images/alerts.png)
+*Active alerts console with acknowledge and resolve capabilities*
+
+### Settings
+<!-- TODO: Add screenshot -->
+![Settings](docs/images/settings.png)
+*Configure alert recipients, thresholds, and trigger network discovery*
+
+### Login Page
+<!-- TODO: Add screenshot -->
+![Login](docs/images/login.png)
+*Secure JWT-based authentication with modern, responsive design*
+
+> **Note:** Replace placeholder images with actual screenshots by placing PNG files in `docs/images/` directory.
+
 ## Quick Start
 
 ### Prerequisites
@@ -52,6 +81,45 @@ A comprehensive network monitoring solution built with FastAPI and Next.js that 
 - Git
 - OpenSSL (for generating secure secrets)
 - Redis (optional but recommended for caching)
+
+#### Installing Python 3.12
+
+If your system doesn't have Python 3.12+, install it first:
+
+**Ubuntu/Debian:**
+```bash
+# Add deadsnakes PPA repository
+sudo add-apt-repository ppa:deadsnakes/ppa
+sudo apt update
+
+# Install Python 3.12
+sudo apt install python3.12 python3.12-venv python3.12-dev
+
+# Verify installation
+python3.12 --version
+```
+
+**macOS (with Homebrew):**
+```bash
+# Install Python 3.12
+brew install python@3.12
+
+# Verify installation
+python3.12 --version
+```
+
+**Windows:**
+Download Python 3.12+ from [python.org](https://www.python.org/downloads/) and run the installer.
+
+**Alternative - Using pyenv:**
+```bash
+# Install pyenv (if not installed)
+curl https://pyenv.run | bash
+
+# Install Python 3.12
+pyenv install 3.12
+pyenv global 3.12
+```
 
 ### Automated Setup (Recommended) 🚀
 
