@@ -206,6 +206,13 @@ class AlertResolve(BaseModel):
     reason: str | None = Field(default=None, description="Reason for resolving alert")
 
 
+class AlertAction(BaseModel):
+    """Schema for consolidated alert management endpoint"""
+    action: str = Field(..., description="Action to perform: 'acknowledge' or 'resolve'")
+    notes: str | None = Field(default=None, description="Optional notes about the action")
+    reason: str | None = Field(default=None, description="Reason for resolving (only for resolve action)")
+
+
 class MaintenanceModeUpdate(BaseModel):
     enabled: bool = Field(..., description="Enable/disable maintenance mode")
     duration_minutes: int = Field(default=60, ge=1, le=1440, description="Maintenance window duration (1-1440 minutes)")
