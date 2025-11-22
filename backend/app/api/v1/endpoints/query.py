@@ -762,7 +762,7 @@ async def get_report_uptime_summary(
     device_uptimes = db.query(
         models.Device.hostname,
         models.Device.ip_address,
-        func.avg(models.DeviceMetric.uptime).label('avg_uptime_seconds')
+        func.avg(models.DeviceMetric.uptime_seconds).label('avg_uptime_seconds')
     ).join(
         models.DeviceMetric,
         models.DeviceMetric.device_id == models.Device.id
@@ -825,7 +825,7 @@ async def get_report_availability(
         models.Device.ip_address,
         func.count(models.DeviceMetric.id).label('total_polls'),
         func.sum(case((models.Device.is_reachable == True, 1), else_=0)).label('successful_polls'),
-        func.avg(models.DeviceMetric.uptime).label('avg_uptime_seconds'),
+        func.avg(models.DeviceMetric.uptime_seconds).label('avg_uptime_seconds'),
         func.max(models.DeviceMetric.timestamp).label('last_seen')
     ).join(
         models.DeviceMetric,

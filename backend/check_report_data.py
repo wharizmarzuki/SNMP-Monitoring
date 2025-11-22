@@ -73,7 +73,7 @@ def check_report_data():
 
         # Sample data
         sample = db.query(models.DeviceMetric).first()
-        print(f"   Sample: CPU={sample.cpu_utilization}%, Memory={sample.memory_utilization}%, Uptime={sample.uptime}s")
+        print(f"   Sample: CPU={sample.cpu_utilization}%, Memory={sample.memory_utilization}%, Uptime={sample.uptime_seconds}s")
 
     # Check interface_metrics
     print(f"\n🌐 INTERFACE METRICS (Bandwidth/Packet Drops):")
