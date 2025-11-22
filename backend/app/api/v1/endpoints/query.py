@@ -594,3 +594,268 @@ async def get_active_alerts(db: Session = Depends(get_db)):
             ))
 
     return all_alerts
+
+
+# -------------------------------
+#  REPORT ENDPOINTS
+# -------------------------------
+
+@router.get("/report/network-throughput", response_model=List[schemas.NetworkThroughputDatapoint])
+async def get_report_network_throughput(
+    start_date: str,
+    end_date: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Get network-wide throughput aggregated across all interfaces for report date range.
+    Returns time series of total inbound/outbound bandwidth.
+    """
+    # Convert string dates to datetime (will be in format YYYY-MM-DDTHH:MM:SS)
+    start_dt = datetime.fromisoformat(start_date)
+    end_dt = datetime.fromisoformat(end_date)
+
+    # Query to sum throughput across all interfaces, grouped by timestamp
+    throughput_data = db.query(
+        models.InterfaceMetric.timestamp,
+        func.sum(models.InterfaceMetric.inbound_bps).label('total_inbound_bps'),
+        func.sum(models.InterfaceMetric.outbound_bps).label('total_outbound_bps')
+    ).filter(
+        models.InterfaceMetric.timestamp >= start_dt,
+        models.InterfaceMetric.timestamp <= end_dt
+    ).group_by(
+        models.InterfaceMetric.timestamp
+    ).order_by(
+        models.InterfaceMetric.timestamp.asc()
+    ).all()
+
+    results = []
+    for row in throughput_data:
+        results.append(schemas.NetworkThroughputDatapoint(
+            timestamp=to_utc_iso(row.timestamp),
+            total_inbound_bps=row.total_inbound_bps or 0.0,
+            total_outbound_bps=row.total_outbound_bps or 0.0
+        ))
+
+    return results
+
+
+@router.get("/report/device-utilization", response_model=List[schemas.ReportDeviceUtilizationDatapoint])
+async def get_report_device_utilization(
+    start_date: str,
+    end_date: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Get network-wide CPU/Memory utilization metrics for report date range.
+    Returns time series of average and max utilization across all devices.
+    """
+    start_dt = datetime.fromisoformat(start_date)
+    end_dt = datetime.fromisoformat(end_date)
+
+    # Query to get CPU/Memory stats grouped by timestamp
+    utilization_data = db.query(
+        models.DeviceMetric.timestamp,
+        func.avg(models.DeviceMetric.cpu_utilization).label('avg_cpu'),
+        func.avg(models.DeviceMetric.memory_utilization).label('avg_memory'),
+        func.max(models.DeviceMetric.cpu_utilization).label('max_cpu'),
+        func.max(models.DeviceMetric.memory_utilization).label('max_memory'),
+        func.count(func.distinct(models.DeviceMetric.device_id)).label('devices_sampled')
+    ).filter(
+        models.DeviceMetric.timestamp >= start_dt,
+        models.DeviceMetric.timestamp <= end_dt
+    ).group_by(
+        models.DeviceMetric.timestamp
+    ).order_by(
+        models.DeviceMetric.timestamp.asc()
+    ).all()
+
+    results = []
+    for row in utilization_data:
+        results.append(schemas.ReportDeviceUtilizationDatapoint(
+            timestamp=to_utc_iso(row.timestamp),
+            avg_cpu_utilization=row.avg_cpu or 0.0,
+            avg_memory_utilization=row.avg_memory or 0.0,
+            max_cpu_utilization=row.max_cpu or 0.0,
+            max_memory_utilization=row.max_memory or 0.0,
+            devices_sampled=row.devices_sampled or 0
+        ))
+
+    return results
+
+
+@router.get("/report/packet-drops", response_model=List[schemas.PacketDropRecord])
+async def get_report_packet_drops(
+    start_date: str,
+    end_date: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Get packet drop statistics by device for report date range.
+    Returns devices with highest discard rates, including errors.
+    """
+    start_dt = datetime.fromisoformat(start_date)
+    end_dt = datetime.fromisoformat(end_date)
+
+    # Query to sum discards and errors per device over the period
+    drop_stats = db.query(
+        models.Device.hostname,
+        models.Device.ip_address,
+        func.sum(models.InterfaceMetric.discards_in).label('total_discards_in'),
+        func.sum(models.InterfaceMetric.discards_out).label('total_discards_out'),
+        func.sum(models.InterfaceMetric.errors_in).label('total_errors_in'),
+        func.sum(models.InterfaceMetric.errors_out).label('total_errors_out'),
+        func.sum(models.InterfaceMetric.octets_in + models.InterfaceMetric.octets_out).label('total_octets')
+    ).join(
+        models.Interface,
+        models.Interface.device_id == models.Device.id
+    ).join(
+        models.InterfaceMetric,
+        models.InterfaceMetric.interface_id == models.Interface.id
+    ).filter(
+        models.InterfaceMetric.timestamp >= start_dt,
+        models.InterfaceMetric.timestamp <= end_dt
+    ).group_by(
+        models.Device.id,
+        models.Device.hostname,
+        models.Device.ip_address
+    ).all()
+
+    results = []
+    for row in drop_stats:
+        total_discards = (row.total_discards_in or 0) + (row.total_discards_out or 0)
+        total_octets = row.total_octets or 1  # Avoid division by zero
+
+        # Calculate discard rate as percentage
+        discard_rate_pct = (total_discards / total_octets) * 100.0 if total_octets > 0 else 0.0
+
+        # Only include devices with discards > 0
+        if total_discards > 0:
+            results.append(schemas.PacketDropRecord(
+                device_hostname=row.hostname,
+                device_ip=row.ip_address,
+                discard_rate_pct=discard_rate_pct,
+                total_discards_in=row.total_discards_in or 0.0,
+                total_discards_out=row.total_discards_out or 0.0,
+                total_errors_in=row.total_errors_in or 0.0,
+                total_errors_out=row.total_errors_out or 0.0
+            ))
+
+    # Sort by discard rate descending, limit to top 10
+    results.sort(key=lambda x: x.discard_rate_pct, reverse=True)
+    return results[:10]
+
+
+@router.get("/report/uptime-summary", response_model=schemas.UptimeSummaryResponse)
+async def get_report_uptime_summary(
+    start_date: str,
+    end_date: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Get system uptime summary for report date range.
+    Returns average uptime, longest uptime device, and recently rebooted device.
+    """
+    start_dt = datetime.fromisoformat(start_date)
+    end_dt = datetime.fromisoformat(end_date)
+
+    # Get average uptime per device in the period
+    device_uptimes = db.query(
+        models.Device.hostname,
+        models.Device.ip_address,
+        func.avg(models.DeviceMetric.uptime).label('avg_uptime_seconds')
+    ).join(
+        models.DeviceMetric,
+        models.DeviceMetric.device_id == models.Device.id
+    ).filter(
+        models.DeviceMetric.timestamp >= start_dt,
+        models.DeviceMetric.timestamp <= end_dt
+    ).group_by(
+        models.Device.id,
+        models.Device.hostname,
+        models.Device.ip_address
+    ).all()
+
+    if not device_uptimes:
+        return schemas.UptimeSummaryResponse(
+            avg_uptime_days=0.0,
+            longest_uptime={"hostname": "N/A", "ip": "N/A", "uptime_days": 0.0},
+            recently_rebooted={"hostname": "N/A", "ip": "N/A", "uptime_days": 0.0}
+        )
+
+    # Convert to days and calculate metrics
+    uptime_data = []
+    for row in device_uptimes:
+        uptime_days = (row.avg_uptime_seconds or 0) / 86400.0  # seconds to days
+        uptime_data.append({
+            "hostname": row.hostname,
+            "ip": row.ip_address,
+            "uptime_days": uptime_days
+        })
+
+    # Calculate average across all devices
+    avg_uptime_days = sum(d["uptime_days"] for d in uptime_data) / len(uptime_data)
+
+    # Find longest and shortest uptime
+    longest = max(uptime_data, key=lambda x: x["uptime_days"])
+    recently_rebooted = min(uptime_data, key=lambda x: x["uptime_days"])
+
+    return schemas.UptimeSummaryResponse(
+        avg_uptime_days=avg_uptime_days,
+        longest_uptime=longest,
+        recently_rebooted=recently_rebooted
+    )
+
+
+@router.get("/report/availability", response_model=List[schemas.AvailabilityRecord])
+async def get_report_availability(
+    start_date: str,
+    end_date: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Get device availability metrics for report date range.
+    Returns availability percentage based on reachability polls.
+    """
+    start_dt = datetime.fromisoformat(start_date)
+    end_dt = datetime.fromisoformat(end_date)
+
+    # Count reachability polls per device
+    availability_stats = db.query(
+        models.Device.hostname,
+        models.Device.ip_address,
+        func.count(models.DeviceMetric.id).label('total_polls'),
+        func.sum(case((models.Device.is_reachable == True, 1), else_=0)).label('successful_polls'),
+        func.avg(models.DeviceMetric.uptime).label('avg_uptime_seconds'),
+        func.max(models.DeviceMetric.timestamp).label('last_seen')
+    ).join(
+        models.DeviceMetric,
+        models.DeviceMetric.device_id == models.Device.id
+    ).filter(
+        models.DeviceMetric.timestamp >= start_dt,
+        models.DeviceMetric.timestamp <= end_dt
+    ).group_by(
+        models.Device.id,
+        models.Device.hostname,
+        models.Device.ip_address
+    ).all()
+
+    results = []
+    for row in availability_stats:
+        total_polls = row.total_polls or 1  # Avoid division by zero
+        successful_polls = row.successful_polls or 0
+
+        # Calculate availability percentage
+        availability_pct = (successful_polls / total_polls) * 100.0
+        avg_uptime_days = (row.avg_uptime_seconds or 0) / 86400.0
+
+        results.append(schemas.AvailabilityRecord(
+            device_hostname=row.hostname,
+            device_ip=row.ip_address,
+            availability_pct=availability_pct,
+            avg_uptime_days=avg_uptime_days,
+            last_seen=to_utc_iso(row.last_seen) if row.last_seen else to_utc_iso(datetime.utcnow())
+        ))
+
+    # Sort by availability ascending (worst first)
+    results.sort(key=lambda x: x.availability_pct)
+    return results

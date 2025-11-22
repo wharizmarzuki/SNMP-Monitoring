@@ -281,3 +281,46 @@ export const healthApi = {
     return response.data;
   },
 };
+
+// API endpoints for reports
+export const reportApi = {
+  getNetworkThroughput: async (startDate: string, endDate: string) => {
+    const response = await api.get<import("@/types/report").NetworkThroughputDatapoint[]>(
+      "/query/report/network-throughput",
+      { params: { start_date: startDate, end_date: endDate } }
+    );
+    return response.data;
+  },
+
+  getDeviceUtilization: async (startDate: string, endDate: string) => {
+    const response = await api.get<import("@/types/report").ReportDeviceUtilizationDatapoint[]>(
+      "/query/report/device-utilization",
+      { params: { start_date: startDate, end_date: endDate } }
+    );
+    return response.data;
+  },
+
+  getPacketDrops: async (startDate: string, endDate: string) => {
+    const response = await api.get<import("@/types/report").PacketDropRecord[]>(
+      "/query/report/packet-drops",
+      { params: { start_date: startDate, end_date: endDate } }
+    );
+    return response.data;
+  },
+
+  getUptimeSummary: async (startDate: string, endDate: string) => {
+    const response = await api.get<import("@/types/report").UptimeSummaryResponse>(
+      "/query/report/uptime-summary",
+      { params: { start_date: startDate, end_date: endDate } }
+    );
+    return response.data;
+  },
+
+  getAvailability: async (startDate: string, endDate: string) => {
+    const response = await api.get<import("@/types/report").AvailabilityRecord[]>(
+      "/query/report/availability",
+      { params: { start_date: startDate, end_date: endDate } }
+    );
+    return response.data;
+  },
+};

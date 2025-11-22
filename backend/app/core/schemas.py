@@ -373,3 +373,51 @@ class ApplicationSettingsUpdate(BaseModel):
     sender_password: str | None = None
     # Network Discovery
     discovery_network: str | None = None
+
+
+# -------------------------------
+# Report Schemas
+# -------------------------------
+
+class NetworkThroughputDatapoint(BaseModel):
+    """Network-wide throughput data point for reports"""
+    timestamp: datetime
+    total_inbound_bps: float
+    total_outbound_bps: float
+
+
+class ReportDeviceUtilizationDatapoint(BaseModel):
+    """Network-wide CPU/Memory utilization for reports"""
+    timestamp: datetime
+    avg_cpu_utilization: float
+    avg_memory_utilization: float
+    max_cpu_utilization: float
+    max_memory_utilization: float
+    devices_sampled: int
+
+
+class PacketDropRecord(BaseModel):
+    """Packet drop statistics by device for reports"""
+    device_hostname: str
+    device_ip: str
+    discard_rate_pct: float
+    total_discards_in: float
+    total_discards_out: float
+    total_errors_in: float
+    total_errors_out: float
+
+
+class UptimeSummaryResponse(BaseModel):
+    """System uptime summary for reports"""
+    avg_uptime_days: float
+    longest_uptime: dict  # {hostname: str, ip: str, uptime_days: float}
+    recently_rebooted: dict  # {hostname: str, ip: str, uptime_days: float}
+
+
+class AvailabilityRecord(BaseModel):
+    """Device availability metrics for reports"""
+    device_hostname: str
+    device_ip: str
+    availability_pct: float
+    avg_uptime_days: float
+    last_seen: datetime
