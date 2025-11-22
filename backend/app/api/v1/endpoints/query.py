@@ -614,29 +614,64 @@ async def get_report_network_throughput(
     start_dt = datetime.datetime.fromisoformat(start_date)
     end_dt = datetime.datetime.fromisoformat(end_date)
 
-    # Query to sum throughput across all interfaces, grouped by timestamp
-    throughput_data = db.query(
+    # Use LAG window function to calculate deltas (same logic as existing /query/network-throughput)
+    lag_subquery = select(
+        models.InterfaceMetric.interface_id,
         models.InterfaceMetric.timestamp,
-        func.sum(models.InterfaceMetric.inbound_bps).label('total_inbound_bps'),
-        func.sum(models.InterfaceMetric.outbound_bps).label('total_outbound_bps')
+        models.InterfaceMetric.octets_in,
+        models.InterfaceMetric.octets_out,
+        func.lag(models.InterfaceMetric.octets_in).over(
+            partition_by=models.InterfaceMetric.interface_id,
+            order_by=models.InterfaceMetric.timestamp
+        ).label("prev_in"),
+        func.lag(models.InterfaceMetric.octets_out).over(
+            partition_by=models.InterfaceMetric.interface_id,
+            order_by=models.InterfaceMetric.timestamp
+        ).label("prev_out"),
+        func.lag(models.InterfaceMetric.timestamp).over(
+            partition_by=models.InterfaceMetric.interface_id,
+            order_by=models.InterfaceMetric.timestamp
+        ).label("prev_timestamp")
     ).filter(
         models.InterfaceMetric.timestamp >= start_dt,
         models.InterfaceMetric.timestamp <= end_dt
-    ).group_by(
-        models.InterfaceMetric.timestamp
-    ).order_by(
-        models.InterfaceMetric.timestamp.asc()
-    ).all()
+    ).subquery()
 
-    results = []
-    for row in throughput_data:
-        results.append(schemas.NetworkThroughputDatapoint(
-            timestamp=to_utc_iso(row.timestamp),
-            total_inbound_bps=row.total_inbound_bps or 0.0,
-            total_outbound_bps=row.total_outbound_bps or 0.0
+    # Calculate deltas with counter wrap detection
+    delta_subquery = select(
+        lag_subquery.c.interface_id,
+        lag_subquery.c.timestamp,
+        case(
+            (lag_subquery.c.octets_in >= lag_subquery.c.prev_in,
+             lag_subquery.c.octets_in - lag_subquery.c.prev_in),
+            else_=(2**32 + lag_subquery.c.octets_in - lag_subquery.c.prev_in)
+        ).label("delta_in"),
+        case(
+            (lag_subquery.c.octets_out >= lag_subquery.c.prev_out,
+             lag_subquery.c.octets_out - lag_subquery.c.prev_out),
+            else_=(2**32 + lag_subquery.c.octets_out - lag_subquery.c.prev_out)
+        ).label("delta_out"),
+        func.extract("epoch", lag_subquery.c.timestamp - lag_subquery.c.prev_timestamp).label("delta_seconds")
+    ).filter(lag_subquery.c.prev_timestamp != None).subquery()
+
+    # Aggregate throughput across all interfaces per timestamp
+    results = db.query(
+        delta_subquery.c.timestamp,
+        (func.sum(delta_subquery.c.delta_in) * 8 / func.avg(delta_subquery.c.delta_seconds)).label("inbound_bps"),
+        (func.sum(delta_subquery.c.delta_out) * 8 / func.avg(delta_subquery.c.delta_seconds)).label("outbound_bps")
+    ).group_by(delta_subquery.c.timestamp)\
+     .order_by(delta_subquery.c.timestamp.asc())\
+     .all()
+
+    output = []
+    for ts, bps_in, bps_out in results:
+        output.append(schemas.NetworkThroughputDatapoint(
+            timestamp=to_utc_iso(ts),
+            total_inbound_bps=bps_in if bps_in and bps_in > 0 else 0.0,
+            total_outbound_bps=bps_out if bps_out and bps_out > 0 else 0.0
         ))
 
-    return results
+    return output
 
 
 @router.get("/report/device-utilization", response_model=List[schemas.ReportDeviceUtilizationDatapoint])
