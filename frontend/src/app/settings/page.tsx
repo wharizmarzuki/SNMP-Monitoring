@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Card,
@@ -19,9 +19,10 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trash2, Plus, Loader2, Activity, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
-import { deviceApi, configApi, healthApi } from "@/lib/api";
+import { Trash2, Plus, Loader2, Activity, CheckCircle2, XCircle, AlertCircle, Save } from "lucide-react";
+import { deviceApi, configApi, healthApi, ApplicationSettings, ApplicationSettingsUpdate } from "@/lib/api";
 import { Recipient } from "@/types";
 
 export default function SettingsPage() {
@@ -35,6 +36,22 @@ export default function SettingsPage() {
   const [networkIp, setNetworkIp] = useState("192.168.254.1");
   const [subnet, setSubnet] = useState("27");
 
+  // Application settings state
+  const [settingsForm, setSettingsForm] = useState<ApplicationSettings | null>(null);
+
+  // Fetch application settings
+  const { data: appSettings, isLoading: settingsLoading } = useQuery<ApplicationSettings>({
+    queryKey: ["applicationSettings"],
+    queryFn: () => configApi.getSettings(),
+  });
+
+  // Initialize form when settings are loaded
+  useEffect(() => {
+    if (appSettings) {
+      setSettingsForm(appSettings);
+    }
+  }, [appSettings]);
+
   // Fetch recipients
   const { data: recipients = [], error: recipientsError } = useQuery<Recipient[]>({
     queryKey: ["recipients"],
@@ -46,6 +63,24 @@ export default function SettingsPage() {
     queryKey: ["systemHealth"],
     queryFn: () => healthApi.getServices(),
     refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
+  // Update settings mutation
+  const updateSettingsMutation = useMutation({
+    mutationFn: (settings: ApplicationSettingsUpdate) => configApi.updateSettings(settings),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["applicationSettings"] });
+      setSettingsForm(data);
+      setActionError(null);
+      setActionSuccess("Settings updated successfully");
+      setTimeout(() => setActionSuccess(null), 3000);
+    },
+    onError: (error: any) => {
+      console.error("Error updating settings:", error);
+      setActionSuccess(null);
+      const errorMessage = error.message || "Failed to update settings. Please try again.";
+      setActionError(errorMessage);
+    },
   });
 
   // Add recipient mutation
@@ -129,6 +164,36 @@ export default function SettingsPage() {
     runDiscoveryMutation.mutate({ network: networkIp, subnet: subnet });
   };
 
+  const handleSaveEmailSettings = () => {
+    if (!settingsForm) return;
+
+    updateSettingsMutation.mutate({
+      smtp_server: settingsForm.smtp_server,
+      smtp_port: settingsForm.smtp_port,
+      sender_email: settingsForm.sender_email,
+      sender_password: settingsForm.sender_password,
+    });
+  };
+
+  const handleSavePollingSettings = () => {
+    if (!settingsForm) return;
+
+    updateSettingsMutation.mutate({
+      snmp_community: settingsForm.snmp_community,
+      snmp_timeout: settingsForm.snmp_timeout,
+      snmp_retries: settingsForm.snmp_retries,
+      polling_interval: settingsForm.polling_interval,
+      discovery_concurrency: settingsForm.discovery_concurrency,
+      polling_concurrency: settingsForm.polling_concurrency,
+    });
+  };
+
+  const updateFormField = (field: keyof ApplicationSettings, value: any) => {
+    if (settingsForm) {
+      setSettingsForm({ ...settingsForm, [field]: value });
+    }
+  };
+
   return (
     <div className="flex-1 space-y-4 p-8 pt-6">
       <div className="flex items-center justify-between space-y-2">
@@ -156,15 +221,99 @@ export default function SettingsPage() {
         </div>
       )}
 
-      <Tabs defaultValue="recipients" className="space-y-4">
+      <Tabs defaultValue="email" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="recipients">Alert Recipients</TabsTrigger>
+          <TabsTrigger value="email">Email</TabsTrigger>
           <TabsTrigger value="discovery">Discovery</TabsTrigger>
+          <TabsTrigger value="polling">Polling</TabsTrigger>
           <TabsTrigger value="health">System Health</TabsTrigger>
         </TabsList>
 
-        {/* Alert Recipients Tab */}
-        <TabsContent value="recipients" className="space-y-4">
+        {/* Email Tab (renamed from Alert Recipients) */}
+        <TabsContent value="email" className="space-y-4">
+          {/* SMTP Configuration Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Email/SMTP Configuration</CardTitle>
+              <CardDescription>
+                Configure SMTP server settings for sending alert notifications
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {settingsLoading ? (
+                <p className="text-sm text-muted-foreground">Loading settings...</p>
+              ) : settingsForm ? (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="smtp-server">SMTP Server</Label>
+                      <Input
+                        id="smtp-server"
+                        type="text"
+                        value={settingsForm.smtp_server}
+                        onChange={(e) => updateFormField("smtp_server", e.target.value)}
+                        placeholder="smtp.gmail.com"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="smtp-port">SMTP Port</Label>
+                      <Input
+                        id="smtp-port"
+                        type="number"
+                        value={settingsForm.smtp_port}
+                        onChange={(e) => updateFormField("smtp_port", parseInt(e.target.value))}
+                        placeholder="587"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="sender-email">Sender Email</Label>
+                      <Input
+                        id="sender-email"
+                        type="email"
+                        value={settingsForm.sender_email || ""}
+                        onChange={(e) => updateFormField("sender_email", e.target.value)}
+                        placeholder="alerts@example.com"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="sender-password">Sender Password</Label>
+                      <Input
+                        id="sender-password"
+                        type="password"
+                        value={settingsForm.sender_password || ""}
+                        onChange={(e) => updateFormField("sender_password", e.target.value)}
+                        placeholder="App-specific password"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end">
+                    <Button
+                      onClick={handleSaveEmailSettings}
+                      disabled={updateSettingsMutation.isPending}
+                    >
+                      {updateSettingsMutation.isPending ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="h-4 w-4 mr-2" />
+                          Save Email Settings
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-red-600">Failed to load settings</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Alert Recipients Card */}
           <Card>
             <CardHeader>
               <CardTitle>Alert Recipients</CardTitle>
@@ -223,7 +372,7 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
 
-        {/* Discovery Tab */}
+        {/* Discovery Tab (unchanged) */}
         <TabsContent value="discovery" className="space-y-4">
           <Card>
             <CardHeader>
@@ -314,7 +463,151 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
 
-        {/* System Health Tab */}
+        {/* Polling Tab (NEW) */}
+        <TabsContent value="polling" className="space-y-4">
+          {/* SNMP Settings Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle>SNMP Settings</CardTitle>
+              <CardDescription>
+                Configure SNMP connection parameters for device polling
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {settingsLoading ? (
+                <p className="text-sm text-muted-foreground">Loading settings...</p>
+              ) : settingsForm ? (
+                <>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="snmp-community">Community String</Label>
+                      <Input
+                        id="snmp-community"
+                        type="text"
+                        value={settingsForm.snmp_community}
+                        onChange={(e) => updateFormField("snmp_community", e.target.value)}
+                        placeholder="public"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="snmp-timeout">Timeout (seconds)</Label>
+                      <Input
+                        id="snmp-timeout"
+                        type="number"
+                        min="1"
+                        max="60"
+                        value={settingsForm.snmp_timeout}
+                        onChange={(e) => updateFormField("snmp_timeout", parseInt(e.target.value))}
+                        placeholder="10"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="snmp-retries">Retries</Label>
+                      <Input
+                        id="snmp-retries"
+                        type="number"
+                        min="0"
+                        max="10"
+                        value={settingsForm.snmp_retries}
+                        onChange={(e) => updateFormField("snmp_retries", parseInt(e.target.value))}
+                        placeholder="3"
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-red-600">Failed to load settings</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Polling Settings Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Polling Settings</CardTitle>
+              <CardDescription>
+                Configure device polling and discovery concurrency settings
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {settingsLoading ? (
+                <p className="text-sm text-muted-foreground">Loading settings...</p>
+              ) : settingsForm ? (
+                <>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="polling-interval">Polling Interval (seconds)</Label>
+                      <Input
+                        id="polling-interval"
+                        type="number"
+                        min="10"
+                        max="3600"
+                        value={settingsForm.polling_interval}
+                        onChange={(e) => updateFormField("polling_interval", parseInt(e.target.value))}
+                        placeholder="60"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        How often to poll all devices (10-3600 seconds)
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="discovery-concurrency">Discovery Concurrency</Label>
+                      <Input
+                        id="discovery-concurrency"
+                        type="number"
+                        min="1"
+                        max="100"
+                        value={settingsForm.discovery_concurrency}
+                        onChange={(e) => updateFormField("discovery_concurrency", parseInt(e.target.value))}
+                        placeholder="20"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Max parallel discovery operations (1-100)
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="polling-concurrency">Polling Concurrency</Label>
+                      <Input
+                        id="polling-concurrency"
+                        type="number"
+                        min="1"
+                        max="100"
+                        value={settingsForm.polling_concurrency}
+                        onChange={(e) => updateFormField("polling_concurrency", parseInt(e.target.value))}
+                        placeholder="20"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Max parallel polling operations (1-100)
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex justify-end">
+                    <Button
+                      onClick={handleSavePollingSettings}
+                      disabled={updateSettingsMutation.isPending}
+                    >
+                      {updateSettingsMutation.isPending ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="h-4 w-4 mr-2" />
+                          Save Polling Settings
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-red-600">Failed to load settings</p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* System Health Tab (unchanged) */}
         <TabsContent value="health" className="space-y-4">
           <Card>
             <CardHeader>

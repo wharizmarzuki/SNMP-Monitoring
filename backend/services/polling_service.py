@@ -6,7 +6,7 @@ from app.core import database, models, schemas
 from services.snmp_service import get_snmp_data, bulk_snmp_walk, SNMPClient, get_snmp_client
 from services.device_service import SQLAlchemyDeviceRepository, insert_device_metric
 from services.alert_service import AlertEvaluator
-from app.config.settings import settings
+from app.config.settings import settings, get_runtime_settings
 from app.config.logging import logger
 
 # ---
@@ -216,6 +216,10 @@ async def perform_full_poll(db: Session, client: SNMPClient):
     """
     logger.info("Starting scheduled full poll...")
     try:
+        # Get runtime settings (database takes priority over .env)
+        runtime_config = get_runtime_settings(db)
+        polling_concurrency = runtime_config["polling_concurrency"]
+
         # Use main session only to fetch device IDs (read-only operation)
         all_devices = db.query(models.Device).all()
         device_ids = [d.id for d in all_devices]
@@ -224,7 +228,7 @@ async def perform_full_poll(db: Session, client: SNMPClient):
             logger.info("No devices in database to poll.")
             return
 
-        semaphore = asyncio.Semaphore(settings.polling_concurrency)
+        semaphore = asyncio.Semaphore(polling_concurrency)
         successful_polls = 0
         failed_polls = 0
 

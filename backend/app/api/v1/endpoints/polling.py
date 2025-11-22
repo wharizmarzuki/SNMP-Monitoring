@@ -18,12 +18,15 @@ get_db = database.get_db
 
 
 @router.get("/")
-async def poll_all_device_api(db: Session = Depends(get_db), client: SNMPClient = Depends(get_snmp_client)):
+async def poll_all_device_api(db: Session = Depends(get_db)):
     """
     API Endpoint to manually trigger a full device poll.
     This is now a "dumb" wrapper that calls the polling service.
     """
     try:
+        # Get SNMP client with runtime settings from database
+        client = get_snmp_client(db)
+
         # This endpoint is now just a simple wrapper
         await perform_full_poll(db, client)
         return {"message": "Full device poll triggered successfully."}

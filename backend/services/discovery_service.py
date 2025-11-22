@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.core import database, models, schemas
 from services.snmp_service import SNMPClient, device_discovery
 from services.device_service import DeviceRepository, SQLAlchemyDeviceRepository
-from app.config.settings import settings
+from app.config.settings import settings, get_runtime_settings
 from app.config.logging import logger
 
 def get_repository(db: Session) -> DeviceRepository:
@@ -20,6 +20,10 @@ async def perform_full_discovery(db: Session, client: SNMPClient, network: str, 
     """
     logger.info(f"Starting background discovery scan on {network}/{subnet}...")
 
+    # Get runtime settings (database takes priority over .env)
+    runtime_config = get_runtime_settings(db)
+    discovery_concurrency = runtime_config["discovery_concurrency"]
+
     try:
         network_addr = ipaddress.IPv4Network(f"{network}/{subnet}", strict=False)
         host_addresses = [str(ip) for ip in network_addr.hosts()]
@@ -27,7 +31,7 @@ async def perform_full_discovery(db: Session, client: SNMPClient, network: str, 
         logger.error(f"Invalid network/subnet provided for discovery: {e}")
         return {"total_scanned": 0, "devices_found": 0, "devices": []}  # Return an empty result
 
-    semaphore = asyncio.Semaphore(settings.discovery_concurrency)
+    semaphore = asyncio.Semaphore(discovery_concurrency)
 
     async def limited_discovery(ip):
         """

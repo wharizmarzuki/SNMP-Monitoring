@@ -159,3 +159,57 @@ class Settings(BaseSettings):
     )
 
 settings = Settings()
+
+
+def get_settings():
+    """Get settings singleton instance (from .env)"""
+    return settings
+
+
+def get_runtime_settings(db_session=None):
+    """
+    Get runtime settings with database priority.
+
+    If db_session is provided, tries to load settings from database first.
+    Falls back to .env settings if database settings don't exist.
+
+    Returns a dictionary with current settings values.
+    """
+    from app.core import models
+
+    # Start with .env defaults
+    runtime_settings = {
+        "snmp_community": settings.snmp_community,
+        "snmp_timeout": settings.snmp_timeout,
+        "snmp_retries": settings.snmp_retries,
+        "polling_interval": settings.polling_interval,
+        "discovery_concurrency": settings.discovery_concurrency,
+        "polling_concurrency": settings.polling_concurrency,
+        "smtp_server": settings.smtp_server,
+        "smtp_port": settings.smtp_port,
+        "sender_email": settings.sender_email,
+        "sender_password": settings.sender_password,
+        "discovery_network": settings.discovery_network,
+    }
+
+    # Try to override with database settings if available
+    if db_session:
+        try:
+            db_settings = db_session.query(models.ApplicationSettings).first()
+            if db_settings:
+                runtime_settings["snmp_community"] = db_settings.snmp_community
+                runtime_settings["snmp_timeout"] = db_settings.snmp_timeout
+                runtime_settings["snmp_retries"] = db_settings.snmp_retries
+                runtime_settings["polling_interval"] = db_settings.polling_interval
+                runtime_settings["discovery_concurrency"] = db_settings.discovery_concurrency
+                runtime_settings["polling_concurrency"] = db_settings.polling_concurrency
+                runtime_settings["smtp_server"] = db_settings.smtp_server
+                runtime_settings["smtp_port"] = db_settings.smtp_port
+                runtime_settings["sender_email"] = db_settings.sender_email or runtime_settings["sender_email"]
+                runtime_settings["sender_password"] = db_settings.sender_password or runtime_settings["sender_password"]
+                runtime_settings["discovery_network"] = db_settings.discovery_network or runtime_settings["discovery_network"]
+        except Exception:
+            # If database query fails, just use .env settings
+            pass
+
+    return runtime_settings

@@ -133,6 +133,37 @@ export const deviceApi = {
   },
 };
 
+// Types for application settings
+export interface ApplicationSettings {
+  id: number;
+  snmp_community: string;
+  snmp_timeout: number;
+  snmp_retries: number;
+  polling_interval: number;
+  discovery_concurrency: number;
+  polling_concurrency: number;
+  smtp_server: string;
+  smtp_port: number;
+  sender_email: string | null;
+  sender_password: string | null;
+  discovery_network: string | null;
+  updated_at: string;
+}
+
+export interface ApplicationSettingsUpdate {
+  snmp_community?: string;
+  snmp_timeout?: number;
+  snmp_retries?: number;
+  polling_interval?: number;
+  discovery_concurrency?: number;
+  polling_concurrency?: number;
+  smtp_server?: string;
+  smtp_port?: number;
+  sender_email?: string;
+  sender_password?: string;
+  discovery_network?: string;
+}
+
 // API endpoints for configuration with proper typing
 export const configApi = {
   getRecipients: async () => {
@@ -147,6 +178,16 @@ export const configApi = {
 
   deleteRecipient: async (id: number) => {
     await api.delete(`/recipients/${id}`);
+  },
+
+  getSettings: async () => {
+    const response = await api.get<ApplicationSettings>("/settings/");
+    return response.data;
+  },
+
+  updateSettings: async (settings: ApplicationSettingsUpdate) => {
+    const response = await api.patch<ApplicationSettings>("/settings/", settings);
+    return response.data;
   },
 };
 

@@ -128,6 +128,39 @@ class AlertRecipient(Base):
     email: Mapped[str] = mapped_column(String, unique=True, index=True)
 
 
+class ApplicationSettings(Base):
+    """Application-wide configuration settings"""
+    __tablename__ = "application_settings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+
+    # SNMP Settings
+    snmp_community: Mapped[str] = mapped_column(String, default="public")
+    snmp_timeout: Mapped[int] = mapped_column(Integer, default=10)
+    snmp_retries: Mapped[int] = mapped_column(Integer, default=3)
+
+    # Polling Settings
+    polling_interval: Mapped[int] = mapped_column(Integer, default=60)
+    discovery_concurrency: Mapped[int] = mapped_column(Integer, default=20)
+    polling_concurrency: Mapped[int] = mapped_column(Integer, default=20)
+
+    # Email/SMTP Settings
+    smtp_server: Mapped[str] = mapped_column(String, default="smtp.gmail.com")
+    smtp_port: Mapped[int] = mapped_column(Integer, default=587)
+    sender_email: Mapped[str | None] = mapped_column(String)
+    sender_password: Mapped[str | None] = mapped_column(String)
+
+    # Network Discovery
+    discovery_network: Mapped[str | None] = mapped_column(String)
+
+    # Timestamps
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now()
+    )
+
+
 class User(Base):
     """User model for authentication"""
     __tablename__ = "users"

@@ -3,7 +3,7 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Pencil, Trash2, RefreshCw, Wrench } from "lucide-react";
+import { ArrowLeft, Pencil, Trash2, Wrench } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -45,7 +45,7 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from "recharts";
-import { deviceApi, queryApi, pollingApi } from "@/lib/api";
+import { deviceApi, queryApi } from "@/lib/api";
 import { Device, DeviceMetric, InterfaceMetric } from "@/types";
 
 // Helper function to format bytes to human-readable format
@@ -203,23 +203,6 @@ export default function DeviceDetailPage() {
     },
   });
 
-  // Manual polling mutation
-  const manualPollMutation = useMutation({
-    mutationFn: () => pollingApi.triggerPoll(),
-    onSuccess: () => {
-      setUpdateSuccess("Manual poll triggered! Data will refresh shortly.");
-      setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: ["device", ip] });
-        queryClient.invalidateQueries({ queryKey: ["deviceMetrics", ip] });
-        queryClient.invalidateQueries({ queryKey: ["deviceInterfaces", ip] });
-        setUpdateSuccess(null);
-      }, 3000);
-    },
-    onError: (error: any) => {
-      setUpdateError(error.message || "Failed to trigger manual poll");
-    },
-  });
-
   const handleUpdateThresholds = () => {
     setUpdateError(null);
     setUpdateSuccess(null);
@@ -295,25 +278,14 @@ export default function DeviceDetailPage() {
           Back to Devices
         </Button>
 
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => manualPollMutation.mutate()}
-            disabled={manualPollMutation.isPending}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${manualPollMutation.isPending ? 'animate-spin' : ''}`} />
-            {manualPollMutation.isPending ? "Polling..." : "Refresh Data"}
-          </Button>
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={() => setDeleteDialogOpen(true)}
-          >
-            <Trash2 className="h-4 w-4 mr-2" />
-            Delete Device
-          </Button>
-        </div>
+        <Button
+          variant="destructive"
+          size="sm"
+          onClick={() => setDeleteDialogOpen(true)}
+        >
+          <Trash2 className="h-4 w-4 mr-2" />
+          Delete Device
+        </Button>
       </div>
 
       <div className="flex items-center justify-between space-y-2">

@@ -311,3 +311,46 @@ class InterfaceThresholdResponse(BaseModel):
     if_name: str | None
     packet_drop_threshold: float
     model_config = ConfigDict(from_attributes=True)
+
+
+class ApplicationSettingsResponse(BaseModel):
+    """Response schema for application settings"""
+    id: int
+    # SNMP Settings
+    snmp_community: str
+    snmp_timeout: int
+    snmp_retries: int
+    # Polling Settings
+    polling_interval: int
+    discovery_concurrency: int
+    polling_concurrency: int
+    # Email/SMTP Settings
+    smtp_server: str
+    smtp_port: int
+    sender_email: str | None
+    sender_password: str | None  # Will be masked in response
+    # Network Discovery
+    discovery_network: str | None
+    # Timestamps
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ApplicationSettingsUpdate(BaseModel):
+    """Update schema for application settings - all fields optional"""
+    # SNMP Settings
+    snmp_community: str | None = None
+    snmp_timeout: int | None = Field(None, ge=1, le=60)
+    snmp_retries: int | None = Field(None, ge=0, le=10)
+    # Polling Settings
+    polling_interval: int | None = Field(None, ge=10, le=3600)
+    discovery_concurrency: int | None = Field(None, ge=1, le=100)
+    polling_concurrency: int | None = Field(None, ge=1, le=100)
+    # Email/SMTP Settings
+    smtp_server: str | None = None
+    smtp_port: int | None = Field(None, ge=1, le=65535)
+    sender_email: str | None = None
+    sender_password: str | None = None
+    # Network Discovery
+    discovery_network: str | None = None
