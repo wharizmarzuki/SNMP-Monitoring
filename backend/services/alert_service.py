@@ -44,10 +44,46 @@ class AlertEvaluator:
                 # First time exceeding, send alert
                 logger.warning(f"⚠️ ALERT: {device.hostname} High CPU: {current_val}%")
 
-                subject = f"🔥 CPU Alert: {device.hostname}"
-                body = (f"Critical Alert on {device.hostname} ({device.ip_address})\n\n"
-                        f"Current CPU: {current_val}%\n"
-                        f"Threshold: {device.cpu_threshold}%")
+                timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+                exceeded_by = round(current_val - device.cpu_threshold, 2)
+
+                subject = f"[CRITICAL] CPU Usage Alert - {device.hostname}"
+                body = f"""Dear Network Administrator,
+
+This is an automated alert from your SNMP Network Monitoring System.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ALERT DETAILS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Alert Type:          CPU Threshold Exceeded
+Severity:            CRITICAL
+Device Name:         {device.hostname}
+IP Address:          {device.ip_address}
+Timestamp:           {timestamp}
+
+METRICS:
+  Current CPU Usage:     {current_val}%
+  Configured Threshold:  {device.cpu_threshold}%
+  Exceeded By:          {exceeded_by}%
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  RECOMMENDED ACTIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Check running processes on the device
+2. Verify if any scheduled tasks or backups are running
+3. Review system logs for unusual activity
+4. Consider scaling resources if this is a recurring issue
+5. Acknowledge this alert in the monitoring dashboard once addressed
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This is an automated notification. Please do not reply to this email.
+To manage alert settings, log in to your SNMP Monitoring Dashboard.
+
+Best regards,
+SNMP Network Monitoring System"""
 
                 AlertEvaluator._notify(subject, body, db)
 
@@ -66,8 +102,40 @@ class AlertEvaluator:
                 # Was in alert, now recovered
                 logger.info(f"✅ RECOVERY: {device.hostname} CPU Normal")
 
-                subject = f"✅ CPU Recovered: {device.hostname}"
-                body = f"CPU usage on {device.hostname} has returned to normal ({current_val}%)."
+                timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+                subject = f"[RESOLVED] CPU Usage Normal - {device.hostname}"
+                body = f"""Dear Network Administrator,
+
+Good news! Your SNMP Network Monitoring System has detected a recovery.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  RECOVERY DETAILS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Alert Type:          CPU Usage Recovered
+Severity:            INFORMATIONAL
+Device Name:         {device.hostname}
+IP Address:          {device.ip_address}
+Timestamp:           {timestamp}
+
+METRICS:
+  Current CPU Usage:     {current_val}%
+  Configured Threshold:  {device.cpu_threshold}%
+  Status:               NORMAL
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The CPU usage has returned to normal levels. No further action is required.
+The alert has been automatically cleared in the system.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This is an automated notification. Please do not reply to this email.
+To manage alert settings, log in to your SNMP Monitoring Dashboard.
+
+Best regards,
+SNMP Network Monitoring System"""
 
                 AlertEvaluator._notify(subject, body, db)
 
@@ -97,10 +165,46 @@ class AlertEvaluator:
                 # First time exceeding, send alert
                 logger.warning(f"⚠️ ALERT: {device.hostname} High Memory: {current_val}%")
 
-                subject = f"🔥 Memory Alert: {device.hostname}"
-                body = (f"Critical Alert on {device.hostname} ({device.ip_address})\n\n"
-                        f"Current Memory: {current_val}%\n"
-                        f"Threshold: {device.memory_threshold}%")
+                timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+                exceeded_by = round(current_val - device.memory_threshold, 2)
+
+                subject = f"[CRITICAL] Memory Usage Alert - {device.hostname}"
+                body = f"""Dear Network Administrator,
+
+This is an automated alert from your SNMP Network Monitoring System.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ALERT DETAILS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Alert Type:          Memory Threshold Exceeded
+Severity:            CRITICAL
+Device Name:         {device.hostname}
+IP Address:          {device.ip_address}
+Timestamp:           {timestamp}
+
+METRICS:
+  Current Memory Usage:  {current_val}%
+  Configured Threshold:  {device.memory_threshold}%
+  Exceeded By:          {exceeded_by}%
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  RECOMMENDED ACTIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Identify memory-intensive processes
+2. Check for memory leaks in applications
+3. Review recent configuration changes
+4. Consider clearing cache or restarting services
+5. Acknowledge this alert in the monitoring dashboard once addressed
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This is an automated notification. Please do not reply to this email.
+To manage alert settings, log in to your SNMP Monitoring Dashboard.
+
+Best regards,
+SNMP Network Monitoring System"""
 
                 AlertEvaluator._notify(subject, body, db)
 
@@ -119,8 +223,40 @@ class AlertEvaluator:
                 # Was in alert, now recovered
                 logger.info(f"✅ RECOVERY: {device.hostname} Memory Normal")
 
-                subject = f"✅ Memory Recovered: {device.hostname}"
-                body = f"Memory usage on {device.hostname} has returned to normal ({current_val}%)."
+                timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+                subject = f"[RESOLVED] Memory Usage Normal - {device.hostname}"
+                body = f"""Dear Network Administrator,
+
+Good news! Your SNMP Network Monitoring System has detected a recovery.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  RECOVERY DETAILS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Alert Type:          Memory Usage Recovered
+Severity:            INFORMATIONAL
+Device Name:         {device.hostname}
+IP Address:          {device.ip_address}
+Timestamp:           {timestamp}
+
+METRICS:
+  Current Memory Usage:  {current_val}%
+  Configured Threshold:  {device.memory_threshold}%
+  Status:               NORMAL
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The memory usage has returned to normal levels. No further action is required.
+The alert has been automatically cleared in the system.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This is an automated notification. Please do not reply to this email.
+To manage alert settings, log in to your SNMP Monitoring Dashboard.
+
+Best regards,
+SNMP Network Monitoring System"""
 
                 AlertEvaluator._notify(subject, body, db)
 
@@ -156,17 +292,55 @@ class AlertEvaluator:
                     f"after {device.consecutive_failures} consecutive failures"
                 )
 
-                subject = f"🔴 Device Unreachable: {device.hostname}"
-                body = (
-                    f"Critical Alert: Device is UNREACHABLE\n\n"
-                    f"Device: {device.hostname}\n"
-                    f"IP Address: {device.ip_address}\n"
-                    f"Consecutive Failures: {device.consecutive_failures}\n"
-                    f"Last Successful Poll: {device.last_poll_success}\n"
-                    f"Last Poll Attempt: {device.last_poll_attempt}\n\n"
-                    f"The device has failed to respond to SNMP polls. "
-                    f"Please check network connectivity and device status."
-                )
+                timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+                last_success = device.last_poll_success.strftime("%Y-%m-%d %H:%M:%S UTC") if device.last_poll_success else "Never"
+                last_attempt = device.last_poll_attempt.strftime("%Y-%m-%d %H:%M:%S UTC") if device.last_poll_attempt else "Unknown"
+
+                subject = f"[CRITICAL] Device Unreachable - {device.hostname}"
+                body = f"""Dear Network Administrator,
+
+This is an automated alert from your SNMP Network Monitoring System.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ALERT DETAILS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Alert Type:          Device Connectivity Loss
+Severity:            CRITICAL
+Device Name:         {device.hostname}
+IP Address:          {device.ip_address}
+Timestamp:           {timestamp}
+
+CONNECTIVITY STATUS:
+  Status:                    UNREACHABLE
+  Consecutive Failures:      {device.consecutive_failures}
+  Last Successful Poll:      {last_success}
+  Last Poll Attempt:         {last_attempt}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  RECOMMENDED ACTIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+IMMEDIATE:
+1. Verify physical connectivity to the device
+2. Check if the device is powered on
+3. Ping the device to confirm network connectivity
+4. Review firewall rules and SNMP configuration
+
+FOLLOW-UP:
+5. Check network switch port status
+6. Verify VLAN and routing configuration
+7. Review recent network changes
+8. If issue persists, schedule on-site investigation
+9. Acknowledge this alert in the monitoring dashboard once addressed
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This is an automated notification. Please do not reply to this email.
+To manage alert settings, log in to your SNMP Monitoring Dashboard.
+
+Best regards,
+SNMP Network Monitoring System"""
 
                 AlertEvaluator._notify(subject, body, db)
 
@@ -187,14 +361,41 @@ class AlertEvaluator:
                     f"✅ RECOVERY: {device.hostname} ({device.ip_address}) is REACHABLE again"
                 )
 
-                subject = f"✅ Device Recovered: {device.hostname}"
-                body = (
-                    f"Recovery Alert: Device is REACHABLE\n\n"
-                    f"Device: {device.hostname}\n"
-                    f"IP Address: {device.ip_address}\n"
-                    f"Last Successful Poll: {device.last_poll_success}\n\n"
-                    f"The device is responding to SNMP polls again."
-                )
+                timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+                last_success = device.last_poll_success.strftime("%Y-%m-%d %H:%M:%S UTC") if device.last_poll_success else "Just now"
+
+                subject = f"[RESOLVED] Device Recovered - {device.hostname}"
+                body = f"""Dear Network Administrator,
+
+Good news! Your SNMP Network Monitoring System has detected a recovery.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  RECOVERY DETAILS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Alert Type:          Device Connectivity Restored
+Severity:            INFORMATIONAL
+Device Name:         {device.hostname}
+IP Address:          {device.ip_address}
+Timestamp:           {timestamp}
+
+CONNECTIVITY STATUS:
+  Status:                   REACHABLE
+  Last Successful Poll:     {last_success}
+  Consecutive Failures:    0 (Reset)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The device is now responding to SNMP polls again. No further action is required.
+The alert has been automatically cleared in the system.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This is an automated notification. Please do not reply to this email.
+To manage alert settings, log in to your SNMP Monitoring Dashboard.
+
+Best regards,
+SNMP Network Monitoring System"""
 
                 AlertEvaluator._notify(subject, body, db)
 
@@ -250,15 +451,91 @@ class AlertEvaluator:
 
         # --- Send Bundled Emails ---
         if alerts_triggered:
-            subject = f"🔥 Interface Alert(s) for {device.hostname}"
-            body = f"The following interface alerts were triggered on {device.hostname} ({device.ip_address}):\n\n"
-            body += "\n".join(f"- {msg}" for msg in alerts_triggered)
+            timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+            alert_count = len(alerts_triggered)
+
+            subject = f"[CRITICAL] Interface Alert(s) - {device.hostname}"
+            body = f"""Dear Network Administrator,
+
+This is an automated alert from your SNMP Network Monitoring System.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ALERT DETAILS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Alert Type:          Interface Alert(s)
+Severity:            CRITICAL
+Device Name:         {device.hostname}
+IP Address:          {device.ip_address}
+Timestamp:           {timestamp}
+Alert Count:         {alert_count}
+
+AFFECTED INTERFACE(S):
+"""
+            for msg in alerts_triggered:
+                body += f"  • {msg}\n"
+
+            body += f"""
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  RECOMMENDED ACTIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Check physical cable connections for affected interfaces
+2. Verify switch port configuration and status
+3. Review interface error counters and logs
+4. Check for network loops or broadcast storms
+5. Verify VLAN and trunk configuration
+6. Acknowledge alerts in the monitoring dashboard once addressed
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This is an automated notification. Please do not reply to this email.
+To manage alert settings, log in to your SNMP Monitoring Dashboard.
+
+Best regards,
+SNMP Network Monitoring System"""
+
             AlertEvaluator._notify(subject, body, db)
 
         if recoveries_triggered:
-            subject = f"✅ Interface Recovery for {device.hostname}"
-            body = f"The following interface recoveries occurred on {device.hostname} ({device.ip_address}):\n\n"
-            body += "\n".join(f"- {msg}" for msg in recoveries_triggered)
+            timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+            recovery_count = len(recoveries_triggered)
+
+            subject = f"[RESOLVED] Interface Recovery - {device.hostname}"
+            body = f"""Dear Network Administrator,
+
+Good news! Your SNMP Network Monitoring System has detected interface recovery.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  RECOVERY DETAILS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Alert Type:          Interface Recovery
+Severity:            INFORMATIONAL
+Device Name:         {device.hostname}
+IP Address:          {device.ip_address}
+Timestamp:           {timestamp}
+Recovery Count:      {recovery_count}
+
+RECOVERED INTERFACE(S):
+"""
+            for msg in recoveries_triggered:
+                body += f"  • {msg}\n"
+
+            body += f"""
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The interface(s) have returned to normal operation. No further action is required.
+All related alerts have been automatically cleared in the system.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This is an automated notification. Please do not reply to this email.
+To manage alert settings, log in to your SNMP Monitoring Dashboard.
+
+Best regards,
+SNMP Network Monitoring System"""
+
             AlertEvaluator._notify(subject, body, db)
 
     @staticmethod
