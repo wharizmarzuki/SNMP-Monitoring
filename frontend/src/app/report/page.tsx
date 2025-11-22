@@ -389,7 +389,7 @@ export default function ReportPage() {
                 <CardContent className="pb-2">
                   {formattedPacketDropData.length > 0 ? (
                     <ResponsiveContainer width="100%" height={250}>
-                      <BarChart data={formattedPacketDropData} layout="vertical" margin={{ top: 5, right: 20, left: 5, bottom: 5 }}>
+                      <BarChart data={formattedPacketDropData} layout="vertical" margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis
                           type="number"
