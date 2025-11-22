@@ -23,6 +23,20 @@ import type {
   AvailabilityRecord
 } from '@/types/report';
 
+// Aggregate data to max N points by taking evenly spaced samples
+function aggregateData<T>(data: T[], maxPoints: number = 10): T[] {
+  if (data.length <= maxPoints) return data;
+
+  const step = Math.ceil(data.length / maxPoints);
+  const result: T[] = [];
+
+  for (let i = 0; i < data.length; i += step) {
+    result.push(data[i]);
+  }
+
+  return result;
+}
+
 export default function ReportPage() {
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
@@ -94,36 +108,75 @@ export default function ReportPage() {
       const canvas = await html2canvas(reportElement, { scale: 2 });
       const imgData = canvas.toDataURL('image/png');
 
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const imgWidth = 210; // A4 width in mm
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const pdf = new jsPDF('portrait', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pdfWidth;
+      const imgHeight = (canvas.height * pdfWidth) / canvas.width;
 
-      pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
-      pdf.save(`network-report-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      // Add first page
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pdfHeight;
+
+      // Add additional pages if content is longer
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pdfHeight;
+      }
+
+      pdf.save(`network-report-${startDate}-to-${endDate}.pdf`);
     } catch (error) {
       console.error('Error generating PDF:', error);
     }
   };
 
-  // Format throughput data for charts
-  const formattedThroughputData = throughputData?.map(d => ({
-    time: format(new Date(d.timestamp), 'MMM dd HH:mm'),
-    inbound: (d.total_inbound_bps / 1_000_000).toFixed(2), // Convert to Mbps
-    outbound: (d.total_outbound_bps / 1_000_000).toFixed(2),
-  })) || [];
+  // Aggregate and format throughput data (max 10 points)
+  const formattedThroughputData = React.useMemo(() => {
+    if (!throughputData) return [];
+    const aggregated = aggregateData(throughputData, 10);
+    return aggregated.map(d => ({
+      time: format(new Date(d.timestamp), 'MMM dd HH:mm'),
+      inbound: parseFloat((d.total_inbound_bps / 1_000_000).toFixed(2)), // Convert to Mbps
+      outbound: parseFloat((d.total_outbound_bps / 1_000_000).toFixed(2)),
+    }));
+  }, [throughputData]);
 
-  // Format utilization data for charts
-  const formattedUtilizationData = utilizationData?.map(d => ({
-    time: format(new Date(d.timestamp), 'MMM dd HH:mm'),
-    cpu: d.avg_cpu_utilization.toFixed(2),
-    memory: d.avg_memory_utilization.toFixed(2),
-  })) || [];
+  // Aggregate and format utilization data (max 10 points)
+  const formattedUtilizationData = React.useMemo(() => {
+    if (!utilizationData) return [];
+    const aggregated = aggregateData(utilizationData, 10);
+    return aggregated.map(d => ({
+      time: format(new Date(d.timestamp), 'MMM dd HH:mm'),
+      cpu: parseFloat(d.avg_cpu_utilization.toFixed(2)),
+      memory: parseFloat(d.avg_memory_utilization.toFixed(2)),
+    }));
+  }, [utilizationData]);
 
-  // Format packet drop data for chart
-  const formattedPacketDropData = packetDropData?.map(d => ({
-    device: d.device_hostname,
-    rate: d.discard_rate_pct.toFixed(4),
-  })) || [];
+  // Format packet drop data with smart x-axis domain
+  const formattedPacketDropData = React.useMemo(() => {
+    if (!packetDropData) return [];
+    return packetDropData.map(d => ({
+      device: d.device_hostname,
+      rate: parseFloat(d.discard_rate_pct.toFixed(4)),
+    }));
+  }, [packetDropData]);
+
+  // Calculate smart domain for packet drop chart
+  const packetDropDomain = React.useMemo(() => {
+    if (formattedPacketDropData.length === 0) return [0, 1];
+
+    const maxRate = Math.max(...formattedPacketDropData.map(d => d.rate));
+
+    if (maxRate < 1) return [0, 1];
+    if (maxRate < 10) return [0, 10];
+    if (maxRate < 100) return [0, 100];
+    return [0, Math.ceil(maxRate / 100) * 100];
+  }, [formattedPacketDropData]);
 
   // Get availability color
   const getAvailabilityColor = (pct: number) => {
@@ -191,6 +244,17 @@ export default function ReportPage() {
       {/* Report Content */}
       {reportGenerated && (
         <div id="network-report" className="space-y-4">
+          {/* Report Header for PDF */}
+          <div className="bg-white p-6 rounded-lg border">
+            <h1 className="text-2xl font-bold">Network Performance Report</h1>
+            <p className="text-muted-foreground mt-1">
+              Period: {startDate} to {endDate}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Generated: {format(new Date(), 'PPpp')}
+            </p>
+          </div>
+
           {isLoading ? (
             <Card>
               <CardContent className="p-8 text-center">
@@ -201,30 +265,30 @@ export default function ReportPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4" style={{ gridTemplateRows: 'repeat(2, minmax(300px, 1fr))' }}>
               {/* Section 1: Network Bandwidth (Top-Left) */}
               <Card className="lg:col-span-1">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Activity className="h-5 w-5" />
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Activity className="h-4 w-4" />
                     Network Bandwidth
                   </CardTitle>
-                  <CardDescription>Total throughput (Mbps)</CardDescription>
+                  <CardDescription className="text-xs">Total throughput (Mbps)</CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="pb-2">
                   {formattedThroughputData.length > 0 ? (
                     <ResponsiveContainer width="100%" height={250}>
-                      <LineChart data={formattedThroughputData}>
+                      <LineChart data={formattedThroughputData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis
                           dataKey="time"
                           tick={{ fontSize: 10 }}
                           angle={-45}
                           textAnchor="end"
-                          height={80}
+                          height={60}
                         />
-                        <YAxis tick={{ fontSize: 12 }} />
+                        <YAxis tick={{ fontSize: 11 }} />
                         <Tooltip />
-                        <Legend />
-                        <Line type="monotone" dataKey="inbound" stroke="#3b82f6" name="Inbound" strokeWidth={2} />
-                        <Line type="monotone" dataKey="outbound" stroke="#10b981" name="Outbound" strokeWidth={2} />
+                        <Legend wrapperStyle={{ fontSize: '12px' }} />
+                        <Line type="monotone" dataKey="inbound" stroke="#3b82f6" name="Inbound" strokeWidth={2} dot={false} />
+                        <Line type="monotone" dataKey="outbound" stroke="#10b981" name="Outbound" strokeWidth={2} dot={false} />
                       </LineChart>
                     </ResponsiveContainer>
                   ) : (
@@ -235,28 +299,28 @@ export default function ReportPage() {
 
               {/* Section 2: CPU & Memory Utilization (Top-Middle) */}
               <Card className="lg:col-span-1">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <HardDrive className="h-5 w-5" />
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <HardDrive className="h-4 w-4" />
                     CPU & Memory Utilization
                   </CardTitle>
-                  <CardDescription>Average utilization (%)</CardDescription>
+                  <CardDescription className="text-xs">Average utilization (%)</CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="pb-2">
                   {formattedUtilizationData.length > 0 ? (
                     <ResponsiveContainer width="100%" height={250}>
-                      <AreaChart data={formattedUtilizationData}>
+                      <AreaChart data={formattedUtilizationData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis
                           dataKey="time"
                           tick={{ fontSize: 10 }}
                           angle={-45}
                           textAnchor="end"
-                          height={80}
+                          height={60}
                         />
-                        <YAxis tick={{ fontSize: 12 }} />
+                        <YAxis tick={{ fontSize: 11 }} />
                         <Tooltip />
-                        <Legend />
+                        <Legend wrapperStyle={{ fontSize: '12px' }} />
                         <Area type="monotone" dataKey="cpu" stackId="1" stroke="#f97316" fill="#fb923c" name="CPU" />
                         <Area type="monotone" dataKey="memory" stackId="2" stroke="#3b82f6" fill="#60a5fa" name="Memory" />
                       </AreaChart>
@@ -269,37 +333,37 @@ export default function ReportPage() {
 
               {/* Section 5: Device Availability (Right Tall - spans 2 rows) */}
               <Card className="lg:col-span-1 lg:row-span-2">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Clock className="h-5 w-5" />
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Clock className="h-4 w-4" />
                     Device Availability
                   </CardTitle>
-                  <CardDescription>Uptime metrics for all devices</CardDescription>
+                  <CardDescription className="text-xs">Uptime metrics for all devices</CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="pb-2">
                   {availabilityData && availabilityData.length > 0 ? (
                     <div className="max-h-[580px] overflow-auto">
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead>Device</TableHead>
-                            <TableHead>Availability</TableHead>
-                            <TableHead>Avg Uptime</TableHead>
+                            <TableHead className="text-xs">Device</TableHead>
+                            <TableHead className="text-xs">Availability</TableHead>
+                            <TableHead className="text-xs">Avg Uptime</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {availabilityData.map((record, index) => (
                             <TableRow key={index}>
-                              <TableCell>
-                                <div className="font-medium">{record.device_hostname}</div>
+                              <TableCell className="py-2">
+                                <div className="font-medium text-sm">{record.device_hostname}</div>
                                 <div className="text-xs text-muted-foreground">{record.device_ip}</div>
                               </TableCell>
-                              <TableCell>
-                                <span className={`font-semibold ${getAvailabilityColor(record.availability_pct)}`}>
+                              <TableCell className="py-2">
+                                <span className={`font-semibold text-sm ${getAvailabilityColor(record.availability_pct)}`}>
                                   {record.availability_pct.toFixed(2)}%
                                 </span>
                               </TableCell>
-                              <TableCell>
+                              <TableCell className="py-2 text-sm">
                                 {record.avg_uptime_days.toFixed(1)} days
                               </TableCell>
                             </TableRow>
@@ -315,21 +379,26 @@ export default function ReportPage() {
 
               {/* Section 3: Packet Drop Rate (Bottom-Left) */}
               <Card className="lg:col-span-1">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <AlertTriangle className="h-5 w-5" />
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <AlertTriangle className="h-4 w-4" />
                     Packet Drop Rate
                   </CardTitle>
-                  <CardDescription>Top 10 devices by discard rate</CardDescription>
+                  <CardDescription className="text-xs">Top 10 devices by discard rate</CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="pb-2">
                   {formattedPacketDropData.length > 0 ? (
                     <ResponsiveContainer width="100%" height={250}>
-                      <BarChart data={formattedPacketDropData} layout="vertical">
+                      <BarChart data={formattedPacketDropData} layout="vertical" margin={{ top: 5, right: 20, left: 5, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis type="number" tick={{ fontSize: 12 }} />
-                        <YAxis dataKey="device" type="category" width={100} tick={{ fontSize: 10 }} />
-                        <Tooltip />
+                        <XAxis
+                          type="number"
+                          tick={{ fontSize: 11 }}
+                          domain={packetDropDomain}
+                          tickFormatter={(value) => value.toFixed(value < 1 ? 3 : 0)}
+                        />
+                        <YAxis dataKey="device" type="category" width={80} tick={{ fontSize: 10 }} />
+                        <Tooltip formatter={(value: number) => value.toFixed(4) + '%'} />
                         <Bar dataKey="rate" fill="#ef4444" name="Discard Rate %" />
                       </BarChart>
                     </ResponsiveContainer>
@@ -341,27 +410,27 @@ export default function ReportPage() {
 
               {/* Section 4: System Uptime (Bottom-Middle) */}
               <Card className="lg:col-span-1">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Clock className="h-5 w-5" />
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Clock className="h-4 w-4" />
                     System Uptime Summary
                   </CardTitle>
-                  <CardDescription>Network uptime statistics</CardDescription>
+                  <CardDescription className="text-xs">Network uptime statistics</CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="pb-2">
                   {uptimeSummary ? (
-                    <div className="space-y-4">
-                      <div className="border rounded-lg p-4">
-                        <div className="text-sm text-muted-foreground">Average Network Uptime</div>
-                        <div className="text-2xl font-bold mt-1">
+                    <div className="space-y-3">
+                      <div className="border rounded-lg p-3">
+                        <div className="text-xs text-muted-foreground">Average Network Uptime</div>
+                        <div className="text-xl font-bold mt-1">
                           {uptimeSummary.avg_uptime_days.toFixed(1)} days
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="border rounded-lg p-4">
-                          <div className="text-sm text-muted-foreground">Longest Uptime</div>
-                          <div className="font-semibold mt-1 text-green-600">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="border rounded-lg p-3">
+                          <div className="text-xs text-muted-foreground">Longest Uptime</div>
+                          <div className="font-semibold mt-1 text-green-600 text-sm">
                             {uptimeSummary.longest_uptime.hostname}
                           </div>
                           <div className="text-xs text-muted-foreground">
@@ -369,9 +438,9 @@ export default function ReportPage() {
                           </div>
                         </div>
 
-                        <div className="border rounded-lg p-4">
-                          <div className="text-sm text-muted-foreground">Recently Rebooted</div>
-                          <div className="font-semibold mt-1 text-orange-600">
+                        <div className="border rounded-lg p-3">
+                          <div className="text-xs text-muted-foreground">Recently Rebooted</div>
+                          <div className="font-semibold mt-1 text-orange-600 text-sm">
                             {uptimeSummary.recently_rebooted.hostname}
                           </div>
                           <div className="text-xs text-muted-foreground">
