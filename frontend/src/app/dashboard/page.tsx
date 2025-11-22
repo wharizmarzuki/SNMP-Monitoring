@@ -83,30 +83,119 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* KPI Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <KpiCard
-          title="Total Devices"
-          value={summary?.total_devices || 0}
-          icon={Server}
-          description="Monitored network devices"
-        />
-        <KpiCard
-          title="Devices Up"
-          value={summary?.devices_up || 0}
-          icon={Activity}
-          description="Currently online"
-        />
-        <KpiCard
-          title="Devices in Alert"
-          value={summary?.devices_in_alert || 0}
-          icon={AlertTriangle}
-          description="Requiring attention"
-        />
-      </div>
+      {/* Main Layout: Left (KPI + Chart) | Right (Sidebar) */}
+      <div className="grid gap-4 grid-cols-1 lg:grid-cols-3">
+        {/* Left Column (spans 2 columns on large screens) */}
+        <div className="lg:col-span-2 space-y-4">
+          {/* KPI Cards */}
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
+            <KpiCard
+              title="Total Devices"
+              value={summary?.total_devices || 0}
+              icon={Server}
+              description="Monitored network devices"
+            />
+            <KpiCard
+              title="Devices Up"
+              value={summary?.devices_up || 0}
+              icon={Activity}
+              description="Currently online"
+            />
+            <KpiCard
+              title="Devices in Alert"
+              value={summary?.devices_in_alert || 0}
+              icon={AlertTriangle}
+              description="Requiring attention"
+            />
+          </div>
 
-      {/* Main Grid: 2 columns */}
-      <div className="grid gap-4 md:grid-cols-2">
+          {/* Device Bandwidth Utilization Chart */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Device Bandwidth Utilization</CardTitle>
+              <CardDescription>
+                Link utilization percentage over time by device
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {utilizationLoading ? (
+                <div className="h-[400px] flex items-center justify-center">
+                  <p className="text-sm text-muted-foreground">Loading utilization data...</p>
+                </div>
+              ) : utilizationError ? (
+                <div className="h-[400px] flex items-center justify-center">
+                  <p className="text-sm text-red-600">Failed to load utilization data</p>
+                </div>
+              ) : utilization.length === 0 ? (
+                <div className="h-[400px] flex items-center justify-center">
+                  <p className="text-sm text-muted-foreground">No utilization data available</p>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={400}>
+                  <AreaChart
+                    data={(() => {
+                      // Transform data: group by timestamp with device utilizations as columns
+                      const timeSeriesMap = new Map<string, any>();
+                      const devices = new Set<string>();
+
+                      utilization.forEach(u => {
+                        const deviceName = u.hostname || u.ip_address || 'Unknown';
+                        devices.add(deviceName);
+
+                        if (!timeSeriesMap.has(u.timestamp)) {
+                          timeSeriesMap.set(u.timestamp, { timestamp: u.timestamp });
+                        }
+
+                        const dataPoint = timeSeriesMap.get(u.timestamp);
+                        if (dataPoint) {
+                          dataPoint[deviceName] = u.max_utilization_pct || 0;
+                        }
+                      });
+
+                      return Array.from(timeSeriesMap.values()).sort((a, b) =>
+                        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+                      );
+                    })()}
+                    margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis
+                      dataKey="timestamp"
+                      tickFormatter={(value) => new Date(value).toLocaleTimeString()}
+                    />
+                    <YAxis
+                      label={{ value: 'Utilization %', angle: -90, position: 'insideLeft' }}
+                      domain={[0, 100]}
+                    />
+                    <Tooltip
+                      labelFormatter={(value) => new Date(value).toLocaleString()}
+                      formatter={(value: number) => `${value.toFixed(1)}%`}
+                    />
+                    <Legend />
+                    {/* Dynamically create Area components for each device */}
+                    {Array.from(new Set(utilization.map(u => u.hostname || u.ip_address || 'Unknown'))).map((deviceName, index) => {
+                      const colors = ['#8884d8', '#82ca9d', '#ffc658', '#ff7c7c', '#8dd1e1', '#d084d0', '#82d882'];
+                      return (
+                        <Area
+                          key={deviceName}
+                          type="monotone"
+                          dataKey={deviceName}
+                          stroke={colors[index % colors.length]}
+                          fill={colors[index % colors.length]}
+                          fillOpacity={0.6}
+                          name={deviceName}
+                        />
+                      );
+                    })}
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right Sidebar (spans 1 column) */}
+        <div className="lg:col-span-1 space-y-4">
         {/* Card 1: Alerts (Spans 2 ROWS) */}
         <Card className="md:row-span-2">
           <CardHeader>
@@ -232,71 +321,8 @@ export default function DashboardPage() {
             )}
           </CardContent>
         </Card>
+        </div>
       </div>
-
-      {/* Device Bandwidth Utilization */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Device Bandwidth Utilization</CardTitle>
-          <CardDescription>
-            Link utilization percentage by device
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {utilizationLoading ? (
-            <div className="h-[300px] flex items-center justify-center">
-              <p className="text-sm text-muted-foreground">Loading utilization data...</p>
-            </div>
-          ) : utilizationError ? (
-            <div className="h-[300px] flex items-center justify-center">
-              <p className="text-sm text-red-600">Failed to load utilization data</p>
-            </div>
-          ) : utilization.length === 0 ? (
-            <div className="h-[300px] flex items-center justify-center">
-              <p className="text-sm text-muted-foreground">No utilization data available</p>
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={300}>
-              <AreaChart
-                data={utilization.map(u => ({
-                  name: u.hostname || u.ip_address || 'Unknown',
-                  utilization: u.max_utilization_pct || 0,
-                  inbound: u.utilization_in_pct || 0,
-                  outbound: u.utilization_out_pct || 0,
-                }))}
-                margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis
-                  label={{ value: 'Utilization %', angle: -90, position: 'insideLeft' }}
-                  domain={[0, 100]}
-                />
-                <Tooltip
-                  formatter={(value: number) => `${value.toFixed(1)}%`}
-                />
-                <Legend />
-                <Area
-                  type="monotone"
-                  dataKey="inbound"
-                  stackId="1"
-                  stroke="#8884d8"
-                  fill="#8884d8"
-                  name="Inbound %"
-                />
-                <Area
-                  type="monotone"
-                  dataKey="outbound"
-                  stackId="1"
-                  stroke="#82ca9d"
-                  fill="#82ca9d"
-                  name="Outbound %"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }

@@ -341,16 +341,18 @@ async def get_network_throughput(
 @router.get("/device-utilization", response_model=List[schemas.DeviceUtilizationDatapoint])
 async def get_device_utilization(
     db: Session = Depends(get_db),
-    limit: int = 20
+    limit: int = 100
 ):
     """
-    Get per-device throughput and utilization metrics.
+    Get per-device throughput and utilization metrics over time (time series).
 
-    Returns the latest throughput data for each device along with:
+    Returns time series data for devices showing:
+    - Throughput (bps) over time
     - Total capacity (sum of interface speeds)
-    - Utilization percentages
+    - Utilization percentages over time
 
     Only includes devices with at least one interface that has known speed.
+    Data points are ordered chronologically for time series visualization.
     """
 
     # Join interface_metrics with interfaces to get speed_bps and device_id
@@ -415,13 +417,8 @@ async def get_device_utilization(
         delta_subquery.c.timestamp
     ).subquery()
 
-    # Get the latest timestamp per device
-    latest_per_device = select(
-        device_aggregation.c.device_id,
-        func.max(device_aggregation.c.timestamp).label("latest_timestamp")
-    ).group_by(device_aggregation.c.device_id).subquery()
-
     # Join with devices table to get hostname and ip_address
+    # Return time series data (multiple timestamps per device)
     final_query = select(
         models.Device.id.label("device_id"),
         models.Device.hostname,
@@ -433,18 +430,15 @@ async def get_device_utilization(
     ).join(
         device_aggregation,
         models.Device.id == device_aggregation.c.device_id
-    ).join(
-        latest_per_device,
-        and_(
-            device_aggregation.c.device_id == latest_per_device.c.device_id,
-            device_aggregation.c.timestamp == latest_per_device.c.latest_timestamp
-        )
-    ).order_by(desc(device_aggregation.c.inbound_bps + device_aggregation.c.outbound_bps)).limit(limit)
+    ).order_by(
+        device_aggregation.c.timestamp.desc()
+    ).limit(limit)
 
     results = db.execute(final_query).all()
 
     output = []
-    for row in results:
+    # Reverse to get chronological order (oldest first)
+    for row in reversed(results):
         # Calculate utilization percentages
         utilization_in_pct = None
         utilization_out_pct = None
