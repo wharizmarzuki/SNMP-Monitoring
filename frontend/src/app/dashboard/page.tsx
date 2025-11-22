@@ -325,7 +325,7 @@ export default function DashboardPage() {
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart
+              <AreaChart
                 data={utilization.map(u => ({
                   name: u.hostname || u.ip_address || 'Unknown',
                   utilization: u.max_utilization_pct || 0,
@@ -344,9 +344,23 @@ export default function DashboardPage() {
                   formatter={(value: number) => `${value.toFixed(1)}%`}
                 />
                 <Legend />
-                <Bar dataKey="inbound" fill="#8884d8" name="Inbound %" />
-                <Bar dataKey="outbound" fill="#82ca9d" name="Outbound %" />
-              </BarChart>
+                <Area
+                  type="monotone"
+                  dataKey="inbound"
+                  stackId="1"
+                  stroke="#8884d8"
+                  fill="#8884d8"
+                  name="Inbound %"
+                />
+                <Area
+                  type="monotone"
+                  dataKey="outbound"
+                  stackId="1"
+                  stroke="#82ca9d"
+                  fill="#82ca9d"
+                  name="Outbound %"
+                />
+              </AreaChart>
             </ResponsiveContainer>
           )}
         </CardContent>
