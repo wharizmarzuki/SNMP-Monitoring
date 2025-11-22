@@ -131,7 +131,6 @@ INTERFACE_OIDS = {
     "outbound_errors": "1.3.6.1.2.1.2.2.1.20",
     "inbound_discards": "1.3.6.1.2.1.2.2.1.13",
     "outbound_discards": "1.3.6.1.2.1.2.2.1.19",
-    "interface_high_speed": "1.3.6.1.2.1.31.1.1.1.15",
 }
 
 VENDOR_OIDS = {
