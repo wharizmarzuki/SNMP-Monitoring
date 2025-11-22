@@ -45,31 +45,25 @@ A comprehensive network monitoring solution built with FastAPI and Next.js that 
 ## Screenshots
 
 ### Dashboard
-<!-- TODO: Add screenshot -->
 ![Dashboard](docs/images/dashboard.png)
 *Real-time network monitoring dashboard with KPI cards, device status, and performance charts*
 
 ### Device Details
-<!-- TODO: Add screenshot -->
 ![Device Details](docs/images/device-details.png)
+![Device Details2](docs/images/device-details2.png)
 *Comprehensive device metrics with historical data and threshold configuration*
 
 ### Alert Management
-<!-- TODO: Add screenshot -->
 ![Alert Management](docs/images/alerts.png)
 *Active alerts console with acknowledge and resolve capabilities*
 
 ### Settings
-<!-- TODO: Add screenshot -->
 ![Settings](docs/images/settings.png)
 *Configure alert recipients, thresholds, and trigger network discovery*
 
 ### Login Page
-<!-- TODO: Add screenshot -->
 ![Login](docs/images/login.png)
 *Secure JWT-based authentication with modern, responsive design*
-
-> **Note:** Replace placeholder images with actual screenshots by placing PNG files in `docs/images/` directory.
 
 ## Quick Start
 
