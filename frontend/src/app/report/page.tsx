@@ -108,7 +108,7 @@ export default function ReportPage() {
             <div className="space-y-2">
               <label className="text-sm font-medium">Start Date</label>
               <Input
-                type="datetime-local"
+                type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
               />
@@ -117,7 +117,7 @@ export default function ReportPage() {
             <div className="space-y-2">
               <label className="text-sm font-medium">End Date</label>
               <Input
-                type="datetime-local"
+                type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
               />

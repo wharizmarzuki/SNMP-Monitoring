@@ -215,12 +215,16 @@ export const queryApi = {
   },
 
   getHistory: async (ip: string, start: string, end: string) => {
+    // Append time component to dates (start of day for start_time, end of day for end_time)
+    const startDateTime = start.includes('T') ? start : `${start}T00:00:00`;
+    const endDateTime = end.includes('T') ? end : `${end}T23:59:59`;
+
     const response = await api.post<HistoryRecordResponse[]>(
       `/query/history/device`,
       {
         ip_address: ip,
-        start_datetime: start,
-        end_datetime: end
+        start_time: startDateTime,
+        end_time: endDateTime
       }
     );
     return response.data;
