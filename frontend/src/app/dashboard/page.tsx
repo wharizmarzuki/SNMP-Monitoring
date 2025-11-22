@@ -147,6 +147,57 @@ export default function DashboardPage() {
             </div>
           )}
 
+          {/* Devices in Alert Table - Moved from sidebar */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Devices in Alert</CardTitle>
+              <CardDescription>
+                Devices currently exceeding thresholds
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {alertsLoading ? (
+                <div className="space-y-3">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <div key={i} className="flex gap-4">
+                      <div className="h-4 flex-1 animate-pulse rounded-md bg-slate-200 dark:bg-slate-800" />
+                      <div className="h-4 flex-1 animate-pulse rounded-md bg-slate-200 dark:bg-slate-800" />
+                      <div className="h-4 flex-1 animate-pulse rounded-md bg-slate-200 dark:bg-slate-800" />
+                      <div className="h-4 flex-1 animate-pulse rounded-md bg-slate-200 dark:bg-slate-800" />
+                    </div>
+                  ))}
+                </div>
+              ) : alertsError ? (
+                <p className="text-sm text-red-600">Failed to load alerts</p>
+              ) : alerts.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No active alerts</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Hostname</TableHead>
+                      <TableHead>Metric</TableHead>
+                      <TableHead>Current Value</TableHead>
+                      <TableHead>Remarks</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {alerts.map((alert, index) => (
+                      <TableRow key={index}>
+                        <TableCell className="font-medium">
+                          {alert.hostname}
+                        </TableCell>
+                        <TableCell>{alert.metric}</TableCell>
+                        <TableCell>{alert.current_value}</TableCell>
+                        <TableCell>{alert.threshold}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Device Bandwidth Utilization Chart */}
           <Card>
             <CardHeader>
@@ -293,59 +344,7 @@ export default function DashboardPage() {
 
         {/* Right Sidebar (spans 1 column) */}
         <div className="lg:col-span-1 space-y-4">
-        {/* Card 1: Alerts (Spans 2 ROWS) */}
-        <Card className="md:row-span-2">
-          <CardHeader>
-            <CardTitle>Devices in Alert</CardTitle>
-            <CardDescription>
-              Devices currently exceeding thresholds
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {alertsLoading ? (
-              <div className="space-y-3">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="flex gap-4">
-                    <div className="h-4 flex-1 animate-pulse rounded-md bg-slate-200 dark:bg-slate-800" />
-                    <div className="h-4 flex-1 animate-pulse rounded-md bg-slate-200 dark:bg-slate-800" />
-                    <div className="h-4 flex-1 animate-pulse rounded-md bg-slate-200 dark:bg-slate-800" />
-                    <div className="h-4 flex-1 animate-pulse rounded-md bg-slate-200 dark:bg-slate-800" />
-                  </div>
-                ))}
-              </div>
-            ) : alertsError ? (
-              <p className="text-sm text-red-600">Failed to load alerts</p>
-            ) : alerts.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No active alerts</p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Hostname</TableHead>
-                    <TableHead>Metric</TableHead>
-                    <TableHead>Current Value</TableHead>
-                    <TableHead>Remarks</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {alerts.map((alert, index) => (
-                    <TableRow key={index}>
-                      <TableCell className="font-medium">
-                        {alert.hostname}
-                      </TableCell>
-                      <TableCell>{alert.metric}</TableCell>
-                      <TableCell>{alert.current_value}</TableCell>
-                      <TableCell>{alert.threshold}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Card 2: Top 5 CPU Devices */}
-        {/* This card will automatically go in Row 1, Column 2 */}
+        {/* Card 1: Top 5 CPU Devices */}
         <Card>
           <CardHeader>
             <CardTitle>Top 5 CPU Utilization</CardTitle>
@@ -393,8 +392,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Card 3: Top 5 Memory Devices */}
-        {/* This card will automatically go in Row 2, Column 2 */}
+        {/* Card 2: Top 5 Memory Devices */}
         <Card>
           <CardHeader>
             <CardTitle>Top 5 Memory Utilization</CardTitle>

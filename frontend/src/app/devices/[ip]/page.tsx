@@ -379,11 +379,10 @@ export default function DeviceDetailPage() {
     deleteDeviceMutation.mutate();
   };
 
-  // Create a sorted version of metrics to fix the chart order
+  // Metrics are already in ascending order (oldest to newest)
+  // This ensures the chart displays with latest data on the right
   const sortedMetrics = useMemo(() => {
-    // .slice() creates a copy so we don't mutate the original
-    // react-query data in the cache.
-    return metrics.slice().reverse();
+    return metrics;
   }, [metrics]);
 
   return (
@@ -752,16 +751,22 @@ export default function DeviceDetailPage() {
                   data={sortedMetrics}
                   margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" />
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-700" />
                   <XAxis
                     dataKey="timestamp"
                     tickFormatter={(value) =>
                       new Date(value).toLocaleTimeString()
                     }
+                    className="text-gray-600 dark:text-gray-400"
                   />
-                  <YAxis domain={[0, 100]} />
+                  <YAxis domain={[0, 100]} className="text-gray-600 dark:text-gray-400" />
                   <Tooltip
                     labelFormatter={(value) => new Date(value).toLocaleString()}
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--background))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '6px'
+                    }}
                   />
                   <Legend />
                   <Line
@@ -795,16 +800,22 @@ export default function DeviceDetailPage() {
                   data={sortedMetrics}
                   margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" />
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-700" />
                   <XAxis
                     dataKey="timestamp"
                     tickFormatter={(value) =>
                       new Date(value).toLocaleTimeString()
                     }
+                    className="text-gray-600 dark:text-gray-400"
                   />
-                  <YAxis domain={[0, 100]} />
+                  <YAxis domain={[0, 100]} className="text-gray-600 dark:text-gray-400" />
                   <Tooltip
                     labelFormatter={(value) => new Date(value).toLocaleString()}
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--background))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '6px'
+                    }}
                   />
                   <Legend />
                   <Line
