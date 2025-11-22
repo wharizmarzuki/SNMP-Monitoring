@@ -101,43 +101,77 @@ class PySNMPClient(SNMPClient):
         port = 161
         transport_address = (host, port)
         snmp_engine = SnmpEngine()
-        oid_objects = [ObjectType(ObjectIdentity(oid)) for oid in oids]
-    
+
+        # Store the base OIDs we're walking to detect when we've exited the table
+        base_oids = set(oids)
+
         results = []
+        oid_objects = [ObjectType(ObjectIdentity(oid)) for oid in oids]
+
         try:
-            errorIndication, errorStatus, errorIndex, varBindTable = await bulk_cmd(
-                snmp_engine,
-                CommunityData(self.community, mpModel=1),
-                await UdpTransportTarget.create(transport_address),
-                ContextData(),
-                0, 25, 
-                *oid_objects
-            )
-            
-            if errorIndication:
-                return {"success": False, "error": str(errorIndication)}
-            
-            if errorStatus:
-                return {"success": False, "error": f"{errorStatus.prettyPrint()} at {errorIndex and varBindTable[int(errorIndex) - 1][0] or '?'}"} # type: ignore
-            
-            for var_bind in varBindTable:
-                full_oid = '.'.join(str(x) for x in var_bind[0].asTuple())
-                
-                oid_parts = full_oid.split('.')
-                
-                base_oid = '.'.join(oid_parts[:-1])
-                
-                index = oid_parts[-1]
-                
-                value = var_bind[1].prettyPrint()
-            
-                results.append({
-                    "base_oid": base_oid,
-                    "index": index,
-                    "value": value
-                })
+            while True:
+                errorIndication, errorStatus, errorIndex, varBindTable = await bulk_cmd(
+                    snmp_engine,
+                    CommunityData(self.community, mpModel=1),
+                    await UdpTransportTarget.create(transport_address),
+                    ContextData(),
+                    0, 50,  # Increased max-repetitions for better performance
+                    *oid_objects
+                )
+
+                if errorIndication:
+                    return {"success": False, "error": str(errorIndication)}
+
+                if errorStatus:
+                    return {"success": False, "error": f"{errorStatus.prettyPrint()} at {errorIndex and varBindTable[int(errorIndex) - 1][0] or '?'}"} # type: ignore
+
+                # No more data
+                if not varBindTable:
+                    break
+
+                # Track if we're still within our target OID tree
+                still_in_table = False
+                last_oids = {}
+
+                for var_bind in varBindTable:
+                    full_oid = '.'.join(str(x) for x in var_bind[0].asTuple())
+
+                    # Check if this OID is still under one of our base OIDs
+                    is_child = False
+                    for base_oid in base_oids:
+                        if full_oid.startswith(base_oid + '.'):
+                            is_child = True
+                            still_in_table = True
+                            # Track the last OID for each base to continue from
+                            last_oids[base_oid] = var_bind[0]
+                            break
+
+                    # Only process if it's a child of our base OIDs
+                    if is_child:
+                        oid_parts = full_oid.split('.')
+                        base_oid = '.'.join(oid_parts[:-1])
+                        index = oid_parts[-1]
+                        value = var_bind[1].prettyPrint()
+
+                        results.append({
+                            "base_oid": base_oid,
+                            "index": index,
+                            "value": value
+                        })
+
+                # If we've exited all our OID trees, we're done
+                if not still_in_table:
+                    break
+
+                # Continue from the last OIDs received
+                oid_objects = [ObjectType(last_oids[base_oid]) for base_oid in base_oids if base_oid in last_oids]
+
+                # Safety check: if no valid OIDs to continue, break
+                if not oid_objects:
+                    break
+
             return {"success": True, "data": results}
-        
+
         except Exception as e:
             return {"success": False, "error": str(e)}
 
