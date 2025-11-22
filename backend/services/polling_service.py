@@ -16,37 +16,22 @@ from app.config.logging import logger
 
 def calculate_interface_speed(raw_data: dict) -> tuple[int | None, str | None]:
     """
-    Determine interface speed from SNMP data.
-
-    Prefers ifHighSpeed (supports >4Gbps) over ifSpeed (legacy).
+    Determine interface speed from SNMP data using ifSpeed (IF-MIB).
 
     Args:
         raw_data: Dictionary containing SNMP interface data with OID keys
 
     Returns:
         Tuple of (speed_bps, speed_source) where:
-        - speed_bps: Interface speed in bits per second (normalized)
-        - speed_source: "ifHighSpeed" or "ifSpeed" indicating which OID was used
+        - speed_bps: Interface speed in bits per second
+        - speed_source: "ifSpeed" indicating which OID was used
 
     Example:
-        >>> raw = {"1.3.6.1.2.1.31.1.1.1.15": "10000"}  # 10 Gbps
+        >>> raw = {"1.3.6.1.2.1.2.2.1.5": "1000000000"}  # 1 Gbps
         >>> calculate_interface_speed(raw)
-        (10000000000, "ifHighSpeed")
+        (1000000000, "ifSpeed")
     """
-    # Try ifHighSpeed first (reports in Mbps, supports high-speed interfaces)
-    high_speed_key = schemas.INTERFACE_OIDS["interface_high_speed"]
-    high_speed_mbps = raw_data.get(high_speed_key)
-
-    if high_speed_mbps:
-        try:
-            high_speed_int = int(high_speed_mbps)
-            if high_speed_int > 0:
-                # Convert Mbps to bps
-                return high_speed_int * 1_000_000, "ifHighSpeed"
-        except (ValueError, TypeError):
-            pass
-
-    # Fallback to ifSpeed (reports in bps, legacy)
+    # Use ifSpeed (reports in bps, from standard IF-MIB ifTable)
     speed_key = schemas.INTERFACE_OIDS["interface_speed"]
     speed_bps = raw_data.get(speed_key)
 
