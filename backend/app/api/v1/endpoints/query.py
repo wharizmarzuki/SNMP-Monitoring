@@ -611,8 +611,8 @@ async def get_report_network_throughput(
     Returns time series of total inbound/outbound bandwidth.
     """
     # Convert string dates to datetime (will be in format YYYY-MM-DDTHH:MM:SS)
-    start_dt = datetime.fromisoformat(start_date)
-    end_dt = datetime.fromisoformat(end_date)
+    start_dt = datetime.datetime.fromisoformat(start_date)
+    end_dt = datetime.datetime.fromisoformat(end_date)
 
     # Query to sum throughput across all interfaces, grouped by timestamp
     throughput_data = db.query(
@@ -649,8 +649,8 @@ async def get_report_device_utilization(
     Get network-wide CPU/Memory utilization metrics for report date range.
     Returns time series of average and max utilization across all devices.
     """
-    start_dt = datetime.fromisoformat(start_date)
-    end_dt = datetime.fromisoformat(end_date)
+    start_dt = datetime.datetime.fromisoformat(start_date)
+    end_dt = datetime.datetime.fromisoformat(end_date)
 
     # Query to get CPU/Memory stats grouped by timestamp
     utilization_data = db.query(
@@ -693,8 +693,8 @@ async def get_report_packet_drops(
     Get packet drop statistics by device for report date range.
     Returns devices with highest discard rates, including errors.
     """
-    start_dt = datetime.fromisoformat(start_date)
-    end_dt = datetime.fromisoformat(end_date)
+    start_dt = datetime.datetime.fromisoformat(start_date)
+    end_dt = datetime.datetime.fromisoformat(end_date)
 
     # Query to sum discards and errors per device over the period
     drop_stats = db.query(
@@ -755,8 +755,8 @@ async def get_report_uptime_summary(
     Get system uptime summary for report date range.
     Returns average uptime, longest uptime device, and recently rebooted device.
     """
-    start_dt = datetime.fromisoformat(start_date)
-    end_dt = datetime.fromisoformat(end_date)
+    start_dt = datetime.datetime.fromisoformat(start_date)
+    end_dt = datetime.datetime.fromisoformat(end_date)
 
     # Get average uptime per device in the period
     device_uptimes = db.query(
@@ -816,8 +816,8 @@ async def get_report_availability(
     Get device availability metrics for report date range.
     Returns availability percentage based on reachability polls.
     """
-    start_dt = datetime.fromisoformat(start_date)
-    end_dt = datetime.fromisoformat(end_date)
+    start_dt = datetime.datetime.fromisoformat(start_date)
+    end_dt = datetime.datetime.fromisoformat(end_date)
 
     # Count reachability polls per device
     availability_stats = db.query(
