@@ -122,6 +122,7 @@ DEVICE_OIDS = {
 INTERFACE_OIDS = {
     "interface_index": "1.3.6.1.2.1.2.2.1.1",
     "interface_description": "1.3.6.1.2.1.2.2.1.2",
+    "interface_speed": "1.3.6.1.2.1.2.2.1.5",
     "interface_admin_status": "1.3.6.1.2.1.2.2.1.7",
     "interface_operational_status": "1.3.6.1.2.1.2.2.1.8",
     "inbound_octets": "1.3.6.1.2.1.2.2.1.10",
@@ -130,6 +131,7 @@ INTERFACE_OIDS = {
     "outbound_errors": "1.3.6.1.2.1.2.2.1.20",
     "inbound_discards": "1.3.6.1.2.1.2.2.1.13",
     "outbound_discards": "1.3.6.1.2.1.2.2.1.19",
+    "interface_high_speed": "1.3.6.1.2.1.31.1.1.1.15",
 }
 
 VENDOR_OIDS = {
@@ -303,6 +305,23 @@ class ThroughputDatapoint(BaseModel):
     timestamp: datetime
     inbound_bps: float
     outbound_bps: float
+
+class DeviceUtilizationDatapoint(BaseModel):
+    """Per-device throughput and utilization metrics."""
+    device_id: int
+    hostname: str | None
+    ip_address: str | None
+    timestamp: datetime
+
+    # Raw throughput
+    inbound_bps: float
+    outbound_bps: float
+
+    # Utilization metrics
+    total_capacity_bps: int | None  # Sum of all interface speeds
+    utilization_in_pct: float | None
+    utilization_out_pct: float | None
+    max_utilization_pct: float | None  # Max of in/out
 
 class InterfaceThresholdResponse(BaseModel):
     id: int

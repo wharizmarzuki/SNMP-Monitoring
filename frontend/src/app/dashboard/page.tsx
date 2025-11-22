@@ -32,7 +32,7 @@ import {
   Area,
 } from "recharts";
 import { queryApi } from "@/lib/api";
-import { NetworkSummary, Alert, TopDevice, NetworkThroughput } from "@/types";
+import { NetworkSummary, Alert, TopDevice, NetworkThroughput, DeviceUtilization } from "@/types";
 
 export default function DashboardPage() {
   // Fetch network summary (Phase 3: With error handling)
@@ -65,11 +65,18 @@ export default function DashboardPage() {
     queryFn: () => queryApi.getNetworkThroughput(),
   });
 
+  // Fetch device utilization
+  const { data: deviceUtilization, isLoading: utilizationLoading, error: utilizationError } = useQuery<DeviceUtilization[]>({
+    queryKey: ["deviceUtilization"],
+    queryFn: () => queryApi.getDeviceUtilization(),
+  });
+
   const summary = networkSummary;
   const alerts = activeAlerts || [];
   const cpuDevices = topCpuDevices || [];
   const memoryDevices = topMemoryDevices || [];
   const throughput = networkThroughput || [];
+  const utilization = deviceUtilization || [];
 
   return (
     <div className="flex-1 space-y-4 p-8 pt-6">
@@ -78,7 +85,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Global Error Banner */}
-      {(summaryError || alertsError || cpuError || memoryError || throughputError) && (
+      {(summaryError || alertsError || cpuError || memoryError || throughputError || utilizationError) && (
         <div className="p-3 bg-red-100 border border-red-300 text-red-800 rounded">
           <p className="font-semibold">Some dashboard data failed to load</p>
           <p className="text-sm mt-1">Please refresh the page. If the problem persists, contact support.</p>
@@ -290,6 +297,56 @@ export default function DashboardPage() {
                   name="Outbound (bps)"
                 />
               </AreaChart>
+            </ResponsiveContainer>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Device Utilization Chart */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Device Bandwidth Utilization</CardTitle>
+          <CardDescription>
+            Link utilization percentage by device
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {utilizationLoading ? (
+            <div className="h-[300px] flex items-center justify-center">
+              <p className="text-sm text-muted-foreground">Loading utilization data...</p>
+            </div>
+          ) : utilizationError ? (
+            <div className="h-[300px] flex items-center justify-center">
+              <p className="text-sm text-red-600">Failed to load utilization data</p>
+            </div>
+          ) : utilization.length === 0 ? (
+            <div className="h-[300px] flex items-center justify-center">
+              <p className="text-sm text-muted-foreground">No utilization data available</p>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart
+                data={utilization.map(u => ({
+                  name: u.hostname || u.ip_address || 'Unknown',
+                  utilization: u.max_utilization_pct || 0,
+                  inbound: u.utilization_in_pct || 0,
+                  outbound: u.utilization_out_pct || 0,
+                }))}
+                margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis
+                  label={{ value: 'Utilization %', angle: -90, position: 'insideLeft' }}
+                  domain={[0, 100]}
+                />
+                <Tooltip
+                  formatter={(value: number) => `${value.toFixed(1)}%`}
+                />
+                <Legend />
+                <Bar dataKey="inbound" fill="#8884d8" name="Inbound %" />
+                <Bar dataKey="outbound" fill="#82ca9d" name="Outbound %" />
+              </BarChart>
             </ResponsiveContainer>
           )}
         </CardContent>

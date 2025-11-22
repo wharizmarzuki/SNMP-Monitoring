@@ -79,6 +79,11 @@ class Interface(Base):
     if_index: Mapped[int | None] = mapped_column(Integer, index=True)
     if_name: Mapped[str | None] = mapped_column(String, index=True)
 
+    # Interface speed tracking
+    speed_bps: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    speed_source: Mapped[str | None] = mapped_column(String(20), nullable=True)  # "ifSpeed" | "ifHighSpeed"
+    speed_last_updated: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     packet_drop_threshold: Mapped[float] = mapped_column(Float, default=0.1)  # Percentage: 0.1% default
 
     # Alert state management (Phase 2)

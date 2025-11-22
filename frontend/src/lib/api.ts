@@ -235,6 +235,11 @@ export const queryApi = {
     const response = await api.get<ThroughputDatapoint[]>("/query/network-throughput");
     return response.data;
   },
+
+  getDeviceUtilization: async () => {
+    const response = await api.get<import("@/types").DeviceUtilization[]>("/query/device-utilization");
+    return response.data;
+  },
 };
 
 // API endpoints for polling

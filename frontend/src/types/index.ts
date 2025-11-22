@@ -26,3 +26,17 @@ export type TopDevice = import("@/lib/api").TopDeviceResponse;
 export type NetworkThroughput = import("@/lib/api").ThroughputDatapoint;
 export type Recipient = import("@/lib/api").RecipientResponse;
 export type HistoryRecord = import("@/lib/api").HistoryRecordResponse;
+
+// Device utilization type (manually defined until OpenAPI regeneration)
+export interface DeviceUtilization {
+  device_id: number;
+  hostname: string | null;
+  ip_address: string | null;
+  timestamp: string;
+  inbound_bps: number;
+  outbound_bps: number;
+  total_capacity_bps: number | null;
+  utilization_in_pct: number | null;
+  utilization_out_pct: number | null;
+  max_utilization_pct: number | null;
+}
