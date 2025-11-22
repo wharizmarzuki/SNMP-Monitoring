@@ -42,6 +42,26 @@ import { NetworkSummary, Alert, TopDevice, DeviceUtilization } from "@/types";
 export default function DashboardPage() {
   const [timeRange, setTimeRange] = useState<number>(60);
   const [interval, setInterval] = useState<number>(1);
+
+  // Smart interval restrictions based on time range (Option 1)
+  const getAvailableIntervals = (minutes: number): number[] => {
+    if (minutes <= 30) return [1];
+    if (minutes <= 60) return [1, 5];
+    if (minutes <= 180) return [1, 5];
+    if (minutes <= 360) return [5, 10, 15];
+    if (minutes <= 720) return [5, 10, 15, 30];
+    if (minutes <= 1440) return [10, 15, 30, 60];
+    return [60, 360, 720]; // 7 days
+  };
+
+  const availableIntervals = getAvailableIntervals(timeRange);
+
+  // Auto-adjust interval when time range changes if current interval is not available
+  React.useEffect(() => {
+    if (!availableIntervals.includes(interval)) {
+      setInterval(availableIntervals[0]);
+    }
+  }, [timeRange]);
   // Fetch network summary (Phase 3: With error handling)
   const { data: networkSummary, isLoading: summaryLoading, error: summaryError } = useQuery<NetworkSummary>({
     queryKey: ["networkSummary"],
@@ -141,6 +161,7 @@ export default function DashboardPage() {
                       <SelectItem value="360">Past 6 hours</SelectItem>
                       <SelectItem value="720">Past 12 hours</SelectItem>
                       <SelectItem value="1440">Past 24 hours</SelectItem>
+                      <SelectItem value="10080">Past 7 days</SelectItem>
                     </SelectContent>
                   </Select>
                   <Select value={interval.toString()} onValueChange={(value) => setInterval(Number(value))}>
@@ -148,11 +169,14 @@ export default function DashboardPage() {
                       <SelectValue placeholder="Interval" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="1">1 min interval</SelectItem>
-                      <SelectItem value="5">5 min interval</SelectItem>
-                      <SelectItem value="10">10 min interval</SelectItem>
-                      <SelectItem value="15">15 min interval</SelectItem>
-                      <SelectItem value="30">30 min interval</SelectItem>
+                      <SelectItem value="1" disabled={!availableIntervals.includes(1)}>1 min</SelectItem>
+                      <SelectItem value="5" disabled={!availableIntervals.includes(5)}>5 min</SelectItem>
+                      <SelectItem value="10" disabled={!availableIntervals.includes(10)}>10 min</SelectItem>
+                      <SelectItem value="15" disabled={!availableIntervals.includes(15)}>15 min</SelectItem>
+                      <SelectItem value="30" disabled={!availableIntervals.includes(30)}>30 min</SelectItem>
+                      <SelectItem value="60" disabled={!availableIntervals.includes(60)}>1 hour</SelectItem>
+                      <SelectItem value="360" disabled={!availableIntervals.includes(360)}>6 hours</SelectItem>
+                      <SelectItem value="720" disabled={!availableIntervals.includes(720)}>12 hours</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

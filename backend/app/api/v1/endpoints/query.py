@@ -89,19 +89,37 @@ async def get_network_summary(db: Session = Depends(get_db)):
 # -------------------------------
 @router.get("/device/{ip}/metrics", response_model=List[schemas.DeviceMetricResponse])
 async def get_device_metrics_history(
-    ip: str, 
+    ip: str,
     db: Session = Depends(get_db),
-    limit: int = 15
+    minutes: int = 60,
+    interval_minutes: int = 1
 ):
+    from datetime import datetime, timedelta
+
     device = db.query(models.Device).filter(models.Device.ip_address == ip).first()
     if not device:
         raise DeviceNotFoundError(ip)
 
+    # Calculate time range
+    end_time = datetime.utcnow()
+    start_time = end_time - timedelta(minutes=minutes)
+
+    # Get metrics within time range
     metrics = db.query(models.DeviceMetric)\
-                .filter(models.DeviceMetric.device_id == device.id)\
-                .order_by(models.DeviceMetric.timestamp.desc())\
-                .limit(limit)\
+                .filter(
+                    models.DeviceMetric.device_id == device.id,
+                    models.DeviceMetric.timestamp >= start_time,
+                    models.DeviceMetric.timestamp <= end_time
+                )\
+                .order_by(models.DeviceMetric.timestamp.asc())\
                 .all()
+
+    # Apply interval sampling if needed
+    if interval_minutes > 1 and len(metrics) > 0:
+        sampled_metrics = []
+        for i in range(0, len(metrics), interval_minutes):
+            sampled_metrics.append(metrics[i])
+        metrics = sampled_metrics
 
     # Force timestamps to UTC ISO8601
     for m in metrics:
