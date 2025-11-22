@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, desc, func, select, and_
+from sqlalchemy import or_, desc, func, select, and_, case
 from app.core import database, models, schemas
 from app.core.exceptions import DeviceNotFoundError
 from app.core.cache import cache
@@ -292,10 +292,27 @@ async def get_network_throughput(
         ).label("prev_timestamp")
     ).subquery()
 
+    # Counter wrap detection: Counter32 max value is 2^32 = 4,294,967,296
+    # If current < previous, counter wrapped: delta = (2^32 - previous) + current
+    # Otherwise: delta = current - previous
+    COUNTER32_MAX = 2 ** 32
+
+    delta_in_expr = case(
+        (lag_subquery.c.octets_in >= lag_subquery.c.prev_octets_in,
+         lag_subquery.c.octets_in - lag_subquery.c.prev_octets_in),
+        else_=(COUNTER32_MAX - lag_subquery.c.prev_octets_in + lag_subquery.c.octets_in)
+    ).label("delta_in")
+
+    delta_out_expr = case(
+        (lag_subquery.c.octets_out >= lag_subquery.c.prev_octets_out,
+         lag_subquery.c.octets_out - lag_subquery.c.prev_octets_out),
+        else_=(COUNTER32_MAX - lag_subquery.c.prev_octets_out + lag_subquery.c.octets_out)
+    ).label("delta_out")
+
     delta_subquery = select(
         lag_subquery.c.timestamp,
-        (lag_subquery.c.octets_in - lag_subquery.c.prev_octets_in).label("delta_in"),
-        (lag_subquery.c.octets_out - lag_subquery.c.prev_octets_out).label("delta_out"),
+        delta_in_expr,
+        delta_out_expr,
         func.extract("epoch", lag_subquery.c.timestamp - lag_subquery.c.prev_timestamp).label("delta_seconds")
     ).filter(lag_subquery.c.prev_timestamp != None).subquery()
 
@@ -315,6 +332,135 @@ async def get_network_throughput(
                 timestamp=to_utc_iso(ts),
                 inbound_bps=bps_in if bps_in and bps_in > 0 else 0,
                 outbound_bps=bps_out if bps_out and bps_out > 0 else 0
+            )
+        )
+
+    return output
+
+
+@router.get("/device-utilization", response_model=List[schemas.DeviceUtilizationDatapoint])
+async def get_device_utilization(
+    db: Session = Depends(get_db),
+    limit: int = 100
+):
+    """
+    Get per-device throughput and utilization metrics over time (time series).
+
+    Returns time series data for devices showing:
+    - Throughput (bps) over time
+    - Total capacity (sum of interface speeds)
+    - Utilization percentages over time
+
+    Only includes devices with at least one interface that has known speed.
+    Data points are ordered chronologically for time series visualization.
+    """
+
+    # Join interface_metrics with interfaces to get speed_bps and device_id
+    lag_subquery = select(
+        models.Interface.device_id,
+        models.Interface.speed_bps,
+        models.InterfaceMetric.timestamp,
+        models.InterfaceMetric.octets_in,
+        models.InterfaceMetric.octets_out,
+        func.lag(models.InterfaceMetric.octets_in, 1, 0).over(
+            partition_by=models.InterfaceMetric.interface_id,
+            order_by=models.InterfaceMetric.timestamp
+        ).label("prev_octets_in"),
+        func.lag(models.InterfaceMetric.octets_out, 1, 0).over(
+            partition_by=models.InterfaceMetric.interface_id,
+            order_by=models.InterfaceMetric.timestamp
+        ).label("prev_octets_out"),
+        func.lag(models.InterfaceMetric.timestamp, 1, None).over(
+            partition_by=models.InterfaceMetric.interface_id,
+            order_by=models.InterfaceMetric.timestamp
+        ).label("prev_timestamp")
+    ).join(
+        models.Interface,
+        models.InterfaceMetric.interface_id == models.Interface.id
+    ).filter(
+        models.Interface.speed_bps != None  # Only include interfaces with known speed
+    ).subquery()
+
+    # Counter wrap detection
+    COUNTER32_MAX = 2 ** 32
+
+    delta_in_expr = case(
+        (lag_subquery.c.octets_in >= lag_subquery.c.prev_octets_in,
+         lag_subquery.c.octets_in - lag_subquery.c.prev_octets_in),
+        else_=(COUNTER32_MAX - lag_subquery.c.prev_octets_in + lag_subquery.c.octets_in)
+    ).label("delta_in")
+
+    delta_out_expr = case(
+        (lag_subquery.c.octets_out >= lag_subquery.c.prev_octets_out,
+         lag_subquery.c.octets_out - lag_subquery.c.prev_octets_out),
+        else_=(COUNTER32_MAX - lag_subquery.c.prev_octets_out + lag_subquery.c.octets_out)
+    ).label("delta_out")
+
+    delta_subquery = select(
+        lag_subquery.c.device_id,
+        lag_subquery.c.speed_bps,
+        lag_subquery.c.timestamp,
+        delta_in_expr,
+        delta_out_expr,
+        func.extract("epoch", lag_subquery.c.timestamp - lag_subquery.c.prev_timestamp).label("delta_seconds")
+    ).filter(lag_subquery.c.prev_timestamp != None).subquery()
+
+    # Aggregate by device and timestamp
+    device_aggregation = select(
+        delta_subquery.c.device_id,
+        delta_subquery.c.timestamp,
+        (func.sum(delta_subquery.c.delta_in) * 8 / func.avg(delta_subquery.c.delta_seconds)).label("inbound_bps"),
+        (func.sum(delta_subquery.c.delta_out) * 8 / func.avg(delta_subquery.c.delta_seconds)).label("outbound_bps"),
+        func.sum(delta_subquery.c.speed_bps).label("total_capacity_bps")
+    ).group_by(
+        delta_subquery.c.device_id,
+        delta_subquery.c.timestamp
+    ).subquery()
+
+    # Join with devices table to get hostname and ip_address
+    # Return time series data (multiple timestamps per device)
+    final_query = select(
+        models.Device.id.label("device_id"),
+        models.Device.hostname,
+        models.Device.ip_address,
+        device_aggregation.c.timestamp,
+        device_aggregation.c.inbound_bps,
+        device_aggregation.c.outbound_bps,
+        device_aggregation.c.total_capacity_bps
+    ).join(
+        device_aggregation,
+        models.Device.id == device_aggregation.c.device_id
+    ).order_by(
+        device_aggregation.c.timestamp.desc()
+    ).limit(limit)
+
+    results = db.execute(final_query).all()
+
+    output = []
+    # Reverse to get chronological order (oldest first)
+    for row in reversed(results):
+        # Calculate utilization percentages
+        utilization_in_pct = None
+        utilization_out_pct = None
+        max_utilization_pct = None
+
+        if row.total_capacity_bps and row.total_capacity_bps > 0:
+            utilization_in_pct = (row.inbound_bps / row.total_capacity_bps) * 100
+            utilization_out_pct = (row.outbound_bps / row.total_capacity_bps) * 100
+            max_utilization_pct = max(utilization_in_pct, utilization_out_pct)
+
+        output.append(
+            schemas.DeviceUtilizationDatapoint(
+                device_id=row.device_id,
+                hostname=row.hostname,
+                ip_address=row.ip_address,
+                timestamp=to_utc_iso(row.timestamp),
+                inbound_bps=row.inbound_bps if row.inbound_bps and row.inbound_bps > 0 else 0,
+                outbound_bps=row.outbound_bps if row.outbound_bps and row.outbound_bps > 0 else 0,
+                total_capacity_bps=row.total_capacity_bps,
+                utilization_in_pct=utilization_in_pct,
+                utilization_out_pct=utilization_out_pct,
+                max_utilization_pct=max_utilization_pct
             )
         )
 

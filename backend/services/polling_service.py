@@ -14,6 +14,54 @@ from app.config.logging import logger
 # IT NOW LIVES IN THE SERVICE LAYER.
 # ---
 
+def calculate_interface_speed(raw_data: dict) -> tuple[int | None, str | None]:
+    """
+    Determine interface speed from SNMP data.
+
+    Prefers ifHighSpeed (supports >4Gbps) over ifSpeed (legacy).
+
+    Args:
+        raw_data: Dictionary containing SNMP interface data with OID keys
+
+    Returns:
+        Tuple of (speed_bps, speed_source) where:
+        - speed_bps: Interface speed in bits per second (normalized)
+        - speed_source: "ifHighSpeed" or "ifSpeed" indicating which OID was used
+
+    Example:
+        >>> raw = {"1.3.6.1.2.1.31.1.1.1.15": "10000"}  # 10 Gbps
+        >>> calculate_interface_speed(raw)
+        (10000000000, "ifHighSpeed")
+    """
+    # Try ifHighSpeed first (reports in Mbps, supports high-speed interfaces)
+    high_speed_key = schemas.INTERFACE_OIDS["interface_high_speed"]
+    high_speed_mbps = raw_data.get(high_speed_key)
+
+    if high_speed_mbps:
+        try:
+            high_speed_int = int(high_speed_mbps)
+            if high_speed_int > 0:
+                # Convert Mbps to bps
+                return high_speed_int * 1_000_000, "ifHighSpeed"
+        except (ValueError, TypeError):
+            pass
+
+    # Fallback to ifSpeed (reports in bps, legacy)
+    speed_key = schemas.INTERFACE_OIDS["interface_speed"]
+    speed_bps = raw_data.get(speed_key)
+
+    if speed_bps:
+        try:
+            speed_int = int(speed_bps)
+            if speed_int > 0:
+                return speed_int, "ifSpeed"
+        except (ValueError, TypeError):
+            pass
+
+    # Speed not available
+    return None, None
+
+
 def clear_interface_alerts(device: models.Device, db: Session):
     """
     Clear all interface alert states when device becomes unreachable (Phase 2).
@@ -169,17 +217,32 @@ async def poll_interfaces(device: models.Device, client: SNMPClient, db: Session
             idx = int(index)
             if_name = raw.get(schemas.INTERFACE_OIDS["interface_description"], "n/a")
 
+            # Calculate interface speed from SNMP data
+            speed_bps, speed_source = calculate_interface_speed(raw)
+
             if idx not in existing_interfaces:
                 db_interface = models.Interface(
                     device_id=device.id,
                     if_index=idx,
-                    if_name=if_name
+                    if_name=if_name,
+                    speed_bps=speed_bps,
+                    speed_source=speed_source,
+                    speed_last_updated=datetime.now(timezone.utc) if speed_bps else None
                 )
                 db.add(db_interface)
-                db.flush()        
+                db.flush()
                 existing_interfaces[idx] = db_interface
             else:
                 db_interface = existing_interfaces[idx]
+                # Update speed if it changed or hasn't been set
+                if speed_bps is not None and (
+                    db_interface.speed_bps != speed_bps or
+                    db_interface.speed_bps is None
+                ):
+                    db_interface.speed_bps = speed_bps
+                    db_interface.speed_source = speed_source
+                    db_interface.speed_last_updated = datetime.now(timezone.utc)
+                    db.add(db_interface)
 
             metric = models.InterfaceMetric(
                 interface_id=db_interface.id,
