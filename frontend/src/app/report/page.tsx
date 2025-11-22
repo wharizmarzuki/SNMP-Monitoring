@@ -108,7 +108,7 @@ export default function ReportPage() {
       const canvas = await html2canvas(reportElement, { scale: 2 });
       const imgData = canvas.toDataURL('image/png');
 
-      const pdf = new jsPDF('portrait', 'mm', 'a4');
+      const pdf = new jsPDF('landscape', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
       const imgWidth = pdfWidth;
