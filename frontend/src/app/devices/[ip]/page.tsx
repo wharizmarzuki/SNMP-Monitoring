@@ -99,6 +99,10 @@ export default function DeviceDetailPage() {
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
+  // State for interface table pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
   // Smart interval restrictions (same as dashboard)
   const getAvailableIntervals = (minutes: number): number[] => {
     if (minutes <= 30) return [1];
@@ -207,6 +211,27 @@ export default function DeviceDetailPage() {
       setSortColumn(column);
       setSortOrder("asc");
     }
+    // Reset to first page when sorting changes
+    setCurrentPage(1);
+  };
+
+  // Paginate sorted interfaces
+  const paginatedInterfaces = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return interfaces.slice(startIndex, endIndex);
+  }, [interfaces, currentPage, itemsPerPage]);
+
+  // Pagination metadata
+  const totalItems = interfaces.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startItem = totalItems === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
+  const endItem = Math.min(currentPage * itemsPerPage, totalItems);
+
+  // Reset to first page when itemsPerPage changes
+  const handleItemsPerPageChange = (value: string) => {
+    setItemsPerPage(value === "all" ? totalItems : Number(value));
+    setCurrentPage(1);
   };
 
   // Populate threshold inputs when device data loads
@@ -669,44 +694,43 @@ export default function DeviceDetailPage() {
         </CardContent>
       </Card>
 
-      {/* Time Range and Interval Controls */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex gap-2 items-center">
-            <span className="text-sm font-medium">Chart Filters:</span>
-            <Select value={timeRange.toString()} onValueChange={(value) => setTimeRange(Number(value))}>
-              <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="Time Range" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="15">Past 15 min</SelectItem>
-                <SelectItem value="30">Past 30 min</SelectItem>
-                <SelectItem value="60">Past 1 hour</SelectItem>
-                <SelectItem value="180">Past 3 hours</SelectItem>
-                <SelectItem value="360">Past 6 hours</SelectItem>
-                <SelectItem value="720">Past 12 hours</SelectItem>
-                <SelectItem value="1440">Past 24 hours</SelectItem>
-                <SelectItem value="10080">Past 7 days</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={interval.toString()} onValueChange={(value) => setInterval(Number(value))}>
-              <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="Interval" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="1" disabled={!availableIntervals.includes(1)}>1 min</SelectItem>
-                <SelectItem value="5" disabled={!availableIntervals.includes(5)}>5 min</SelectItem>
-                <SelectItem value="10" disabled={!availableIntervals.includes(10)}>10 min</SelectItem>
-                <SelectItem value="15" disabled={!availableIntervals.includes(15)}>15 min</SelectItem>
-                <SelectItem value="30" disabled={!availableIntervals.includes(30)}>30 min</SelectItem>
-                <SelectItem value="60" disabled={!availableIntervals.includes(60)}>1 hour</SelectItem>
-                <SelectItem value="360" disabled={!availableIntervals.includes(360)}>6 hours</SelectItem>
-                <SelectItem value="720" disabled={!availableIntervals.includes(720)}>12 hours</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Compact Chart Filter Toolbar */}
+      <div className="flex items-center gap-3 bg-muted/50 p-3 rounded-lg border">
+        <span className="text-sm font-medium text-muted-foreground">Chart Filters:</span>
+        <Select value={timeRange.toString()} onValueChange={(value) => setTimeRange(Number(value))}>
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="Time Range" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="15">Past 15 min</SelectItem>
+            <SelectItem value="30">Past 30 min</SelectItem>
+            <SelectItem value="60">Past 1 hour</SelectItem>
+            <SelectItem value="180">Past 3 hours</SelectItem>
+            <SelectItem value="360">Past 6 hours</SelectItem>
+            <SelectItem value="720">Past 12 hours</SelectItem>
+            <SelectItem value="1440">Past 24 hours</SelectItem>
+            <SelectItem value="10080">Past 7 days</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={interval.toString()} onValueChange={(value) => setInterval(Number(value))}>
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="Interval" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="1" disabled={!availableIntervals.includes(1)}>1 min</SelectItem>
+            <SelectItem value="5" disabled={!availableIntervals.includes(5)}>5 min</SelectItem>
+            <SelectItem value="10" disabled={!availableIntervals.includes(10)}>10 min</SelectItem>
+            <SelectItem value="15" disabled={!availableIntervals.includes(15)}>15 min</SelectItem>
+            <SelectItem value="30" disabled={!availableIntervals.includes(30)}>30 min</SelectItem>
+            <SelectItem value="60" disabled={!availableIntervals.includes(60)}>1 hour</SelectItem>
+            <SelectItem value="360" disabled={!availableIntervals.includes(360)}>6 hours</SelectItem>
+            <SelectItem value="720" disabled={!availableIntervals.includes(720)}>12 hours</SelectItem>
+          </SelectContent>
+        </Select>
+        <span className="text-xs text-muted-foreground ml-auto">
+          Applies to both CPU and Memory charts
+        </span>
+      </div>
 
       {/* Metrics Charts */}
       <div className="grid gap-4 md:grid-cols-2">
@@ -917,7 +941,7 @@ export default function DeviceDetailPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {interfaces.map((iface) => {
+                {paginatedInterfaces.map((iface) => {
                   const octetsIn = iface.octets_in || 0;
                   const octetsOut = iface.octets_out || 0;
                   const discardsIn = iface.discards_in || 0;
@@ -951,6 +975,58 @@ export default function DeviceDetailPage() {
                 })}
               </TableBody>
             </Table>
+          )}
+
+          {/* Pagination Controls */}
+          {interfaces.length > 0 && (
+            <div className="flex items-center justify-between pt-4 border-t">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  Showing {startItem}-{endItem} of {totalItems}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-4">
+                {/* Items per page selector */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Items per page:</span>
+                  <Select value={itemsPerPage.toString()} onValueChange={handleItemsPerPageChange}>
+                    <SelectTrigger className="w-[100px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="20">20</SelectItem>
+                      <SelectItem value="30">30</SelectItem>
+                      <SelectItem value="all">All</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Page navigation */}
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                  >
+                    Previous
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>
