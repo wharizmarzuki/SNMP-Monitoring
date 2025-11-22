@@ -3,7 +3,7 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Pencil, Trash2, Wrench } from "lucide-react";
+import { ArrowLeft, Pencil, Trash2, Wrench, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -23,6 +23,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { StatusBadge } from "@/components/StatusBadge";
 import {
   AlertDialog,
@@ -84,6 +91,38 @@ export default function DeviceDetailPage() {
   const [reachabilityThreshold, setReachabilityThreshold] =
     useState<string>("");
 
+  // State for time range and interval filters
+  const [timeRange, setTimeRange] = useState<number>(60);
+  const [interval, setInterval] = useState<number>(1);
+
+  // State for interface table sorting
+  const [sortColumn, setSortColumn] = useState<string | null>(null);
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+
+  // State for interface table pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  // Smart interval restrictions (same as dashboard)
+  const getAvailableIntervals = (minutes: number): number[] => {
+    if (minutes <= 30) return [1];
+    if (minutes <= 60) return [1, 5];
+    if (minutes <= 180) return [1, 5];
+    if (minutes <= 360) return [5, 10, 15];
+    if (minutes <= 720) return [5, 10, 15, 30];
+    if (minutes <= 1440) return [10, 15, 30, 60];
+    return [60, 360, 720]; // 7 days
+  };
+
+  const availableIntervals = getAvailableIntervals(timeRange);
+
+  // Auto-adjust interval when time range changes
+  useEffect(() => {
+    if (!availableIntervals.includes(interval)) {
+      setInterval(availableIntervals[0]);
+    }
+  }, [timeRange]);
+
   // Set to true only when mounted on the client
   useEffect(() => {
     setIsClient(true);
@@ -98,8 +137,8 @@ export default function DeviceDetailPage() {
 
   // Fetch device metrics (time series)
   const { data: metricsData } = useQuery<DeviceMetric[]>({
-    queryKey: ["deviceMetrics", ip],
-    queryFn: () => queryApi.getDeviceMetrics(ip),
+    queryKey: ["deviceMetrics", ip, timeRange, interval],
+    queryFn: () => queryApi.getDeviceMetrics(ip, timeRange, interval),
     enabled: !!ip,
   });
 
@@ -112,7 +151,88 @@ export default function DeviceDetailPage() {
 
   const device = deviceData;
   const metrics = metricsData || [];
-  const interfaces = interfacesData || [];
+  const interfacesRaw = interfacesData || [];
+
+  // Sort interfaces based on column
+  const interfaces = useMemo(() => {
+    if (!sortColumn) return interfacesRaw;
+
+    return [...interfacesRaw].sort((a, b) => {
+      let aValue: any;
+      let bValue: any;
+
+      switch (sortColumn) {
+        case "if_name":
+          aValue = a.if_name || "";
+          bValue = b.if_name || "";
+          break;
+        case "oper_status":
+          aValue = a.oper_status || 0;
+          bValue = b.oper_status || 0;
+          break;
+        case "traffic":
+          aValue = (a.octets_in || 0) + (a.octets_out || 0);
+          bValue = (b.octets_in || 0) + (b.octets_out || 0);
+          break;
+        case "discard_rate":
+          const aDiscards = (a.discards_in || 0) + (a.discards_out || 0);
+          const bDiscards = (b.discards_in || 0) + (b.discards_out || 0);
+          const aTraffic = (a.octets_in || 0) + (a.octets_out || 0);
+          const bTraffic = (b.octets_in || 0) + (b.octets_out || 0);
+          aValue = calculateRate(aDiscards, aTraffic);
+          bValue = calculateRate(bDiscards, bTraffic);
+          break;
+        case "error_rate":
+          const aErrors = (a.errors_in || 0) + (a.errors_out || 0);
+          const bErrors = (b.errors_in || 0) + (b.errors_out || 0);
+          const aTraffic2 = (a.octets_in || 0) + (a.octets_out || 0);
+          const bTraffic2 = (b.octets_in || 0) + (b.octets_out || 0);
+          aValue = calculateRate(aErrors, aTraffic2);
+          bValue = calculateRate(bErrors, bTraffic2);
+          break;
+        default:
+          return 0;
+      }
+
+      if (typeof aValue === "string") {
+        const comparison = aValue.localeCompare(bValue);
+        return sortOrder === "asc" ? comparison : -comparison;
+      } else {
+        const comparison = aValue - bValue;
+        return sortOrder === "asc" ? comparison : -comparison;
+      }
+    });
+  }, [interfacesRaw, sortColumn, sortOrder]);
+
+  const handleSort = (column: string) => {
+    if (sortColumn === column) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortColumn(column);
+      setSortOrder("asc");
+    }
+    // Reset to first page when sorting changes
+    setCurrentPage(1);
+  };
+
+  // Paginate sorted interfaces
+  const paginatedInterfaces = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return interfaces.slice(startIndex, endIndex);
+  }, [interfaces, currentPage, itemsPerPage]);
+
+  // Pagination metadata
+  const totalItems = interfaces.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startItem = totalItems === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
+  const endItem = Math.min(currentPage * itemsPerPage, totalItems);
+
+  // Reset to first page when itemsPerPage changes
+  const handleItemsPerPageChange = (value: string) => {
+    setItemsPerPage(value === "all" ? totalItems : Number(value));
+    setCurrentPage(1);
+  };
 
   // Populate threshold inputs when device data loads
   useEffect(() => {
@@ -574,6 +694,44 @@ export default function DeviceDetailPage() {
         </CardContent>
       </Card>
 
+      {/* Compact Chart Filter Toolbar */}
+      <div className="flex items-center gap-3 bg-muted/50 p-3 rounded-lg border">
+        <span className="text-sm font-medium text-muted-foreground">Chart Filters:</span>
+        <Select value={timeRange.toString()} onValueChange={(value) => setTimeRange(Number(value))}>
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="Time Range" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="15">Past 15 min</SelectItem>
+            <SelectItem value="30">Past 30 min</SelectItem>
+            <SelectItem value="60">Past 1 hour</SelectItem>
+            <SelectItem value="180">Past 3 hours</SelectItem>
+            <SelectItem value="360">Past 6 hours</SelectItem>
+            <SelectItem value="720">Past 12 hours</SelectItem>
+            <SelectItem value="1440">Past 24 hours</SelectItem>
+            <SelectItem value="10080">Past 7 days</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={interval.toString()} onValueChange={(value) => setInterval(Number(value))}>
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="Interval" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="1" disabled={!availableIntervals.includes(1)}>1 min</SelectItem>
+            <SelectItem value="5" disabled={!availableIntervals.includes(5)}>5 min</SelectItem>
+            <SelectItem value="10" disabled={!availableIntervals.includes(10)}>10 min</SelectItem>
+            <SelectItem value="15" disabled={!availableIntervals.includes(15)}>15 min</SelectItem>
+            <SelectItem value="30" disabled={!availableIntervals.includes(30)}>30 min</SelectItem>
+            <SelectItem value="60" disabled={!availableIntervals.includes(60)}>1 hour</SelectItem>
+            <SelectItem value="360" disabled={!availableIntervals.includes(360)}>6 hours</SelectItem>
+            <SelectItem value="720" disabled={!availableIntervals.includes(720)}>12 hours</SelectItem>
+          </SelectContent>
+        </Select>
+        <span className="text-xs text-muted-foreground ml-auto">
+          Applies to both CPU and Memory charts
+        </span>
+      </div>
+
       {/* Metrics Charts */}
       <div className="grid gap-4 md:grid-cols-2">
         {/* CPU Utilization Chart */}
@@ -682,19 +840,99 @@ export default function DeviceDetailPage() {
               <TableHeader>
                 <TableRow>
                   {/* CHANGE 2: Added explicit widths to all headers */}
-                  
+
                   {/* Wide column for Interface Name */}
-                  <TableHead className="text-center w-[220px]">Interface Name</TableHead>
-                  
+                  <TableHead className="text-center w-[220px]">
+                    <button
+                      onClick={() => handleSort("if_name")}
+                      className="flex items-center gap-1 hover:text-foreground transition-colors mx-auto"
+                    >
+                      Interface Name
+                      {sortColumn === "if_name" ? (
+                        sortOrder === "asc" ? (
+                          <ArrowUp className="h-4 w-4" />
+                        ) : (
+                          <ArrowDown className="h-4 w-4" />
+                        )
+                      ) : (
+                        <ArrowUpDown className="h-4 w-4 opacity-50" />
+                      )}
+                    </button>
+                  </TableHead>
+
                   {/* Fixed small width for Status */}
-                  <TableHead className="text-center w-[100px]">Status</TableHead>
-                  
+                  <TableHead className="text-center w-[100px]">
+                    <button
+                      onClick={() => handleSort("oper_status")}
+                      className="flex items-center gap-1 hover:text-foreground transition-colors mx-auto"
+                    >
+                      Status
+                      {sortColumn === "oper_status" ? (
+                        sortOrder === "asc" ? (
+                          <ArrowUp className="h-4 w-4" />
+                        ) : (
+                          <ArrowDown className="h-4 w-4" />
+                        )
+                      ) : (
+                        <ArrowUpDown className="h-4 w-4 opacity-50" />
+                      )}
+                    </button>
+                  </TableHead>
+
                   {/* Flexible but defined width for Traffic */}
-                  <TableHead className="text-center w-[200px]">Traffic (In / Out)</TableHead>
-                  
+                  <TableHead className="text-center w-[200px]">
+                    <button
+                      onClick={() => handleSort("traffic")}
+                      className="flex items-center gap-1 hover:text-foreground transition-colors mx-auto"
+                    >
+                      Traffic (In / Out)
+                      {sortColumn === "traffic" ? (
+                        sortOrder === "asc" ? (
+                          <ArrowUp className="h-4 w-4" />
+                        ) : (
+                          <ArrowDown className="h-4 w-4" />
+                        )
+                      ) : (
+                        <ArrowUpDown className="h-4 w-4 opacity-50" />
+                      )}
+                    </button>
+                  </TableHead>
+
                   {/* Fixed widths for Rates */}
-                  <TableHead className="text-center w-[120px]">Discard Rate</TableHead>
-                  <TableHead className="text-center w-[120px]">Error Rate</TableHead>
+                  <TableHead className="text-center w-[120px]">
+                    <button
+                      onClick={() => handleSort("discard_rate")}
+                      className="flex items-center gap-1 hover:text-foreground transition-colors mx-auto"
+                    >
+                      Discard Rate
+                      {sortColumn === "discard_rate" ? (
+                        sortOrder === "asc" ? (
+                          <ArrowUp className="h-4 w-4" />
+                        ) : (
+                          <ArrowDown className="h-4 w-4" />
+                        )
+                      ) : (
+                        <ArrowUpDown className="h-4 w-4 opacity-50" />
+                      )}
+                    </button>
+                  </TableHead>
+                  <TableHead className="text-center w-[120px]">
+                    <button
+                      onClick={() => handleSort("error_rate")}
+                      className="flex items-center gap-1 hover:text-foreground transition-colors mx-auto"
+                    >
+                      Error Rate
+                      {sortColumn === "error_rate" ? (
+                        sortOrder === "asc" ? (
+                          <ArrowUp className="h-4 w-4" />
+                        ) : (
+                          <ArrowDown className="h-4 w-4" />
+                        )
+                      ) : (
+                        <ArrowUpDown className="h-4 w-4 opacity-50" />
+                      )}
+                    </button>
+                  </TableHead>
                   
                   {/* CHANGE 3: Large reserved width (240px) for the Action column
                       This ensures the column is already wide enough to hold 
@@ -703,7 +941,7 @@ export default function DeviceDetailPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {interfaces.map((iface) => {
+                {paginatedInterfaces.map((iface) => {
                   const octetsIn = iface.octets_in || 0;
                   const octetsOut = iface.octets_out || 0;
                   const discardsIn = iface.discards_in || 0;
@@ -737,6 +975,58 @@ export default function DeviceDetailPage() {
                 })}
               </TableBody>
             </Table>
+          )}
+
+          {/* Pagination Controls */}
+          {interfaces.length > 0 && (
+            <div className="flex items-center justify-between pt-4 border-t">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  Showing {startItem}-{endItem} of {totalItems}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-4">
+                {/* Items per page selector */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Items per page:</span>
+                  <Select value={itemsPerPage.toString()} onValueChange={handleItemsPerPageChange}>
+                    <SelectTrigger className="w-[100px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="20">20</SelectItem>
+                      <SelectItem value="30">30</SelectItem>
+                      <SelectItem value="all">All</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Page navigation */}
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                  >
+                    Previous
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>

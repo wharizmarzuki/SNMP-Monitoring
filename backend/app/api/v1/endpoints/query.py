@@ -89,19 +89,37 @@ async def get_network_summary(db: Session = Depends(get_db)):
 # -------------------------------
 @router.get("/device/{ip}/metrics", response_model=List[schemas.DeviceMetricResponse])
 async def get_device_metrics_history(
-    ip: str, 
+    ip: str,
     db: Session = Depends(get_db),
-    limit: int = 15
+    minutes: int = 60,
+    interval_minutes: int = 1
 ):
+    from datetime import datetime, timedelta
+
     device = db.query(models.Device).filter(models.Device.ip_address == ip).first()
     if not device:
         raise DeviceNotFoundError(ip)
 
+    # Calculate time range
+    end_time = datetime.utcnow()
+    start_time = end_time - timedelta(minutes=minutes)
+
+    # Get metrics within time range
     metrics = db.query(models.DeviceMetric)\
-                .filter(models.DeviceMetric.device_id == device.id)\
-                .order_by(models.DeviceMetric.timestamp.desc())\
-                .limit(limit)\
+                .filter(
+                    models.DeviceMetric.device_id == device.id,
+                    models.DeviceMetric.timestamp >= start_time,
+                    models.DeviceMetric.timestamp <= end_time
+                )\
+                .order_by(models.DeviceMetric.timestamp.asc())\
                 .all()
+
+    # Apply interval sampling if needed
+    if interval_minutes > 1 and len(metrics) > 0:
+        sampled_metrics = []
+        for i in range(0, len(metrics), interval_minutes):
+            sampled_metrics.append(metrics[i])
+        metrics = sampled_metrics
 
     # Force timestamps to UTC ISO8601
     for m in metrics:
@@ -341,7 +359,8 @@ async def get_network_throughput(
 @router.get("/device-utilization", response_model=List[schemas.DeviceUtilizationDatapoint])
 async def get_device_utilization(
     db: Session = Depends(get_db),
-    limit: int = 100
+    minutes: int = 60,  # Time range in minutes (default 1 hour)
+    interval_minutes: int = 1  # Aggregation interval in minutes (default 1 minute)
 ):
     """
     Get per-device throughput and utilization metrics over time (time series).
@@ -351,9 +370,18 @@ async def get_device_utilization(
     - Total capacity (sum of interface speeds)
     - Utilization percentages over time
 
+    Parameters:
+    - minutes: Time range to fetch data for (e.g., 15, 30, 60)
+    - interval_minutes: Data aggregation interval (e.g., 1, 5, 10)
+
     Only includes devices with at least one interface that has known speed.
     Data points are ordered chronologically for time series visualization.
     """
+    from datetime import datetime, timedelta
+
+    # Calculate time range
+    end_time = datetime.utcnow()
+    start_time = end_time - timedelta(minutes=minutes)
 
     # Join interface_metrics with interfaces to get speed_bps and device_id
     lag_subquery = select(
@@ -378,7 +406,9 @@ async def get_device_utilization(
         models.Interface,
         models.InterfaceMetric.interface_id == models.Interface.id
     ).filter(
-        models.Interface.speed_bps != None  # Only include interfaces with known speed
+        models.Interface.speed_bps != None,  # Only include interfaces with known speed
+        models.InterfaceMetric.timestamp >= start_time,
+        models.InterfaceMetric.timestamp <= end_time
     ).subquery()
 
     # Counter wrap detection
@@ -405,7 +435,7 @@ async def get_device_utilization(
         func.extract("epoch", lag_subquery.c.timestamp - lag_subquery.c.prev_timestamp).label("delta_seconds")
     ).filter(lag_subquery.c.prev_timestamp != None).subquery()
 
-    # Aggregate by device and timestamp
+    # Aggregate by device and time interval
     device_aggregation = select(
         delta_subquery.c.device_id,
         delta_subquery.c.timestamp,
@@ -431,14 +461,33 @@ async def get_device_utilization(
         device_aggregation,
         models.Device.id == device_aggregation.c.device_id
     ).order_by(
-        device_aggregation.c.timestamp.desc()
-    ).limit(limit)
+        device_aggregation.c.timestamp.asc()
+    )
 
     results = db.execute(final_query).all()
 
     output = []
-    # Reverse to get chronological order (oldest first)
-    for row in reversed(results):
+    # Process results and optionally sample by interval
+    results_list = list(results)
+
+    # If interval_minutes > 1, sample the data
+    if interval_minutes > 1 and len(results_list) > 0:
+        # Group by device and sample
+        from collections import defaultdict
+        device_groups = defaultdict(list)
+
+        for row in results_list:
+            device_groups[row.device_id].append(row)
+
+        sampled_results = []
+        for device_id, rows in device_groups.items():
+            # Sample every Nth row based on interval_minutes
+            for i in range(0, len(rows), interval_minutes):
+                sampled_results.append(rows[i])
+
+        results_list = sorted(sampled_results, key=lambda x: x.timestamp)
+
+    for row in results_list:
         # Calculate utilization percentages
         utilization_in_pct = None
         utilization_out_pct = None
@@ -500,6 +549,13 @@ async def get_active_alerts(db: Session = Depends(get_db)):
 
     for device, cpu, mem in device_alerts_query:
         if device.cpu_alert_state in ["triggered", "acknowledged"]:
+            # Calculate severity based on CPU utilization
+            cpu_severity = "Warning"
+            if cpu >= 90:
+                cpu_severity = "Critical"
+            elif cpu >= 75:
+                cpu_severity = "High"
+
             all_alerts.append(schemas.ActiveAlertResponse(
                 hostname=device.hostname,
                 ip_address=device.ip_address,
@@ -507,9 +563,17 @@ async def get_active_alerts(db: Session = Depends(get_db)):
                 current_value=f"{cpu:.2f}%",
                 threshold=f">{device.cpu_threshold}%",
                 state=device.cpu_alert_state,
-                acknowledged_at=device.cpu_acknowledged_at
+                acknowledged_at=device.cpu_acknowledged_at,
+                severity=cpu_severity
             ))
         if device.memory_alert_state in ["triggered", "acknowledged"]:
+            # Calculate severity based on Memory utilization
+            mem_severity = "Warning"
+            if mem >= 90:
+                mem_severity = "Critical"
+            elif mem >= 75:
+                mem_severity = "High"
+
             all_alerts.append(schemas.ActiveAlertResponse(
                 hostname=device.hostname,
                 ip_address=device.ip_address,
@@ -517,7 +581,8 @@ async def get_active_alerts(db: Session = Depends(get_db)):
                 current_value=f"{mem:.2f}%",
                 threshold=f">{device.memory_threshold}%",
                 state=device.memory_alert_state,
-                acknowledged_at=device.memory_acknowledged_at
+                acknowledged_at=device.memory_acknowledged_at,
+                severity=mem_severity
             ))
 
     # --- 3. Query for Reachability Alerts ---
@@ -526,6 +591,7 @@ async def get_active_alerts(db: Session = Depends(get_db)):
     ).all()
 
     for device in reachability_alerts_query:
+        # Reachability alerts are always Critical
         all_alerts.append(schemas.ActiveAlertResponse(
             hostname=device.hostname,
             ip_address=device.ip_address,
@@ -533,7 +599,8 @@ async def get_active_alerts(db: Session = Depends(get_db)):
             current_value=f"Down ({device.consecutive_failures} failures)",
             threshold=f">{device.failure_threshold} failures",
             state=device.reachability_alert_state,
-            acknowledged_at=device.reachability_acknowledged_at
+            acknowledged_at=device.reachability_acknowledged_at,
+            severity="Critical"
         ))
 
     # --- 5. Get Latest Interface Metric Timestamps ---
@@ -570,6 +637,7 @@ async def get_active_alerts(db: Session = Depends(get_db)):
 
     for interface, hostname, ip, status, disc_in, disc_out in interface_alerts_query:
         if interface.oper_status_alert_state in ["triggered", "acknowledged"]:
+            # Interface down alerts are High severity
             all_alerts.append(schemas.ActiveAlertResponse(
                 hostname=hostname,
                 ip_address=ip,
@@ -578,10 +646,18 @@ async def get_active_alerts(db: Session = Depends(get_db)):
                 threshold="Should be Up",
                 state=interface.oper_status_alert_state,
                 acknowledged_at=interface.oper_status_acknowledged_at,
-                if_index=interface.if_index
+                if_index=interface.if_index,
+                severity="High"
             ))
         if interface.packet_drop_alert_state in ["triggered", "acknowledged"]:
             total_drops = (disc_in or 0) + (disc_out or 0)
+            # Packet drop severity based on total drops
+            drop_severity = "Warning"
+            if total_drops >= 10000:
+                drop_severity = "Critical"
+            elif total_drops >= 1000:
+                drop_severity = "High"
+
             all_alerts.append(schemas.ActiveAlertResponse(
                 hostname=hostname,
                 ip_address=ip,
@@ -590,7 +666,8 @@ async def get_active_alerts(db: Session = Depends(get_db)):
                 threshold=f">{interface.packet_drop_threshold} drops",
                 state=interface.packet_drop_alert_state,
                 acknowledged_at=interface.packet_drop_acknowledged_at,
-                if_index=interface.if_index
+                if_index=interface.if_index,
+                severity=drop_severity
             ))
 
     return all_alerts
