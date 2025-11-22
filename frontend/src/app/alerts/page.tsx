@@ -181,13 +181,13 @@ export default function AlertsPage() {
             <div className="space-y-3">
               {Array.from({ length: 6 }).map((_, i) => (
                 <div key={i} className="flex gap-4">
-                  <div className="h-4 flex-1 animate-pulse rounded-md bg-slate-200 dark:bg-slate-800" />
-                  <div className="h-4 flex-1 animate-pulse rounded-md bg-slate-200 dark:bg-slate-800" />
-                  <div className="h-4 flex-1 animate-pulse rounded-md bg-slate-200 dark:bg-slate-800" />
-                  <div className="h-4 flex-1 animate-pulse rounded-md bg-slate-200 dark:bg-slate-800" />
-                  <div className="h-4 flex-1 animate-pulse rounded-md bg-slate-200 dark:bg-slate-800" />
-                  <div className="h-4 flex-1 animate-pulse rounded-md bg-slate-200 dark:bg-slate-800" />
-                  <div className="h-4 w-24 animate-pulse rounded-md bg-slate-200 dark:bg-slate-800" />
+                  <div className="h-4 flex-1 animate-pulse rounded-md bg-muted/50" />
+                  <div className="h-4 flex-1 animate-pulse rounded-md bg-muted/50" />
+                  <div className="h-4 flex-1 animate-pulse rounded-md bg-muted/50" />
+                  <div className="h-4 flex-1 animate-pulse rounded-md bg-muted/50" />
+                  <div className="h-4 flex-1 animate-pulse rounded-md bg-muted/50" />
+                  <div className="h-4 flex-1 animate-pulse rounded-md bg-muted/50" />
+                  <div className="h-4 w-24 animate-pulse rounded-md bg-muted/50" />
                 </div>
               ))}
             </div>

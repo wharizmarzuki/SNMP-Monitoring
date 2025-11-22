@@ -53,19 +53,19 @@ export default function Navbar() {
   };
 
   return (
-    <div className="w-full border-b bg-white dark:bg-slate-900 dark:border-slate-800">
+    <div className="w-full border-b border-border bg-card">
       <div className="flex items-center justify-between gap-6 px-4 py-2">
         <div className="flex items-center gap-6">
-          <div className="text-lg font-semibold dark:text-white">NetSNMP</div>
+          <div className="text-lg font-semibold text-foreground">NetSNMP</div>
           <nav className="flex gap-2">
             {navItems.map(({ href, icon: Icon, label }) => (
               <Link
                 key={href}
                 href={href}
-                className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100 transition-colors ${
+                className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
                   isActive(href)
-                    ? "bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100"
-                    : "text-slate-700 dark:text-slate-300"
+                    ? "bg-accent text-accent-foreground"
+                    : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                 }`}
               >
                 <Icon className="h-4 w-4" />
@@ -99,7 +99,7 @@ export default function Navbar() {
                   Profile Settings
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-600 dark:text-red-400">
+                <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-destructive">
                   <LogOut className="mr-2 h-4 w-4" />
                   Logout
                 </DropdownMenuItem>

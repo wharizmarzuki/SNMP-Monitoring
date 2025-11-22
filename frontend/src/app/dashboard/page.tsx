@@ -195,7 +195,7 @@ export default function DashboardPage() {
                   {Array.from({ length: 12 }).map((_, i) => (
                     <div
                       key={i}
-                      className="flex-1 animate-pulse rounded-md bg-slate-200 dark:bg-slate-800"
+                      className="flex-1 animate-pulse rounded-md bg-muted/50"
                       style={{ height: `${Math.random() * 60 + 40}%` }}
                     />
                   ))}
@@ -340,7 +340,7 @@ export default function DashboardPage() {
                 {Array.from({ length: 5 }).map((_, i) => (
                   <div key={i} className="flex gap-4">
                     <div className="h-4 flex-1 animate-pulse rounded-md bg-slate-200 dark:bg-slate-800" />
-                    <div className="h-4 w-16 animate-pulse rounded-md bg-slate-200 dark:bg-slate-800" />
+                    <div className="h-4 w-16 animate-pulse rounded-md bg-muted/50" />
                   </div>
                 ))}
               </div>
@@ -389,7 +389,7 @@ export default function DashboardPage() {
                 {Array.from({ length: 5 }).map((_, i) => (
                   <div key={i} className="flex gap-4">
                     <div className="h-4 flex-1 animate-pulse rounded-md bg-slate-200 dark:bg-slate-800" />
-                    <div className="h-4 w-16 animate-pulse rounded-md bg-slate-200 dark:bg-slate-800" />
+                    <div className="h-4 w-16 animate-pulse rounded-md bg-muted/50" />
                   </div>
                 ))}
               </div>
