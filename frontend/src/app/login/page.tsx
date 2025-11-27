@@ -24,18 +24,28 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      // Login
+      // Login - AuthGuard will fetch user info, no need to do it here
       await authService.login(credentials);
 
-      // Fetch user info
-      await authService.getCurrentUser();
-
-      // Redirect to dashboard
-      router.push("/dashboard");
+      // Redirect to dashboard - use replace to prevent back button issues
+      router.replace("/dashboard");
+      // Note: Don't reset isLoading here - let it persist until component unmounts
+      // This keeps the loading animation visible during navigation
     } catch (err: any) {
       console.error("Login error:", err);
-      setError(err.message || "Invalid username or password");
-    } finally {
+
+      // Provide user-friendly error messages
+      if (err.code === 'ECONNABORTED' || err.code === 'ERR_NETWORK') {
+        setError("Cannot connect to server. Please check your network connection.");
+      } else if (err.status === 401) {
+        setError("Invalid username or password");
+      } else if (err.status === 403) {
+        setError("Account is inactive. Please contact administrator.");
+      } else {
+        setError(err.message || "Login failed. Please try again.");
+      }
+
+      // Only reset loading state on error
       setIsLoading(false);
     }
   };

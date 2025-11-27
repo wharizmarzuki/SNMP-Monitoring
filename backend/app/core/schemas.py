@@ -135,10 +135,13 @@ INTERFACE_OIDS = {
 
 VENDOR_OIDS = {
     "Cisco": {
-        "cpu_utilization": "1.3.6.1.4.1.9.9.109.1.1.1.1.5.1",
-        "memory_pool_1": "1.3.6.1.4.1.9.9.48.1.1.1.5.1",
-        "memory_pool_2": "1.3.6.1.4.1.9.9.48.1.1.1.5.2",
-        "memory_pool_13": "1.3.6.1.4.1.9.9.48.1.1.1.5.13",
+        # CPU - Use cpmCPUTotal5minRev (non-deprecated, full 0-100% range)
+        "cpu_utilization": "1.3.6.1.4.1.9.9.109.1.1.1.1.8.1",
+
+        # Memory - Use Pool 1 (Processor Memory) for universal compatibility
+        # Pool 1 exists on all Cisco routers and switches
+        "memory_pool_used": "1.3.6.1.4.1.9.9.48.1.1.1.5.1",  # ciscoMemoryPoolUsed.1
+        "memory_pool_free": "1.3.6.1.4.1.9.9.48.1.1.1.6.1",  # ciscoMemoryPoolFree.1
     },
 }
 
