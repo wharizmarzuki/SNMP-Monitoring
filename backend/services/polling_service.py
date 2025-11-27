@@ -145,10 +145,10 @@ async def poll_device(device: models.Device, client: SNMPClient, db: Session) ->
         # Calculate Memory
         mem_val = 0.0
         if vendor == "Cisco":
-            pool_1 = float(vendor_data.get("memory_pool_1", 0))
-            pool_2 = float(vendor_data.get("memory_pool_2", 0))
-            used_mem = float(vendor_data.get("memory_pool_13", 0))
-            total_mem = pool_1 + pool_2
+            # Use Pool 1 (Processor Memory) - available on all Cisco devices
+            used_mem = float(vendor_data.get("memory_pool_used", 0))
+            free_mem = float(vendor_data.get("memory_pool_free", 0))
+            total_mem = used_mem + free_mem
             if total_mem > 0:
                 mem_val = (used_mem / total_mem) * 100
         oid_values["memory_utilization"] = mem_val
