@@ -1,0 +1,143 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]: NetSNMP
+        - navigation [ref=e7]:
+          - link "Dashboard" [ref=e8] [cursor=pointer]:
+            - /url: /dashboard
+            - img [ref=e9]
+            - generic [ref=e14]: Dashboard
+          - link "Devices" [ref=e15] [cursor=pointer]:
+            - /url: /devices
+            - img [ref=e16]
+            - generic [ref=e18]: Devices
+          - link "Alerts" [ref=e19] [cursor=pointer]:
+            - /url: /alerts
+            - img [ref=e20]
+            - generic [ref=e23]: Alerts
+          - link "Report" [ref=e24] [cursor=pointer]:
+            - /url: /report
+            - img [ref=e25]
+            - generic [ref=e28]: Report
+          - link "Settings" [ref=e29] [cursor=pointer]:
+            - /url: /settings
+            - img [ref=e30]
+            - generic [ref=e33]: Settings
+      - generic [ref=e34]:
+        - button "Toggle theme" [ref=e35] [cursor=pointer]:
+          - img
+        - button "admin" [ref=e36] [cursor=pointer]:
+          - img
+          - generic [ref=e37]: admin
+    - main [ref=e38]:
+      - generic [ref=e39]:
+        - heading "Dashboard" [level=2] [ref=e41]
+        - generic [ref=e42]:
+          - generic [ref=e43]:
+            - generic [ref=e44]:
+              - generic [ref=e45]:
+                - generic [ref=e46]:
+                  - heading "Total Devices" [level=3] [ref=e47]
+                  - img [ref=e48]
+                - generic [ref=e51]:
+                  - generic [ref=e52]: "2"
+                  - paragraph [ref=e53]: Monitored network devices
+              - generic [ref=e54]:
+                - generic [ref=e55]:
+                  - heading "Devices Up" [level=3] [ref=e56]
+                  - img [ref=e57]
+                - generic [ref=e59]:
+                  - generic [ref=e60]: "2"
+                  - paragraph [ref=e61]: Currently online
+              - generic [ref=e62]:
+                - generic [ref=e63]:
+                  - heading "Devices in Alert" [level=3] [ref=e64]
+                  - img [ref=e65]
+                - generic [ref=e67]:
+                  - generic [ref=e68]: "0"
+                  - paragraph [ref=e69]: Requiring attention
+            - generic [ref=e70]:
+              - generic [ref=e71]:
+                - heading "Devices in Alert" [level=3] [ref=e72]
+                - paragraph [ref=e73]: Devices currently exceeding thresholds
+              - paragraph [ref=e75]: No active alerts
+            - generic [ref=e76]:
+              - generic [ref=e78]:
+                - generic [ref=e79]:
+                  - heading "Device Bandwidth Utilization" [level=3] [ref=e80]
+                  - paragraph [ref=e81]: Link utilization percentage over time by device
+                - generic [ref=e82]:
+                  - combobox [ref=e83] [cursor=pointer]:
+                    - generic: Past 1 hour
+                    - img [ref=e84]
+                  - combobox [ref=e86] [cursor=pointer]:
+                    - generic: 1 min
+                    - img [ref=e87]
+              - generic [ref=e91]:
+                - img [ref=e92]:
+                  - generic [ref=e97]:
+                    - generic [ref=e99]: 7:48:27 AM
+                    - generic [ref=e101]: 7:52:33 AM
+                  - generic [ref=e102]:
+                    - generic [ref=e103]:
+                      - generic [ref=e105]: "0"
+                      - generic [ref=e107]: "25"
+                      - generic [ref=e109]: "50"
+                      - generic [ref=e111]: "75"
+                      - generic [ref=e113]: "100"
+                    - generic [ref=e114]: Utilization %
+                - list [ref=e116]:
+                  - listitem [ref=e117]:
+                    - img [ref=e118]
+                    - text: R1
+                  - listitem [ref=e120]:
+                    - img [ref=e121]
+                    - text: R3
+          - generic [ref=e123]:
+            - generic [ref=e124]:
+              - generic [ref=e125]:
+                - heading "Top 5 CPU Utilization" [level=3] [ref=e126]
+                - paragraph [ref=e127]: Devices with highest CPU usage
+              - table [ref=e130]:
+                - rowgroup [ref=e131]:
+                  - row "Device Usage" [ref=e132]:
+                    - columnheader "Device" [ref=e133]
+                    - columnheader "Usage" [ref=e134]
+                - rowgroup [ref=e135]:
+                  - row "R1 192.168.254.1 5.0%" [ref=e136]:
+                    - cell "R1 192.168.254.1" [ref=e137]:
+                      - generic [ref=e138]: R1
+                      - generic [ref=e139]: 192.168.254.1
+                    - cell "5.0%" [ref=e140]
+                  - row "R3 192.168.254.2 2.0%" [ref=e141]:
+                    - cell "R3 192.168.254.2" [ref=e142]:
+                      - generic [ref=e143]: R3
+                      - generic [ref=e144]: 192.168.254.2
+                    - cell "2.0%" [ref=e145]
+            - generic [ref=e146]:
+              - generic [ref=e147]:
+                - heading "Top 5 Memory Utilization" [level=3] [ref=e148]
+                - paragraph [ref=e149]: Devices with highest memory usage
+              - table [ref=e152]:
+                - rowgroup [ref=e153]:
+                  - row "Device Usage" [ref=e154]:
+                    - columnheader "Device" [ref=e155]
+                    - columnheader "Usage" [ref=e156]
+                - rowgroup [ref=e157]:
+                  - row "R3 192.168.254.2 7.9%" [ref=e158]:
+                    - cell "R3 192.168.254.2" [ref=e159]:
+                      - generic [ref=e160]: R3
+                      - generic [ref=e161]: 192.168.254.2
+                    - cell "7.9%" [ref=e162]
+                  - row "R1 192.168.254.1 7.7%" [ref=e163]:
+                    - cell "R1 192.168.254.1" [ref=e164]:
+                      - generic [ref=e165]: R1
+                      - generic [ref=e166]: 192.168.254.1
+                    - cell "7.7%" [ref=e167]
+  - alert [ref=e168]
+  - generic [ref=e169]: "0"
+```
