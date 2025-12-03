@@ -81,12 +81,12 @@ class InterfaceMetric(BaseModel):
     name: str
     admin_status: int
     oper_status: int
-    octets_in: float
-    octets_out: float
-    errors_in: float
-    errors_out: float
-    discards_in: float
-    discards_out: float
+    octets_in: int
+    octets_out: int
+    errors_in: int
+    errors_out: int
+    discards_in: int
+    discards_out: int
 
 class PaginatedInterfaces(BaseModel):
     host: str
@@ -122,11 +122,14 @@ DEVICE_OIDS = {
 INTERFACE_OIDS = {
     "interface_index": "1.3.6.1.2.1.2.2.1.1",
     "interface_description": "1.3.6.1.2.1.2.2.1.2",
-    "interface_speed": "1.3.6.1.2.1.2.2.1.5",
+    "interface_speed": "1.3.6.1.2.1.2.2.1.5",              # ifSpeed (32-bit, bps)
+    "interface_speed_high": "1.3.6.1.2.1.31.1.1.1.15",     # ifHighSpeed (64-bit, Mbps) - NEW
     "interface_admin_status": "1.3.6.1.2.1.2.2.1.7",
     "interface_operational_status": "1.3.6.1.2.1.2.2.1.8",
-    "inbound_octets": "1.3.6.1.2.1.2.2.1.10",
-    "outbound_octets": "1.3.6.1.2.1.2.2.1.16",
+    "inbound_octets": "1.3.6.1.2.1.2.2.1.10",              # ifInOctets (32-bit)
+    "inbound_octets_hc": "1.3.6.1.2.1.31.1.1.1.6",         # ifHCInOctets (64-bit) - NEW
+    "outbound_octets": "1.3.6.1.2.1.2.2.1.16",             # ifOutOctets (32-bit)
+    "outbound_octets_hc": "1.3.6.1.2.1.31.1.1.1.10",       # ifHCOutOctets (64-bit) - NEW
     "inbound_errors": "1.3.6.1.2.1.2.2.1.14",
     "outbound_errors": "1.3.6.1.2.1.2.2.1.20",
     "inbound_discards": "1.3.6.1.2.1.2.2.1.13",
@@ -255,12 +258,12 @@ class InterfaceMetricResponse(BaseModel):
     timestamp: datetime
     admin_status: int
     oper_status: int
-    octets_in: float
-    octets_out: float
-    errors_in: float
-    errors_out: float
-    discards_in: float
-    discards_out: float
+    octets_in: int
+    octets_out: int
+    errors_in: int
+    errors_out: int
+    discards_in: int
+    discards_out: int
 
     # Joined from the parent Interface model
     if_name: str | None = None
@@ -411,10 +414,10 @@ class PacketDropRecord(BaseModel):
     device_hostname: str
     device_ip: str
     discard_rate_pct: float
-    total_discards_in: float
-    total_discards_out: float
-    total_errors_in: float
-    total_errors_out: float
+    total_discards_in: int
+    total_discards_out: int
+    total_errors_in: int
+    total_errors_out: int
 
 
 class UptimeSummaryResponse(BaseModel):

@@ -16,7 +16,9 @@ from app.config.logging import logger
 
 def calculate_interface_speed(raw_data: dict) -> tuple[int | None, str | None]:
     """
-    Determine interface speed from SNMP data using ifSpeed (IF-MIB).
+    Determine interface speed from SNMP data using ifHighSpeed or ifSpeed (IF-MIB).
+
+    Tries ifHighSpeed (64-bit, supports >4Gbps) first, then falls back to ifSpeed (32-bit).
 
     Args:
         raw_data: Dictionary containing SNMP interface data with OID keys
@@ -24,14 +26,27 @@ def calculate_interface_speed(raw_data: dict) -> tuple[int | None, str | None]:
     Returns:
         Tuple of (speed_bps, speed_source) where:
         - speed_bps: Interface speed in bits per second
-        - speed_source: "ifSpeed" indicating which OID was used
+        - speed_source: "ifHighSpeed" or "ifSpeed" indicating which OID was used
 
     Example:
-        >>> raw = {"1.3.6.1.2.1.2.2.1.5": "1000000000"}  # 1 Gbps
+        >>> raw = {"1.3.6.1.2.1.31.1.1.1.15": "10000"}  # 10 Gbps (ifHighSpeed in Mbps)
         >>> calculate_interface_speed(raw)
-        (1000000000, "ifSpeed")
+        (10000000000, "ifHighSpeed")
     """
-    # Use ifSpeed (reports in bps, from standard IF-MIB ifTable)
+    # Try ifHighSpeed first (reports in Mbps, from ifXTable, supports >4Gbps)
+    speed_high_key = schemas.INTERFACE_OIDS["interface_speed_high"]
+    speed_high_mbps = raw_data.get(speed_high_key)
+
+    if speed_high_mbps:
+        try:
+            speed_mbps = int(speed_high_mbps)
+            if speed_mbps > 0:
+                # Convert Mbps to bps
+                return speed_mbps * 1_000_000, "ifHighSpeed"
+        except (ValueError, TypeError):
+            pass
+
+    # Fallback to ifSpeed (reports in bps, from standard IF-MIB ifTable, capped at ~4Gbps)
     speed_key = schemas.INTERFACE_OIDS["interface_speed"]
     speed_bps = raw_data.get(speed_key)
 
@@ -229,16 +244,24 @@ async def poll_interfaces(device: models.Device, client: SNMPClient, db: Session
                     db_interface.speed_last_updated = datetime.now(timezone.utc)
                     db.add(db_interface)
 
+            # Try 64-bit HC counters first, fallback to 32-bit if not available
+            octets_in_hc = raw.get(schemas.INTERFACE_OIDS["inbound_octets_hc"])
+            octets_out_hc = raw.get(schemas.INTERFACE_OIDS["outbound_octets_hc"])
+
+            # Use HC counters if available and valid, otherwise use 32-bit
+            octets_in = int(float(octets_in_hc)) if octets_in_hc and octets_in_hc != "0" else int(float(raw.get(schemas.INTERFACE_OIDS["inbound_octets"], 0)))
+            octets_out = int(float(octets_out_hc)) if octets_out_hc and octets_out_hc != "0" else int(float(raw.get(schemas.INTERFACE_OIDS["outbound_octets"], 0)))
+
             metric = models.InterfaceMetric(
                 interface_id=db_interface.id,
                 admin_status=int(raw.get(schemas.INTERFACE_OIDS["interface_admin_status"], 0)),
                 oper_status=int(raw.get(schemas.INTERFACE_OIDS["interface_operational_status"], 0)),
-                octets_in=float(raw.get(schemas.INTERFACE_OIDS["inbound_octets"], 0)),
-                octets_out=float(raw.get(schemas.INTERFACE_OIDS["outbound_octets"], 0)),
-                errors_in=float(raw.get(schemas.INTERFACE_OIDS["inbound_errors"], 0)),
-                errors_out=float(raw.get(schemas.INTERFACE_OIDS["outbound_errors"], 0)),
-                discards_in=float(raw.get(schemas.INTERFACE_OIDS["inbound_discards"], 0)),
-                discards_out=float(raw.get(schemas.INTERFACE_OIDS["outbound_discards"], 0)),
+                octets_in=octets_in,
+                octets_out=octets_out,
+                errors_in=int(float(raw.get(schemas.INTERFACE_OIDS["inbound_errors"], 0))),
+                errors_out=int(float(raw.get(schemas.INTERFACE_OIDS["outbound_errors"], 0))),
+                discards_in=int(float(raw.get(schemas.INTERFACE_OIDS["inbound_discards"], 0))),
+                discards_out=int(float(raw.get(schemas.INTERFACE_OIDS["outbound_discards"], 0))),
             )
 
             db.add(metric)

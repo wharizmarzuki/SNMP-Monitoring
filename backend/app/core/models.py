@@ -115,13 +115,13 @@ class InterfaceMetric(Base):
     admin_status: Mapped[int | None] = mapped_column(Integer)
     oper_status: Mapped[int | None] = mapped_column(Integer)
     
-    # Counters
-    octets_in: Mapped[float | None] = mapped_column(Float)
-    octets_out: Mapped[float | None] = mapped_column(Float)
-    errors_in: Mapped[float | None] = mapped_column(Float)
-    errors_out: Mapped[float | None] = mapped_column(Float)
-    discards_in: Mapped[float | None] = mapped_column(Float)
-    discards_out: Mapped[float | None] = mapped_column(Float)
+    # Counters (BigInteger prevents precision loss on large 64-bit counters)
+    octets_in: Mapped[int | None] = mapped_column(BigInteger)
+    octets_out: Mapped[int | None] = mapped_column(BigInteger)
+    errors_in: Mapped[int | None] = mapped_column(BigInteger)
+    errors_out: Mapped[int | None] = mapped_column(BigInteger)
+    discards_in: Mapped[int | None] = mapped_column(BigInteger)
+    discards_out: Mapped[int | None] = mapped_column(BigInteger)
     
     interface: Mapped["Interface"] = relationship(back_populates="metrics")
 

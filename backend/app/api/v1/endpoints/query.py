@@ -336,8 +336,8 @@ async def get_network_throughput(
 
     results = db.query(
         delta_subquery.c.timestamp,
-        (func.sum(delta_subquery.c.delta_in) * 8 / func.avg(delta_subquery.c.delta_seconds)).label("inbound_bps"),
-        (func.sum(delta_subquery.c.delta_out) * 8 / func.avg(delta_subquery.c.delta_seconds)).label("outbound_bps")
+        (func.sum(delta_subquery.c.delta_in) * 8 / func.sum(delta_subquery.c.delta_seconds)).label("inbound_bps"),
+        (func.sum(delta_subquery.c.delta_out) * 8 / func.sum(delta_subquery.c.delta_seconds)).label("outbound_bps")
     ).group_by(delta_subquery.c.timestamp)\
      .order_by(delta_subquery.c.timestamp.desc())\
      .limit(limit)\
@@ -407,6 +407,8 @@ async def get_device_utilization(
         models.InterfaceMetric.interface_id == models.Interface.id
     ).filter(
         models.Interface.speed_bps != None,  # Only include interfaces with known speed
+        models.InterfaceMetric.admin_status == 1,  # Only admin up (exclude admin down)
+        models.InterfaceMetric.oper_status == 1,   # Only oper up (exclude down interfaces)
         models.InterfaceMetric.timestamp >= start_time,
         models.InterfaceMetric.timestamp <= end_time
     ).subquery()
@@ -439,8 +441,8 @@ async def get_device_utilization(
     device_aggregation = select(
         delta_subquery.c.device_id,
         delta_subquery.c.timestamp,
-        (func.sum(delta_subquery.c.delta_in) * 8 / func.avg(delta_subquery.c.delta_seconds)).label("inbound_bps"),
-        (func.sum(delta_subquery.c.delta_out) * 8 / func.avg(delta_subquery.c.delta_seconds)).label("outbound_bps"),
+        (func.sum(delta_subquery.c.delta_in) * 8 / func.sum(delta_subquery.c.delta_seconds)).label("inbound_bps"),
+        (func.sum(delta_subquery.c.delta_out) * 8 / func.sum(delta_subquery.c.delta_seconds)).label("outbound_bps"),
         func.sum(delta_subquery.c.speed_bps).label("total_capacity_bps")
     ).group_by(
         delta_subquery.c.device_id,
@@ -734,8 +736,8 @@ async def get_report_network_throughput(
     # Aggregate throughput across all interfaces per timestamp
     results = db.query(
         delta_subquery.c.timestamp,
-        (func.sum(delta_subquery.c.delta_in) * 8 / func.avg(delta_subquery.c.delta_seconds)).label("inbound_bps"),
-        (func.sum(delta_subquery.c.delta_out) * 8 / func.avg(delta_subquery.c.delta_seconds)).label("outbound_bps")
+        (func.sum(delta_subquery.c.delta_in) * 8 / func.sum(delta_subquery.c.delta_seconds)).label("inbound_bps"),
+        (func.sum(delta_subquery.c.delta_out) * 8 / func.sum(delta_subquery.c.delta_seconds)).label("outbound_bps")
     ).group_by(delta_subquery.c.timestamp)\
      .order_by(delta_subquery.c.timestamp.asc())\
      .all()
