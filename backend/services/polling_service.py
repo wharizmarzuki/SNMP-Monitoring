@@ -1,3 +1,7 @@
+"""
+Device and interface metrics collection via SNMP polling.
+Handles concurrent polling with session isolation and alert evaluation.
+"""
 import asyncio
 import typing
 from datetime import datetime, timezone
@@ -9,27 +13,11 @@ from services.alert_service import AlertEvaluator
 from app.config.settings import settings, get_runtime_settings
 from app.config.logging import logger
 
-# ---
-# THIS IS THE LOGIC THAT WAS INCORRECTLY IN YOUR API FILE.
-# IT NOW LIVES IN THE SERVICE LAYER.
-# ---
 
 def calculate_interface_speed(raw_data: dict) -> tuple[int | None, str | None]:
     """
     Determine interface speed from SNMP data using ifSpeed (IF-MIB).
-
-    Args:
-        raw_data: Dictionary containing SNMP interface data with OID keys
-
-    Returns:
-        Tuple of (speed_bps, speed_source) where:
-        - speed_bps: Interface speed in bits per second
-        - speed_source: "ifSpeed" indicating which OID was used
-
-    Example:
-        >>> raw = {"1.3.6.1.2.1.2.2.1.5": "1000000000"}  # 1 Gbps
-        >>> calculate_interface_speed(raw)
-        (1000000000, "ifSpeed")
+    Returns (speed_bps, speed_source) tuple.
     """
     # Use ifSpeed (reports in bps, from standard IF-MIB ifTable)
     speed_key = schemas.INTERFACE_OIDS["interface_speed"]
@@ -48,12 +36,7 @@ def calculate_interface_speed(raw_data: dict) -> tuple[int | None, str | None]:
 
 
 def clear_interface_alerts(device: models.Device, db: Session):
-    """
-    Clear all interface alert states when device becomes unreachable (Phase 2).
-
-    This prevents stale interface alerts from showing in the dashboard
-    when we can't verify interface status due to device being down.
-    """
+    """Clear all interface alerts when device becomes unreachable."""
     for interface in device.interfaces:
         if (interface.oper_status_alert_state != "clear" or
             interface.packet_drop_alert_state != "clear"):
@@ -73,14 +56,12 @@ def clear_interface_alerts(device: models.Device, db: Session):
 
 async def poll_device(device: models.Device, client: SNMPClient, db: Session) -> bool:
     """
-    Polls a single device for CPU/Memory and checks alerts.
-
-    Returns:
-        bool: True if poll succeeded, False if poll failed
+    Poll device for CPU/memory metrics and evaluate alerts.
+    Returns True if poll succeeded, False otherwise.
     """
     host = typing.cast(str, device.ip_address)
     vendor = typing.cast(str, device.vendor)
-    repo = SQLAlchemyDeviceRepository(db) # Create repo once
+    repo = SQLAlchemyDeviceRepository(db)
 
     # Mark poll attempt timestamp
     device.last_poll_attempt = datetime.now(timezone.utc)
@@ -176,7 +157,7 @@ async def poll_device(device: models.Device, client: SNMPClient, db: Session) ->
 
 
 async def poll_interfaces(device: models.Device, client: SNMPClient, db: Session):
-    """Polls all interfaces for a single device, stores metrics, and evaluates alerts."""
+    """Poll all interfaces for metrics and evaluate alerts."""
     host = typing.cast(str, device.ip_address)
 
     try:
@@ -254,13 +235,8 @@ async def poll_interfaces(device: models.Device, client: SNMPClient, db: Session
 
 async def perform_full_poll(db: Session, client: SNMPClient):
     """
-    Polls all devices with proper session isolation to prevent race conditions.
-
-    Each concurrent polling task gets its own database session to avoid
-    SQLAlchemy session sharing issues and SQLite lock contention.
-
-    The main session (db) is only used to fetch the list of device IDs,
-    then each polling task creates and manages its own session.
+    Poll all devices with session isolation.
+    Each concurrent polling task gets its own database session.
     """
     logger.info("Starting scheduled full poll...")
     try:
@@ -282,43 +258,29 @@ async def perform_full_poll(db: Session, client: SNMPClient):
 
         async def limited_polling(device_id: int):
             """
-            Each task gets its own database session to avoid race conditions.
-
-            This follows SQLAlchemy best practices: one AsyncSession per task.
-            Each task independently:
-            1. Creates its own session
-            2. Fetches the device
-            3. Performs polling operations
-            4. Commits its work
-            5. Closes the session
+            Poll single device with dedicated database session.
             """
             nonlocal successful_polls, failed_polls
 
             async with semaphore:
-                # Create a NEW session for this task - critical for avoiding race conditions
                 task_db = database.SessionLocal()
                 try:
-                    # Re-fetch device in this task's session
                     device = task_db.query(models.Device).filter_by(id=device_id).first()
                     if not device:
                         logger.warning(f"Device with ID {device_id} not found")
                         return
 
-                    # Perform polling with this task's dedicated session
                     poll_succeeded = await poll_device(device, client, task_db)
 
                     if poll_succeeded:
-                        # Only poll interfaces if device poll succeeded
                         await poll_interfaces(device, client, task_db)
                         successful_polls += 1
                     else:
-                        # Clear interface alerts when device is unreachable
                         if not device.is_reachable:
                             clear_interface_alerts(device, task_db)
                             logger.debug(f"Skipped interface poll for unreachable device {device.ip_address}")
                         failed_polls += 1
 
-                    # Each task commits its own work independently
                     task_db.commit()
 
                 except Exception as e:
@@ -326,10 +288,8 @@ async def perform_full_poll(db: Session, client: SNMPClient):
                     task_db.rollback()
                     failed_polls += 1
                 finally:
-                    # Always close the session
                     task_db.close()
 
-        # Create tasks with device IDs instead of device objects
         tasks = [limited_polling(device_id) for device_id in device_ids]
         await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -337,4 +297,3 @@ async def perform_full_poll(db: Session, client: SNMPClient):
 
     except Exception as e:
         logger.error(f"Error during scheduled poll: {e}")
-        # No need to rollback db since it was only used for reading device IDs

@@ -1,3 +1,7 @@
+"""
+Device service layer - Repository pattern for device CRUD operations.
+Handles device creation, updates, metrics insertion, and vendor identification.
+"""
 from typing import Optional
 from fastapi import Depends
 from sqlalchemy.orm import Session
@@ -6,7 +10,8 @@ from app.core import schemas
 from abc import ABC, abstractmethod
 
 
-def extract_vendor(oid_value):
+def extract_vendor(oid_value: str) -> str:
+    """Extract vendor name from SNMP sysObjectID OID."""
     parts = oid_value.split('.')
     try:
         idx = parts.index('4')
@@ -18,14 +23,16 @@ def extract_vendor(oid_value):
     return "Unknown"
 
 
-def format_mac_address(mac_value):
+def format_mac_address(mac_value: str) -> str:
+    """Convert hex MAC address to colon-separated format."""
     hex_string = mac_value[2:].upper()
-    
     formatted_mac = ':'.join(hex_string[i:i+2] for i in range(0, len(hex_string), 2))
     return formatted_mac
 
 
 class DeviceRepository(ABC):
+    """Abstract repository interface for device data operations."""
+
     @abstractmethod
     async def create_device(self, device_info: schemas.DeviceInfo) -> models.Device:
         pass
@@ -55,6 +62,8 @@ class DeviceRepository(ABC):
         pass
 
 class SQLAlchemyDeviceRepository(DeviceRepository):
+    """SQLAlchemy implementation of device repository."""
+
     def __init__(self, db: Session):
         self.db = db
 
@@ -93,9 +102,9 @@ class SQLAlchemyDeviceRepository(DeviceRepository):
         device = self.get_device_by_mac(mac_address)
 
         if device:
-            device.ip_address = device_info.ip_address # type: ignore
-            device.hostname = device_info.hostname # type: ignore
-            device.vendor = extract_vendor(device_info.vendor) # type: ignore
+            device.ip_address = device_info.ip_address  # type: ignore
+            device.hostname = device_info.hostname  # type: ignore
+            device.vendor = extract_vendor(device_info.vendor)  # type: ignore
             self.db.commit()
             self.db.refresh(device)
             return device
@@ -103,21 +112,19 @@ class SQLAlchemyDeviceRepository(DeviceRepository):
             return await self.create_device(device_info)
     
     async def insert_device_metric(self, metric: schemas.DeviceMetrics) -> models.DeviceMetric:
+        """
+        Insert device metric entry. Does not commit - caller handles transaction.
+        """
         try:
             new_entry = models.DeviceMetric(
-                cpu_utilization = metric.cpu_utilization,
-                memory_utilization = metric.memory_utilization,
-                uptime_seconds = int(float(metric.uptime)), # Convert uptime string/float to int
-                device_id = metric.device_id
+                cpu_utilization=metric.cpu_utilization,
+                memory_utilization=metric.memory_utilization,
+                uptime_seconds=int(float(metric.uptime)),
+                device_id=metric.device_id
             )
             self.db.add(new_entry)
-            # --- REMOVED COMMIT ---
-            # self.db.commit()
-            # self.db.refresh(new_entry)
             return new_entry
         except Exception as e:
-            # Rollback is handled by perform_full_poll
-            # self.db.rollback()
             raise e
 
 

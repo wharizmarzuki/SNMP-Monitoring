@@ -32,23 +32,11 @@ class ServiceStatus(BaseModel):
 
 @router.get("/health", response_model=HealthResponse, tags=["Health"])
 async def get_health(db: Session = Depends(get_db)):
-    """
-    Overall system health check
-
-    Returns the health status of all system components:
-    - Database connectivity
-    - Redis cache (if enabled)
-    - System timestamp
-
-    Status codes:
-    - 200: System is healthy
-    - 503: System has issues (check details)
-    """
+    """Overall system health check for database, Redis, and configuration."""
     timestamp = datetime.utcnow().isoformat()
     details = {}
     overall_healthy = True
 
-    # Check database
     try:
         start_time = datetime.utcnow()
         db.execute(text("SELECT 1"))
@@ -64,7 +52,6 @@ async def get_health(db: Session = Depends(get_db)):
         }
         overall_healthy = False
 
-    # Check Redis (if enabled)
     if settings.cache_enabled:
         try:
             start_time = datetime.utcnow()
@@ -93,7 +80,6 @@ async def get_health(db: Session = Depends(get_db)):
             "message": "Redis caching is disabled"
         }
 
-    # Add configuration info
     details["config"] = {
         "environment": settings.environment,
         "cache_enabled": settings.cache_enabled,
@@ -109,11 +95,7 @@ async def get_health(db: Session = Depends(get_db)):
 
 @router.get("/health/database", response_model=ServiceStatus, tags=["Health"])
 async def check_database(db: Session = Depends(get_db)):
-    """
-    Database health check
-
-    Tests database connectivity and response time
-    """
+    """Database health check with connectivity test."""
     try:
         start_time = datetime.utcnow()
         result = db.execute(text("SELECT 1")).scalar()
@@ -142,11 +124,7 @@ async def check_database(db: Session = Depends(get_db)):
 
 @router.get("/health/redis", response_model=ServiceStatus, tags=["Health"])
 async def check_redis():
-    """
-    Redis cache health check
-
-    Tests Redis connectivity and response time
-    """
+    """Redis cache health check with connectivity test."""
     if not settings.cache_enabled:
         return ServiceStatus(
             service="redis",
@@ -164,10 +142,8 @@ async def check_redis():
             decode_responses=True
         )
 
-        # Test ping
         redis_client.ping()
 
-        # Test set/get
         test_key = "health_check_test"
         test_value = "ok"
         redis_client.setex(test_key, 10, test_value)
@@ -205,22 +181,15 @@ async def check_redis():
 
 @router.get("/health/services", tags=["Health"])
 async def check_all_services(db: Session = Depends(get_db)):
-    """
-    Comprehensive health check for all services
-
-    Returns detailed status of all system components
-    """
+    """Comprehensive health check for all system components."""
     services = []
 
-    # Check database
     db_status = await check_database(db)
     services.append(db_status.dict())
 
-    # Check Redis
     redis_status = await check_redis()
     services.append(redis_status.dict())
 
-    # Overall status
     all_healthy = all(
         s["status"] in ["healthy", "disabled"]
         for s in services
@@ -236,11 +205,7 @@ async def check_all_services(db: Session = Depends(get_db)):
 
 @router.get("/ping", tags=["Health"])
 async def ping():
-    """
-    Simple ping endpoint
-
-    Returns a simple response to verify the API is running
-    """
+    """Simple ping endpoint to verify API is running."""
     return {
         "status": "ok",
         "message": "pong",

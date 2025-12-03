@@ -1,12 +1,17 @@
+"""
+Email notification service for alert delivery.
+Sends emails via SMTP with non-blocking background execution.
+"""
 import smtplib
 import threading
 from email.mime.text import MIMEText
 from app.config.settings import settings
 from app.config.logging import logger
 
+
 def send_email(subject: str, body: str, recipients: list[str]) -> bool:
     """
-    Sends an email to a list of recipients using the configured SMTP server.
+    Send email to recipients using configured SMTP server.
     Returns True if successful, False otherwise.
     """
     if not recipients:
@@ -18,15 +23,13 @@ def send_email(subject: str, body: str, recipients: list[str]) -> bool:
         return False
 
     try:
-        # 1. Setup the message
         msg = MIMEText(body)
         msg['Subject'] = subject
         msg['From'] = settings.sender_email
         msg['To'] = ", ".join(recipients)
 
-        # 2. Connect to Gmail
         with smtplib.SMTP(settings.smtp_server, settings.smtp_port) as server:
-            server.starttls()  # Secure the connection
+            server.starttls()
             server.login(settings.sender_email, settings.sender_password)
             server.sendmail(settings.sender_email, recipients, msg.as_string())
             
@@ -38,12 +41,10 @@ def send_email(subject: str, body: str, recipients: list[str]) -> bool:
         return False
     
 def send_email_background(subject: str, body: str, recipients: list[str]):
-    """
-    Runs the email sending in a separate thread so the API will NOT block.
-    """
+    """Execute email sending in separate thread to avoid blocking."""
     thread = threading.Thread(
         target=send_email,
         args=(subject, body, recipients),
-        daemon=True  # dies automatically if process exits
+        daemon=True
     )
     thread.start()

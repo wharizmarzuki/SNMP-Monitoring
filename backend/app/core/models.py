@@ -1,10 +1,16 @@
+"""
+Database models for SNMP monitoring system.
+Defines tables for devices, metrics, interfaces, alerts, users, and settings.
+"""
 from datetime import datetime
-from typing import List 
+from typing import List
 from sqlalchemy import BigInteger, String, Integer, Float, DateTime, ForeignKey, func, Boolean
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from .database import Base
 
+
 class Device(Base):
+    """Network device model with metrics, interfaces, and alert management."""
     __tablename__ = "devices"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
@@ -30,12 +36,12 @@ class Device(Base):
     reachability_alert_state: Mapped[str] = mapped_column(String, default="clear")
     reachability_acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
-    # Legacy boolean flags (deprecated, kept for backward compatibility)
+    # Backward compatibility flags (synchronized with state-based alerts)
     cpu_alert_sent: Mapped[bool] = mapped_column(Boolean, default=False)
     memory_alert_sent: Mapped[bool] = mapped_column(Boolean, default=False)
     reachability_alert_sent: Mapped[bool] = mapped_column(Boolean, default=False)
 
-    # Maintenance mode (device-level only)
+    # Maintenance mode
     maintenance_mode: Mapped[bool] = mapped_column(Boolean, default=False)
     maintenance_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     maintenance_reason: Mapped[str | None] = mapped_column(String)
@@ -55,8 +61,9 @@ class Device(Base):
 
 
 class DeviceMetric(Base):
+    """Time-series metrics for device CPU, memory, and uptime."""
     __tablename__ = "device_metrics"
-    
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -71,8 +78,9 @@ class DeviceMetric(Base):
 
 
 class Interface(Base):
+    """Network interface model with status and packet drop monitoring."""
     __tablename__ = "interfaces"
-    
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     device_id: Mapped[int] = mapped_column(ForeignKey("devices.id"))
     
@@ -93,7 +101,7 @@ class Interface(Base):
     packet_drop_alert_state: Mapped[str] = mapped_column(String, default="clear")
     packet_drop_acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
-    # Legacy boolean flags (deprecated, kept for backward compatibility)
+    # Backward compatibility flags (synchronized with state-based alerts)
     packet_drop_alert_sent: Mapped[bool] = mapped_column(Boolean, default=False)
     oper_status_alert_sent: Mapped[bool] = mapped_column(Boolean, default=False)
     
@@ -105,8 +113,9 @@ class Interface(Base):
 
 
 class InterfaceMetric(Base):
+    """Time-series metrics for interface status, traffic, and errors."""
     __tablename__ = "interface_metrics"
-    
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     interface_id: Mapped[int] = mapped_column(ForeignKey("interfaces.id"))
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -127,6 +136,7 @@ class InterfaceMetric(Base):
 
 
 class AlertRecipient(Base):
+    """Email recipients for alert notifications."""
     __tablename__ = "alert_recipients"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
@@ -134,7 +144,7 @@ class AlertRecipient(Base):
 
 
 class ApplicationSettings(Base):
-    """Application-wide configuration settings"""
+    """Application-wide configuration settings for SNMP, polling, and email."""
     __tablename__ = "application_settings"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
@@ -167,7 +177,7 @@ class ApplicationSettings(Base):
 
 
 class User(Base):
-    """User model for authentication"""
+    """User model for authentication and access control."""
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)

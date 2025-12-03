@@ -15,11 +15,9 @@ from services.discovery_service import perform_full_discovery
 router = APIRouter(
     prefix="/device",
     tags=["Device"],
-    dependencies=[Depends(get_current_user)]  # Require authentication for all device endpoints
+    dependencies=[Depends(get_current_user)]
 )
 
-
-# ==================== Network Discovery ====================
 
 @router.get("/discover", response_model=schemas.DiscoveryResponse)
 async def discovery_api(
@@ -27,18 +25,11 @@ async def discovery_api(
     subnet: str = "27",
     db: Session = Depends(database.get_db)
 ):
-    """
-    API Endpoint to manually trigger a full network discovery.
-    """
+    """Manually trigger full network discovery scan."""
     logger.info("Manual discovery triggered via API...")
     try:
-        # Get SNMP client with runtime settings from database
         client = get_snmp_client(db)
-
-        # --- THIS ENDPOINT IS NOW A SIMPLE WRAPPER ---
         result_data = await perform_full_discovery(db, client, network, subnet)
-
-        # Convert SQLAlchemy models to Pydantic schemas for the response
         pydantic_devices = [schemas.DeviceInfo.model_validate(dev) for dev in result_data["devices"]]
 
         return schemas.DiscoveryResponse(

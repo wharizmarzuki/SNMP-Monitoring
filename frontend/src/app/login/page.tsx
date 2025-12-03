@@ -9,6 +9,10 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
+/**
+ * User authentication page with form validation and error handling.
+ * @component
+ */
 export default function LoginPage() {
   const router = useRouter();
   const [credentials, setCredentials] = useState({
@@ -18,23 +22,21 @@ export default function LoginPage() {
   const [error, setError] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
 
+  /**
+   * Authenticate user and redirect to dashboard.
+   * Maintains loading state during navigation for smooth transition.
+   */
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
     setIsLoading(true);
 
     try {
-      // Login - AuthGuard will fetch user info, no need to do it here
       await authService.login(credentials);
-
-      // Redirect to dashboard - use replace to prevent back button issues
       router.replace("/dashboard");
-      // Note: Don't reset isLoading here - let it persist until component unmounts
-      // This keeps the loading animation visible during navigation
     } catch (err: any) {
       console.error("Login error:", err);
 
-      // Provide user-friendly error messages
       if (err.code === 'ECONNABORTED' || err.code === 'ERR_NETWORK') {
         setError("Cannot connect to server. Please check your network connection.");
       } else if (err.status === 401) {
@@ -45,7 +47,6 @@ export default function LoginPage() {
         setError(err.message || "Login failed. Please try again.");
       }
 
-      // Only reset loading state on error
       setIsLoading(false);
     }
   };
@@ -78,7 +79,7 @@ export default function LoginPage() {
                 value={credentials.username}
                 onChange={(e) => {
                   setCredentials({ ...credentials, username: e.target.value });
-                  setError(""); // Clear error on input change
+                  setError("");
                 }}
                 required
                 autoComplete="username"
@@ -96,7 +97,7 @@ export default function LoginPage() {
                 value={credentials.password}
                 onChange={(e) => {
                   setCredentials({ ...credentials, password: e.target.value });
-                  setError(""); // Clear error on input change
+                  setError("");
                 }}
                 required
                 autoComplete="current-password"

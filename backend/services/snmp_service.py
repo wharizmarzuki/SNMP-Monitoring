@@ -1,3 +1,7 @@
+"""
+SNMP service layer - Device communication via SNMP protocol.
+Handles SNMP GET and BULK_WALK operations for device discovery and polling.
+"""
 import asyncio
 from typing import Optional
 from venv import logger
@@ -21,11 +25,13 @@ from services.device_service import DeviceRepository, SQLAlchemyDeviceRepository
 
 COMMUNITY = settings.snmp_community
 
+
 def get_repository(db: Session = Depends(database.get_db)) -> DeviceRepository:
     return SQLAlchemyDeviceRepository(db)
 
 
 class SNMPClient(ABC):
+    """Abstract interface for SNMP client operations."""
     @abstractmethod
     async def get(self, host: str, oids: list[str]) -> Optional[dict]:
         pass
@@ -36,10 +42,7 @@ class SNMPClient(ABC):
 
 
 def get_snmp_client(db_session: Optional[Session] = None) -> SNMPClient:
-    """
-    Get SNMP client with runtime settings.
-    If db_session is provided, uses database settings; otherwise uses .env defaults.
-    """
+    """Get SNMP client with runtime settings from database or .env defaults."""
     runtime_config = get_runtime_settings(db_session)
     return PySNMPClient(
         community=runtime_config["snmp_community"],
@@ -49,6 +52,8 @@ def get_snmp_client(db_session: Optional[Session] = None) -> SNMPClient:
 
 
 class PySNMPClient(SNMPClient):
+    """PySNMP implementation of SNMP client."""
+
     def __init__(self, community: str = COMMUNITY, timeout: int = 10, retries: int = 3):
         self.community = community
         self.timeout = timeout

@@ -1,3 +1,7 @@
+"""
+Network discovery service - SNMP-based device scanning.
+Handles concurrent network scanning and device registration.
+"""
 import asyncio
 import ipaddress
 from sqlalchemy.orm import Session
@@ -7,20 +11,19 @@ from services.device_service import DeviceRepository, SQLAlchemyDeviceRepository
 from app.config.settings import settings, get_runtime_settings
 from app.config.logging import logger
 
+
 def get_repository(db: Session) -> DeviceRepository:
-    """Creates a repository instance for the discovery to use."""
+    """Create repository instance for discovery operations."""
     return SQLAlchemyDeviceRepository(db)
+
 
 async def perform_full_discovery(db: Session, client: SNMPClient, network: str, subnet: str):
     """
-    Scans an entire network subnet and updates/adds devices to the database.
-
-    Each concurrent discovery task gets its own database session to avoid
-    SQLAlchemy session sharing issues and SQLite lock contention.
+    Scan network subnet and register discovered devices.
+    Each discovery task uses dedicated database session.
     """
     logger.info(f"Starting background discovery scan on {network}/{subnet}...")
 
-    # Get runtime settings (database takes priority over .env)
     runtime_config = get_runtime_settings(db)
     discovery_concurrency = runtime_config["discovery_concurrency"]
 
@@ -29,22 +32,15 @@ async def perform_full_discovery(db: Session, client: SNMPClient, network: str, 
         host_addresses = [str(ip) for ip in network_addr.hosts()]
     except ValueError as e:
         logger.error(f"Invalid network/subnet provided for discovery: {e}")
-        return {"total_scanned": 0, "devices_found": 0, "devices": []}  # Return an empty result
+        return {"total_scanned": 0, "devices_found": 0, "devices": []}
 
     semaphore = asyncio.Semaphore(discovery_concurrency)
 
     async def limited_discovery(ip):
-        """
-        Each task gets its own database session to avoid race conditions.
-
-        This follows SQLAlchemy best practices: one session per task.
-        Each discovery operation independently commits its device update.
-        """
+        """Discover single device with dedicated database session."""
         async with semaphore:
-            # Create a NEW session for this discovery task
             task_db = database.SessionLocal()
             try:
-                # Create repository with this task's dedicated session
                 task_repo = get_repository(task_db)
                 result = await device_discovery(ip, client, task_repo)
                 return result
@@ -53,13 +49,11 @@ async def perform_full_discovery(db: Session, client: SNMPClient, network: str, 
                 task_db.rollback()
                 return None
             finally:
-                # Always close the session
                 task_db.close()
 
     tasks = [limited_discovery(ip) for ip in host_addresses]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
-    # Filter out exceptions and None values
     reachable_devices = [device for device in results if device is not None and not isinstance(device, Exception)]
 
     logger.info(f"Discovery complete: Found {len(reachable_devices)} new/updated devices out of {len(host_addresses)} scanned.")

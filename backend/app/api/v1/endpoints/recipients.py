@@ -7,7 +7,7 @@ from app.core.security import get_current_user
 router = APIRouter(
     prefix="/recipients",
     tags=["Recipients"],
-    dependencies=[Depends(get_current_user)]  # Require authentication for all recipient endpoints
+    dependencies=[Depends(get_current_user)]
 )
 get_db = database.get_db
 
@@ -17,10 +17,7 @@ def create_recipient(
     recipient: schemas.RecipientCreate,
     db: Session = Depends(get_db)
 ):
-    """
-    Create a new alert recipient
-    """
-    # Check if email already exists
+    """Create a new alert recipient."""
     existing_recipient = db.query(models.AlertRecipient).filter(
         models.AlertRecipient.email == recipient.email
     ).first()
@@ -31,7 +28,6 @@ def create_recipient(
             detail=f"Recipient with email {recipient.email} already exists"
         )
 
-    # Create new recipient
     db_recipient = models.AlertRecipient(email=recipient.email)
     db.add(db_recipient)
     db.commit()
@@ -42,18 +38,14 @@ def create_recipient(
 
 @router.get("/", response_model=List[schemas.RecipientResponse])
 def get_all_recipients(db: Session = Depends(get_db)):
-    """
-    Retrieve all alert recipients
-    """
+    """Retrieve all alert recipients."""
     recipients = db.query(models.AlertRecipient).all()
     return recipients
 
 
 @router.delete("/{recipient_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_recipient(recipient_id: int, db: Session = Depends(get_db)):
-    """
-    Delete a recipient by ID
-    """
+    """Delete a recipient by ID."""
     db_recipient = db.query(models.AlertRecipient).filter(
         models.AlertRecipient.id == recipient_id
     ).first()

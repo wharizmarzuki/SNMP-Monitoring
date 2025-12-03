@@ -10,11 +10,9 @@ from services.device_service import DeviceRepository, get_repository
 router = APIRouter(
     prefix="/device",
     tags=["Device Configuration"],
-    dependencies=[Depends(get_current_user)]  # Require authentication
+    dependencies=[Depends(get_current_user)]
 )
 
-
-# ==================== Threshold Management Endpoints ====================
 
 @router.put("/{ip}/thresholds", response_model=schemas.DeviceResponse)
 async def update_device_thresholds_batch(
@@ -22,17 +20,11 @@ async def update_device_thresholds_batch(
     thresholds: schemas.ThresholdBatchUpdate,
     repo: DeviceRepository = Depends(get_repository)
 ):
-    """
-    Batch update all thresholds for a device.
-
-    This endpoint allows updating multiple thresholds in a single request,
-    matching the frontend payload structure. Only provided thresholds will be updated.
-    """
+    """Batch update device thresholds. Only provided thresholds will be updated."""
     device = device_service.get_device_by_ip(ip, repo)
     if not device:
         raise DeviceNotFoundError(ip)
 
-    # Update only provided thresholds
     if thresholds.cpu_threshold is not None:
         device.cpu_threshold = thresholds.cpu_threshold
     if thresholds.memory_threshold is not None:
@@ -43,7 +35,6 @@ async def update_device_thresholds_batch(
     repo.db.commit()
     repo.db.refresh(device)
 
-    # Invalidate related caches
     cache.delete(f"device:{ip}")
     cache.delete("network_summary")
     cache.delete_pattern("top_devices:*")
