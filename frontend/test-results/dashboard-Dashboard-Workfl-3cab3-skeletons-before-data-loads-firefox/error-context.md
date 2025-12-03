@@ -1,0 +1,63 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]: NetSNMP
+        - navigation [ref=e7]:
+          - link "Dashboard" [ref=e8] [cursor=pointer]:
+            - /url: /dashboard
+            - img [ref=e9]
+            - generic [ref=e14]: Dashboard
+          - link "Devices" [ref=e15] [cursor=pointer]:
+            - /url: /devices
+            - img [ref=e16]
+            - generic [ref=e21]: Devices
+          - link "Alerts" [ref=e22] [cursor=pointer]:
+            - /url: /alerts
+            - img [ref=e23]
+            - generic [ref=e26]: Alerts
+          - link "Report" [ref=e27] [cursor=pointer]:
+            - /url: /report
+            - img [ref=e28]
+            - generic [ref=e34]: Report
+          - link "Settings" [ref=e35] [cursor=pointer]:
+            - /url: /settings
+            - img [ref=e36]
+            - generic [ref=e39]: Settings
+      - generic [ref=e40]:
+        - button "Toggle theme" [ref=e41] [cursor=pointer]:
+          - img
+        - button "admin" [ref=e42] [cursor=pointer]:
+          - img
+          - generic [ref=e43]: admin
+    - main [ref=e44]:
+      - generic [ref=e45]:
+        - heading "Dashboard" [level=2] [ref=e47]
+        - generic [ref=e48]:
+          - generic [ref=e49]:
+            - generic [ref=e68]:
+              - heading "Devices in Alert" [level=3] [ref=e69]
+              - paragraph [ref=e70]: Devices currently exceeding thresholds
+            - generic [ref=e100]:
+              - generic [ref=e101]:
+                - heading "Device Bandwidth Utilization" [level=3] [ref=e102]
+                - paragraph [ref=e103]: Link utilization percentage over time by device
+              - generic [ref=e104]:
+                - combobox [ref=e105] [cursor=pointer]:
+                  - generic: Past 1 hour
+                  - img [ref=e106]
+                - combobox [ref=e108] [cursor=pointer]:
+                  - generic: 1 min
+                  - img [ref=e109]
+          - generic [ref=e125]:
+            - generic [ref=e127]:
+              - heading "Top 5 CPU Utilization" [level=3] [ref=e128]
+              - paragraph [ref=e129]: Devices with highest CPU usage
+            - generic [ref=e148]:
+              - heading "Top 5 Memory Utilization" [level=3] [ref=e149]
+              - paragraph [ref=e150]: Devices with highest memory usage
+  - alert [ref=e168]
+```

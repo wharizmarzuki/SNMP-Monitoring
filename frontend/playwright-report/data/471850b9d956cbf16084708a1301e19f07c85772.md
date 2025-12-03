@@ -1,0 +1,141 @@
+# Page snapshot
+
+```yaml
+- generic:
+  - generic:
+    - generic:
+      - generic:
+        - generic:
+          - generic: NetSNMP
+          - navigation:
+            - link:
+              - /url: /dashboard
+              - img
+              - generic: Dashboard
+            - link:
+              - /url: /devices
+              - img
+              - generic: Devices
+            - link:
+              - /url: /alerts
+              - img
+              - generic: Alerts
+            - link:
+              - /url: /report
+              - img
+              - generic: Report
+            - link:
+              - /url: /settings
+              - img
+              - generic: Settings
+        - generic:
+          - button:
+            - img
+          - button:
+            - img
+            - generic: admin
+    - main:
+      - generic:
+        - generic:
+          - button:
+            - img
+            - text: Back to Devices
+          - button:
+            - img
+            - text: Delete Device
+        - generic:
+          - heading [level=2]: Loading...
+        - generic:
+          - generic:
+            - heading [level=3]: Device Information
+            - paragraph: Device details and threshold configuration
+          - generic:
+            - paragraph: Loading device information...
+        - generic:
+          - generic: "Chart Filters:"
+          - combobox [expanded]:
+            - generic: Past 1 hour
+            - img
+          - combobox:
+            - generic: 1 min
+            - img
+          - generic: Applies to both CPU and Memory charts
+        - generic:
+          - generic:
+            - generic:
+              - heading [level=3]: CPU Utilization
+              - paragraph: Historical CPU usage over time
+            - generic:
+              - generic:
+                - generic:
+                  - img:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic: "0"
+                        - generic:
+                          - generic: "25"
+                        - generic:
+                          - generic: "50"
+                        - generic:
+                          - generic: "75"
+                        - generic:
+                          - generic: "100"
+                  - generic:
+                    - list:
+                      - listitem:
+                        - img
+                        - text: CPU %
+          - generic:
+            - generic:
+              - heading [level=3]: Memory Utilization
+              - paragraph: Historical memory usage over time
+            - generic:
+              - generic:
+                - generic:
+                  - img:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic: "0"
+                        - generic:
+                          - generic: "25"
+                        - generic:
+                          - generic: "50"
+                        - generic:
+                          - generic: "75"
+                        - generic:
+                          - generic: "100"
+                  - generic:
+                    - list:
+                      - listitem:
+                        - img
+                        - text: Memory %
+        - generic:
+          - generic:
+            - generic:
+              - heading [level=3]: Network Interfaces
+              - paragraph: Interface status, traffic, and error metrics
+            - generic:
+              - paragraph: No interface data available
+  - alert
+  - generic: "0"
+  - listbox [ref=e1]:
+    - option "Past 15 min" [ref=e2]:
+      - generic [ref=e4]: Past 15 min
+    - option "Past 30 min" [ref=e5]:
+      - generic [ref=e7]: Past 30 min
+    - option "Past 1 hour" [active] [selected] [ref=e8]:
+      - img [ref=e11]
+      - generic [ref=e13]: Past 1 hour
+    - option "Past 3 hours" [ref=e14]:
+      - generic [ref=e16]: Past 3 hours
+    - option "Past 6 hours" [ref=e17]:
+      - generic [ref=e19]: Past 6 hours
+    - option "Past 12 hours" [ref=e20]:
+      - generic [ref=e22]: Past 12 hours
+    - option "Past 24 hours" [ref=e23]:
+      - generic [ref=e25]: Past 24 hours
+    - option "Past 7 days" [ref=e26]:
+      - generic [ref=e28]: Past 7 days
+```
