@@ -46,7 +46,7 @@ docs/testing/TEST_RESULTS.md
 
 ## Test Structure
 
-### Test Files Created
+### Backend Test Files
 
 #### ✅ **backend/tests/unit/test_polling_service.py**
 - **Test Cases**: TC02, TC04
@@ -74,48 +74,129 @@ docs/testing/TEST_RESULTS.md
   - `test_device_deduplication_by_mac` - MAC-based deduplication
   - `test_discovery_with_partial_failures` - Partial failure handling
 
+### Frontend Test Files
+
+#### ✅ **frontend/e2e/device-details.spec.ts** (NEW!)
+- **Test Case**: TC05
+- **Coverage**: Device details page, real-time charts, data visualization
+- **17 comprehensive E2E tests**:
+  - `TC05-001` - Navigate to device details from dashboard
+  - `TC05-002` - Device information display
+  - `TC05-003` - CPU utilization chart display
+  - `TC05-004` - Memory utilization chart display
+  - `TC05-005` - Interface metrics table display
+  - `TC05-006` - Real-time data updates
+  - `TC05-007` - Time range selector functionality
+  - `TC05-008` - Device status badge display
+  - `TC05-009` - Alert indicators display
+  - `TC05-010` - Threshold configuration access
+  - `TC05-011` - Back button navigation
+  - `TC05-012` - Mobile responsiveness
+  - `TC05-013` - Loading states
+  - `TC05-014` - Error handling for non-existent device
+  - `TC05-015` - Multiple charts performance
+  - `TC05-016` - Export metrics functionality
+  - `TC05-017` - Acknowledge alerts from device details
+
+#### ✅ **Existing Frontend Tests**
+- `auth.spec.ts` - Authentication flow E2E tests
+- `dashboard.spec.ts` - Dashboard workflow E2E tests
+- `login/page.test.tsx` - Login component unit tests
+- `dashboard/page.test.tsx` - Dashboard component unit tests
+- `KpiCard.test.tsx` - KPI card component tests
+- `StatusBadge.test.tsx` - Status badge component tests
+
 ---
 
 ## Test Case Mapping
 
-| Test Case ID | Description | Test File | Status |
-|--------------|-------------|-----------|--------|
-| **TC01** | Device Discovery | `test_discovery_service.py` | ✅ Implemented |
-| **TC02** | SNMP Polling (every 30s) | `test_polling_service.py` | ✅ Implemented |
-| **TC03** | Alert Triggering | `test_alerts.py` (existing) | ✅ Implemented |
-| **TC04** | Polling Interval Config | `test_polling_service.py` | ✅ Implemented |
-| **TC05** | Device Details View | E2E tests (partial) | ⚠️ Partial |
-| **TC06** | Alert History | `test_alerts.py` (existing) | ✅ Implemented |
-| **TC07** | Invalid SNMP String | `test_snmp_service.py` (existing) | ✅ Implemented |
+| Test Case ID | Description | Test File | Location | Status |
+|--------------|-------------|-----------|----------|--------|
+| **TC01** | Device Discovery | `test_discovery_service.py` | Backend | ✅ Implemented (10 tests) |
+| **TC02** | SNMP Polling (every 30s) | `test_polling_service.py` | Backend | ✅ Implemented (9 tests) |
+| **TC03** | Alert Triggering | `test_alerts.py` (existing) | Backend | ✅ Implemented |
+| **TC04** | Polling Interval Config | `test_polling_service.py` | Backend | ✅ Implemented (2 tests) |
+| **TC05** | Device Details View | `device-details.spec.ts` | **Frontend** | ✅ Implemented (17 tests) |
+| **TC06** | Alert History | `test_alerts.py` (existing) | Backend | ✅ Implemented |
+| **TC07** | Invalid SNMP String | `test_snmp_service.py` (existing) | Backend | ✅ Implemented |
 
 ---
 
 ## Running Specific Tests
 
-### Run Only Unit Tests
+### Backend Tests
+
+#### Run Only Unit Tests
 ```bash
+cd backend
 pytest tests/unit/ -v
 ```
 
-### Run Only Integration Tests
+#### Run Only Integration Tests
 ```bash
+cd backend
 pytest tests/test_*.py -v
 ```
 
-### Run Specific Test File
+#### Run Specific Test File
 ```bash
+cd backend
 pytest tests/unit/test_polling_service.py -v
 ```
 
-### Run Specific Test Case
+#### Run Specific Test Case
 ```bash
+cd backend
 pytest tests/unit/test_polling_service.py::TestPollingService::test_poll_device_success_cisco -v
 ```
 
-### Run with Coverage
+#### Run with Coverage
 ```bash
+cd backend
 pytest tests/ --cov=services --cov=app --cov-report=html
 # View report at: backend/htmlcov/index.html
+```
+
+### Frontend Tests
+
+#### Run All Frontend E2E Tests
+```bash
+cd frontend
+npm run test:e2e
+```
+
+#### Run Frontend E2E Tests with UI
+```bash
+cd frontend
+npm run test:e2e:ui
+# Opens Playwright UI for interactive testing
+```
+
+#### Run Specific Frontend Test File
+```bash
+cd frontend
+npx playwright test e2e/device-details.spec.ts
+```
+
+#### Run Frontend Tests in Headed Mode (see browser)
+```bash
+cd frontend
+npm run test:e2e:headed
+```
+
+#### Run Frontend Unit/Component Tests
+```bash
+cd frontend
+npm run test
+# Or for CI
+npm run test:ci
+```
+
+#### Run Frontend Tests with Coverage
+```bash
+cd frontend
+npm run test:coverage
+# View report in: frontend/coverage/
 ```
 
 ---
