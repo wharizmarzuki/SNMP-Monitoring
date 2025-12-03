@@ -17,16 +17,18 @@ class TestAlertWorkflow:
         assert response.json()["cpu_alert_state"] == "triggered"
 
         # Acknowledge from triggered state
-        response = client.put(
-            f"/device/{device_with_cpu_alert.ip_address}/alert/cpu/acknowledge"
+        response = client.patch(
+            f"/device/{device_with_cpu_alert.ip_address}/alerts/cpu",
+            json={"action": "acknowledge"}
         )
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert data["state"] == "acknowledged"
 
         # Resolve from acknowledged state
-        response = client.put(
-            f"/device/{device_with_cpu_alert.ip_address}/alert/cpu/resolve"
+        response = client.patch(
+            f"/device/{device_with_cpu_alert.ip_address}/alerts/cpu",
+            json={"action": "resolve"}
         )
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -34,8 +36,9 @@ class TestAlertWorkflow:
 
     def test_acknowledge_cpu_alert(self, client, device_with_cpu_alert):
         """Test acknowledging CPU alert"""
-        response = client.put(
-            f"/device/{device_with_cpu_alert.ip_address}/alert/cpu/acknowledge"
+        response = client.patch(
+            f"/device/{device_with_cpu_alert.ip_address}/alerts/cpu",
+            json={"action": "acknowledge"}
         )
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -45,8 +48,9 @@ class TestAlertWorkflow:
 
     def test_acknowledge_memory_alert(self, client, device_with_memory_alert):
         """Test acknowledging memory alert"""
-        response = client.put(
-            f"/device/{device_with_memory_alert.ip_address}/alert/memory/acknowledge"
+        response = client.patch(
+            f"/device/{device_with_memory_alert.ip_address}/alerts/memory",
+            json={"action": "acknowledge"}
         )
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -54,8 +58,9 @@ class TestAlertWorkflow:
 
     def test_acknowledge_reachability_alert(self, client, device_with_reachability_alert):
         """Test acknowledging reachability alert"""
-        response = client.put(
-            f"/device/{device_with_reachability_alert.ip_address}/alert/reachability/acknowledge"
+        response = client.patch(
+            f"/device/{device_with_reachability_alert.ip_address}/alerts/reachability",
+            json={"action": "acknowledge"}
         )
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -64,11 +69,15 @@ class TestAlertWorkflow:
     def test_resolve_cpu_alert(self, client, device_with_cpu_alert):
         """Test resolving CPU alert"""
         # First acknowledge
-        client.put(f"/device/{device_with_cpu_alert.ip_address}/alert/cpu/acknowledge")
+        client.patch(
+            f"/device/{device_with_cpu_alert.ip_address}/alerts/cpu",
+            json={"action": "acknowledge"}
+        )
 
         # Then resolve
-        response = client.put(
-            f"/device/{device_with_cpu_alert.ip_address}/alert/cpu/resolve"
+        response = client.patch(
+            f"/device/{device_with_cpu_alert.ip_address}/alerts/cpu",
+            json={"action": "resolve"}
         )
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -77,11 +86,15 @@ class TestAlertWorkflow:
     def test_resolve_memory_alert(self, client, device_with_memory_alert):
         """Test resolving memory alert"""
         # First acknowledge
-        client.put(f"/device/{device_with_memory_alert.ip_address}/alert/memory/acknowledge")
+        client.patch(
+            f"/device/{device_with_memory_alert.ip_address}/alerts/memory",
+            json={"action": "acknowledge"}
+        )
 
         # Then resolve
-        response = client.put(
-            f"/device/{device_with_memory_alert.ip_address}/alert/memory/resolve"
+        response = client.patch(
+            f"/device/{device_with_memory_alert.ip_address}/alerts/memory",
+            json={"action": "resolve"}
         )
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -89,13 +102,17 @@ class TestAlertWorkflow:
 
     def test_alert_not_found(self, client):
         """Test acknowledging alert for non-existent device"""
-        response = client.put("/device/192.168.99.99/alert/cpu/acknowledge")
+        response = client.patch(
+            "/device/192.168.99.99/alerts/cpu",
+            json={"action": "acknowledge"}
+        )
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
     def test_interface_alert_acknowledge(self, client, sample_device, interface_with_status_alert):
         """Test acknowledging interface alert"""
-        response = client.put(
-            f"/device/{sample_device.ip_address}/interface/{interface_with_status_alert.if_index}/alert/status/acknowledge"
+        response = client.patch(
+            f"/device/{sample_device.ip_address}/interfaces/{interface_with_status_alert.if_index}/alerts/status",
+            json={"action": "acknowledge"}
         )
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -104,13 +121,15 @@ class TestAlertWorkflow:
     def test_interface_alert_resolve(self, client, sample_device, interface_with_status_alert):
         """Test resolving interface alert"""
         # First acknowledge
-        client.put(
-            f"/device/{sample_device.ip_address}/interface/{interface_with_status_alert.if_index}/alert/status/acknowledge"
+        client.patch(
+            f"/device/{sample_device.ip_address}/interfaces/{interface_with_status_alert.if_index}/alerts/status",
+            json={"action": "acknowledge"}
         )
 
         # Then resolve
-        response = client.put(
-            f"/device/{sample_device.ip_address}/interface/{interface_with_status_alert.if_index}/alert/status/resolve"
+        response = client.patch(
+            f"/device/{sample_device.ip_address}/interfaces/{interface_with_status_alert.if_index}/alerts/status",
+            json={"action": "resolve"}
         )
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -118,8 +137,9 @@ class TestAlertWorkflow:
 
     def test_alert_response_format(self, client, device_with_cpu_alert):
         """Test that alert responses follow standard format"""
-        response = client.put(
-            f"/device/{device_with_cpu_alert.ip_address}/alert/cpu/acknowledge"
+        response = client.patch(
+            f"/device/{device_with_cpu_alert.ip_address}/alerts/cpu",
+            json={"action": "acknowledge"}
         )
         assert response.status_code == status.HTTP_200_OK
         data = response.json()

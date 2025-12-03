@@ -89,8 +89,9 @@ class TestDeviceEndpoints:
 
     def test_acknowledge_device_alert(self, client, device_with_cpu_alert):
         """Test acknowledging a device alert"""
-        response = client.put(
-            f"/device/{device_with_cpu_alert.ip_address}/alert/cpu/acknowledge"
+        response = client.patch(
+            f"/device/{device_with_cpu_alert.ip_address}/alerts/cpu",
+            json={"action": "acknowledge"}
         )
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -100,11 +101,15 @@ class TestDeviceEndpoints:
     def test_resolve_device_alert(self, client, device_with_cpu_alert):
         """Test resolving a device alert"""
         # First acknowledge
-        client.put(f"/device/{device_with_cpu_alert.ip_address}/alert/cpu/acknowledge")
+        client.patch(
+            f"/device/{device_with_cpu_alert.ip_address}/alerts/cpu",
+            json={"action": "acknowledge"}
+        )
 
         # Then resolve
-        response = client.put(
-            f"/device/{device_with_cpu_alert.ip_address}/alert/cpu/resolve"
+        response = client.patch(
+            f"/device/{device_with_cpu_alert.ip_address}/alerts/cpu",
+            json={"action": "resolve"}
         )
         assert response.status_code == status.HTTP_200_OK
         data = response.json()

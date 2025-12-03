@@ -15,13 +15,13 @@ class TestExtractVendor:
         """Test: Extract Cisco vendor from OID"""
         oid = "1.3.6.1.4.1.9.1.685"
         result = extract_vendor(oid)
-        assert result == "Cisco Systems"
+        assert result == "Cisco"
 
     def test_extract_vendor_juniper(self):
         """Test: Extract Juniper vendor from OID"""
         oid = "1.3.6.1.4.1.2636.1.1.1.2.20"
         result = extract_vendor(oid)
-        assert result == "Juniper Networks"
+        assert result == "Juniper"
 
     def test_extract_vendor_hp(self):
         """Test: Extract HP vendor from OID"""
@@ -72,8 +72,8 @@ class TestExtractVendor:
         assert result == "Unknown"
 
     @pytest.mark.parametrize("oid,expected_vendor", [
-        ("1.3.6.1.4.1.9.1.685", "Cisco Systems"),
-        ("1.3.6.1.4.1.2636.1.1.1.2.20", "Juniper Networks"),
+        ("1.3.6.1.4.1.9.1.685", "Cisco"),
+        ("1.3.6.1.4.1.2636.1.1.1.2.20", "Juniper"),
         ("1.3.6.1.4.1.11.2.3.7.11.17", "HP"),
         ("1.3.6.1.4.1.43.1.8.15", "3Com"),
         ("1.3.6.1.4.1.674.10895.3028", "Dell"),
@@ -83,7 +83,7 @@ class TestExtractVendor:
     def test_extract_vendor_various_oids(self, oid, expected_vendor):
         """Test: Various enterprise OIDs map to correct vendors"""
         result = extract_vendor(oid)
-        assert expected_vendor in result or result.startswith("Unknown")
+        assert result == expected_vendor or result.startswith("Unknown")
 
 
 @pytest.mark.unit
