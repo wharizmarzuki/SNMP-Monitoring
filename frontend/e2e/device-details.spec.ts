@@ -38,11 +38,20 @@ test.describe('TC05 - Device Details Page', () => {
   })
 
   test('TC05-002: Device details page displays device information', async ({ page }) => {
-    // Navigate directly to a test device (assuming device exists)
-    // In real scenario, you'd query for a real device first
-    await page.goto('/devices/192.168.1.1')
+    // First, get a real device from the devices list
+    await page.goto('/devices')
+    await page.waitForTimeout(2000)
 
-    // Wait for page to load
+    // Find first device link
+    const deviceLink = page.locator('a[href*="/devices/"]').first()
+
+    if (await deviceLink.count() === 0) {
+      test.skip()
+      return
+    }
+
+    // Click to navigate to device details
+    await deviceLink.click()
     await page.waitForTimeout(2000)
 
     // Device information should be visible
@@ -50,8 +59,17 @@ test.describe('TC05 - Device Details Page', () => {
   })
 
   test('TC05-003: CPU utilization chart displays correctly', async ({ page }) => {
-    // Navigate to device details
-    await page.goto('/devices/192.168.1.1')
+    // Navigate to devices list first
+    await page.goto('/devices')
+    await page.waitForTimeout(2000)
+
+    // Find and click first device
+    const deviceLink = page.locator('a[href*="/devices/"]').first()
+    if (await deviceLink.count() === 0) {
+      test.skip()
+      return
+    }
+    await deviceLink.click()
     await page.waitForTimeout(3000)
 
     // Look for CPU chart
