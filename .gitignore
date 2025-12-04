@@ -101,6 +101,11 @@ coverage/
 .pytest_cache/
 .tox/
 htmlcov/
+test-results/
+playwright-report/
+.playwright/
+test_results.json
+*.test.json
 
 # ----------------
 # Build & Production
