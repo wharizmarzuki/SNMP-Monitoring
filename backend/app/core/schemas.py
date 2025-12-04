@@ -122,7 +122,8 @@ DEVICE_OIDS = {
 INTERFACE_OIDS = {
     "interface_index": "1.3.6.1.2.1.2.2.1.1",
     "interface_description": "1.3.6.1.2.1.2.2.1.2",
-    "interface_speed": "1.3.6.1.2.1.2.2.1.5",
+    "interface_speed": "1.3.6.1.2.1.2.2.1.5",  # ifSpeed (bps, max ~4 Gbps)
+    "interface_high_speed": "1.3.6.1.2.1.31.1.1.1.15",  # ifHighSpeed (Mbps, for Gigabit+)
     "interface_admin_status": "1.3.6.1.2.1.2.2.1.7",
     "interface_operational_status": "1.3.6.1.2.1.2.2.1.8",
     "inbound_octets": "1.3.6.1.2.1.2.2.1.10",

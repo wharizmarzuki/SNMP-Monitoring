@@ -16,17 +16,37 @@ from app.config.logging import logger
 
 def calculate_interface_speed(raw_data: dict) -> tuple[int | None, str | None]:
     """
-    Determine interface speed from SNMP data using ifSpeed (IF-MIB).
+    Determine interface speed from SNMP data using ifHighSpeed or ifSpeed.
     Returns (speed_bps, speed_source) tuple.
+
+    Priority:
+    1. ifHighSpeed (for Gigabit+ interfaces, reports in Mbps)
+    2. ifSpeed (for slower interfaces, reports in bps, max ~4 Gbps)
     """
-    # Use ifSpeed (reports in bps, from standard IF-MIB ifTable)
+    # Try ifHighSpeed first (IF-MIB::ifHighSpeed, in Mbps)
+    high_speed_key = schemas.INTERFACE_OIDS.get("interface_high_speed")
+    if high_speed_key:
+        high_speed_mbps = raw_data.get(high_speed_key)
+        if high_speed_mbps:
+            try:
+                high_speed_int = int(high_speed_mbps)
+                if high_speed_int > 0:
+                    # Convert Mbps to bps
+                    speed_bps = high_speed_int * 1_000_000
+                    return speed_bps, "ifHighSpeed"
+            except (ValueError, TypeError):
+                pass
+
+    # Fallback to ifSpeed (reports in bps, from standard IF-MIB ifTable)
     speed_key = schemas.INTERFACE_OIDS["interface_speed"]
     speed_bps = raw_data.get(speed_key)
 
     if speed_bps:
         try:
             speed_int = int(speed_bps)
-            if speed_int > 0:
+            # ifSpeed maxes out at 4,294,967,295 (2^32-1)
+            # If value is exactly this, it's likely capped; try to use ifHighSpeed
+            if speed_int > 0 and speed_int < 4_294_967_295:
                 return speed_int, "ifSpeed"
         except (ValueError, TypeError):
             pass
@@ -185,6 +205,12 @@ async def poll_interfaces(device: models.Device, client: SNMPClient, db: Session
 
             # Calculate interface speed from SNMP data
             speed_bps, speed_source = calculate_interface_speed(raw)
+
+            # Log speed detection for debugging
+            if speed_bps is None:
+                logger.debug(f"No speed detected for interface {if_name} (index {idx}) on {host}")
+            else:
+                logger.debug(f"Interface {if_name} (index {idx}) on {host}: {speed_bps:,} bps ({speed_bps/1_000_000:.1f} Mbps) from {speed_source}")
 
             if idx not in existing_interfaces:
                 db_interface = models.Interface(
