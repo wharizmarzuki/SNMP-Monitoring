@@ -126,8 +126,9 @@ INTERFACE_OIDS = {
     "interface_high_speed": "1.3.6.1.2.1.31.1.1.1.15",  # ifHighSpeed (Mbps, for Gigabit+)
     "interface_admin_status": "1.3.6.1.2.1.2.2.1.7",
     "interface_operational_status": "1.3.6.1.2.1.2.2.1.8",
-    "inbound_octets": "1.3.6.1.2.1.2.2.1.10",
-    "outbound_octets": "1.3.6.1.2.1.2.2.1.16",
+    # High-Capacity (64-bit) octet counters - prevents wrap on Gigabit+ interfaces
+    "inbound_octets": "1.3.6.1.2.1.31.1.1.1.6",   # ifHCInOctets (64-bit)
+    "outbound_octets": "1.3.6.1.2.1.31.1.1.1.10",  # ifHCOutOctets (64-bit)
     "inbound_errors": "1.3.6.1.2.1.2.2.1.14",
     "outbound_errors": "1.3.6.1.2.1.2.2.1.20",
     "inbound_discards": "1.3.6.1.2.1.2.2.1.13",

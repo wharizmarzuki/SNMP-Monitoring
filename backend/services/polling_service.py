@@ -180,6 +180,10 @@ async def poll_interfaces(device: models.Device, client: SNMPClient, db: Session
     """Poll all interfaces for metrics and evaluate alerts."""
     host = typing.cast(str, device.ip_address)
 
+    # Capture poll time once for all interfaces in this poll cycle
+    # This ensures all interfaces get the same timestamp for proper aggregation
+    poll_time = datetime.now(timezone.utc)
+
     try:
         oids = list(schemas.INTERFACE_OIDS.values())
         result = await bulk_snmp_walk(host, oids, client)
@@ -238,6 +242,7 @@ async def poll_interfaces(device: models.Device, client: SNMPClient, db: Session
 
             metric = models.InterfaceMetric(
                 interface_id=db_interface.id,
+                timestamp=poll_time,  # Explicit timestamp for all interfaces in this poll cycle
                 admin_status=int(raw.get(schemas.INTERFACE_OIDS["interface_admin_status"], 0)),
                 oper_status=int(raw.get(schemas.INTERFACE_OIDS["interface_operational_status"], 0)),
                 # Cast to int for BigInteger columns (prevents precision loss on high-speed interfaces)

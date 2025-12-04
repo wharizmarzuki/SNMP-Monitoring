@@ -320,28 +320,20 @@ async def get_network_throughput(
         ).label("prev_timestamp")
     ).subquery()
 
-    # Counter wrap detection: Counter32 max value is 2^32 = 4,294,967,296
-    # If current < previous, counter wrapped: delta = (2^32 - previous) + current
-    # However, if this calculation results in negative (64-bit counter or device reset), return 0
-    # Otherwise: delta = current - previous
-    COUNTER32_MAX = 2 ** 32
-
-    # Pre-calculate wrap fix to check if valid
-    wrap_fix_in = COUNTER32_MAX - lag_subquery.c.prev_octets_in + lag_subquery.c.octets_in
-    wrap_fix_out = COUNTER32_MAX - lag_subquery.c.prev_octets_out + lag_subquery.c.octets_out
-
+    # Counter wrap detection: For 64-bit counters (ifHCInOctets/ifHCOutOctets)
+    # 64-bit counter wraps are extremely rare (would take 58,000 years at 10 Gbps)
+    # If current < previous, it's likely a device reset, not a wrap
+    # So we discard that data point (delta = 0) rather than attempting wrap calculation
     delta_in_expr = case(
         (lag_subquery.c.octets_in >= lag_subquery.c.prev_octets_in,
          lag_subquery.c.octets_in - lag_subquery.c.prev_octets_in),
-        (wrap_fix_in < 0, 0),  # Discard invalid wraps (likely 64-bit counter or device reset)
-        else_=wrap_fix_in
+        else_=0  # Device reset or counter discontinuity - discard this sample
     ).label("delta_in")
 
     delta_out_expr = case(
         (lag_subquery.c.octets_out >= lag_subquery.c.prev_octets_out,
          lag_subquery.c.octets_out - lag_subquery.c.prev_octets_out),
-        (wrap_fix_out < 0, 0),  # Discard invalid wraps (likely 64-bit counter or device reset)
-        else_=wrap_fix_out
+        else_=0  # Device reset or counter discontinuity - discard this sample
     ).label("delta_out")
 
     delta_subquery = select(
@@ -429,27 +421,20 @@ async def get_device_utilization(
         models.InterfaceMetric.timestamp <= end_time
     ).subquery()
 
-    # Counter wrap detection
-    # If current < previous, counter wrapped: delta = (2^32 - previous) + current
-    # However, if this calculation results in negative (64-bit counter or device reset), return 0
-    COUNTER32_MAX = 2 ** 32
-
-    # Pre-calculate wrap fix to check if valid
-    wrap_fix_in = COUNTER32_MAX - lag_subquery.c.prev_octets_in + lag_subquery.c.octets_in
-    wrap_fix_out = COUNTER32_MAX - lag_subquery.c.prev_octets_out + lag_subquery.c.octets_out
-
+    # Counter wrap detection: For 64-bit counters (ifHCInOctets/ifHCOutOctets)
+    # 64-bit counter wraps are extremely rare (would take 58,000 years at 10 Gbps)
+    # If current < previous, it's likely a device reset, not a wrap
+    # So we discard that data point (delta = 0) rather than attempting wrap calculation
     delta_in_expr = case(
         (lag_subquery.c.octets_in >= lag_subquery.c.prev_octets_in,
          lag_subquery.c.octets_in - lag_subquery.c.prev_octets_in),
-        (wrap_fix_in < 0, 0),  # Discard invalid wraps (likely 64-bit counter or device reset)
-        else_=wrap_fix_in
+        else_=0  # Device reset or counter discontinuity - discard this sample
     ).label("delta_in")
 
     delta_out_expr = case(
         (lag_subquery.c.octets_out >= lag_subquery.c.prev_octets_out,
          lag_subquery.c.octets_out - lag_subquery.c.prev_octets_out),
-        (wrap_fix_out < 0, 0),  # Discard invalid wraps (likely 64-bit counter or device reset)
-        else_=wrap_fix_out
+        else_=0  # Device reset or counter discontinuity - discard this sample
     ).label("delta_out")
 
     delta_subquery = select(
@@ -744,19 +729,20 @@ async def get_report_network_throughput(
         models.InterfaceMetric.timestamp <= end_dt
     ).subquery()
 
-    # Calculate deltas with counter wrap detection
+    # Calculate deltas with counter wrap detection (64-bit counters)
+    # 64-bit counter wraps are extremely rare - if current < previous, assume device reset
     delta_subquery = select(
         lag_subquery.c.interface_id,
         lag_subquery.c.timestamp,
         case(
             (lag_subquery.c.octets_in >= lag_subquery.c.prev_in,
              lag_subquery.c.octets_in - lag_subquery.c.prev_in),
-            else_=(2**32 + lag_subquery.c.octets_in - lag_subquery.c.prev_in)
+            else_=0  # Device reset or counter discontinuity - discard this sample
         ).label("delta_in"),
         case(
             (lag_subquery.c.octets_out >= lag_subquery.c.prev_out,
              lag_subquery.c.octets_out - lag_subquery.c.prev_out),
-            else_=(2**32 + lag_subquery.c.octets_out - lag_subquery.c.prev_out)
+            else_=0  # Device reset or counter discontinuity - discard this sample
         ).label("delta_out"),
         func.extract("epoch", lag_subquery.c.timestamp - lag_subquery.c.prev_timestamp).label("delta_seconds")
     ).filter(lag_subquery.c.prev_timestamp != None).subquery()
