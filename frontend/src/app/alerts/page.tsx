@@ -204,7 +204,8 @@ export default function AlertsPage() {
                   <TableHead className="text-center">IP Address</TableHead>
                   <TableHead className="text-center">Metric</TableHead>
                   <TableHead className="text-center">Current Value</TableHead>
-                  <TableHead className="text-center">Remarks</TableHead>
+                  <TableHead className="text-center">Threshold</TableHead>
+                  <TableHead className="text-center">Details</TableHead>
                   <TableHead className="text-center">Severity</TableHead>
                   <TableHead className="text-center">Action</TableHead>
                 </TableRow>
@@ -219,6 +220,9 @@ export default function AlertsPage() {
                     <TableCell className="text-center">{alert.metric}</TableCell>
                     <TableCell className="text-center">{alert.current_value}</TableCell>
                     <TableCell className="text-center">{alert.threshold}</TableCell>
+                    <TableCell className="text-center text-xs text-muted-foreground">
+                      {(alert as any).detail_info || '-'}
+                    </TableCell>
                     <TableCell className="text-center">
                       <Badge variant={severityMap[alert.severity] || 'default'}>
                         {alert.severity}

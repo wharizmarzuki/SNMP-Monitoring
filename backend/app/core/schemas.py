@@ -299,6 +299,9 @@ class ActiveAlertResponse(BaseModel):
     if_index: int | None = None  # For interface alerts only
     severity: str = "Warning"  # Severity level: Warning, High, Critical
 
+    # Additional contextual details (like reachability's "X failures" pattern)
+    detail_info: str | None = None  # Rich detail text (e.g., "Exceeded by 15.3% | Alert active for 25 minutes")
+
 class TopDeviceResponse(BaseModel):
     """
     For the dashboard bar charts.

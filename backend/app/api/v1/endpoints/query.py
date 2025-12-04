@@ -21,6 +21,31 @@ def to_utc_iso(ts: datetime.datetime):
         return None
     return ts.replace(tzinfo=datetime.timezone.utc).isoformat().replace("+00:00", "Z")
 
+def _time_ago(timestamp: datetime.datetime) -> str:
+    """Calculate human-readable time ago string."""
+    if timestamp is None:
+        return "unknown time"
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    # Ensure timestamp is timezone-aware
+    if timestamp.tzinfo is None:
+        timestamp = timestamp.replace(tzinfo=datetime.timezone.utc)
+
+    delta = now - timestamp
+
+    if delta.days > 0:
+        return f"{delta.days} day{'s' if delta.days != 1 else ''} ago"
+
+    hours = delta.seconds // 3600
+    if hours > 0:
+        return f"{hours} hour{'s' if hours != 1 else ''} ago"
+
+    minutes = (delta.seconds % 3600) // 60
+    if minutes > 0:
+        return f"{minutes} minute{'s' if minutes != 1 else ''} ago"
+
+    return "just now"
+
 @router.get("/network-summary", response_model=schemas.NetworkSummaryResponse)
 async def get_network_summary(db: Session = Depends(get_db)):
     """Get network summary with 30-second cache"""
@@ -556,6 +581,14 @@ async def get_active_alerts(db: Session = Depends(get_db)):
             elif cpu >= 75:
                 cpu_severity = "High"
 
+            # Calculate how much threshold was exceeded by
+            cpu_exceeded_by = round(cpu - device.cpu_threshold, 2)
+
+            # Build detail info similar to reachability alert
+            detail_parts = [f"Exceeded by {cpu_exceeded_by}%"]
+            if device.cpu_acknowledged_at:
+                detail_parts.append(f"Acknowledged {_time_ago(device.cpu_acknowledged_at)}")
+
             all_alerts.append(schemas.ActiveAlertResponse(
                 hostname=device.hostname,
                 ip_address=device.ip_address,
@@ -564,7 +597,8 @@ async def get_active_alerts(db: Session = Depends(get_db)):
                 threshold=f">{device.cpu_threshold}%",
                 state=device.cpu_alert_state,
                 acknowledged_at=device.cpu_acknowledged_at,
-                severity=cpu_severity
+                severity=cpu_severity,
+                detail_info=" | ".join(detail_parts)
             ))
         if device.memory_alert_state in ["triggered", "acknowledged"]:
             # Calculate severity based on Memory utilization
@@ -574,6 +608,14 @@ async def get_active_alerts(db: Session = Depends(get_db)):
             elif mem >= 75:
                 mem_severity = "High"
 
+            # Calculate how much threshold was exceeded by
+            mem_exceeded_by = round(mem - device.memory_threshold, 2)
+
+            # Build detail info similar to reachability alert
+            detail_parts = [f"Exceeded by {mem_exceeded_by}%"]
+            if device.memory_acknowledged_at:
+                detail_parts.append(f"Acknowledged {_time_ago(device.memory_acknowledged_at)}")
+
             all_alerts.append(schemas.ActiveAlertResponse(
                 hostname=device.hostname,
                 ip_address=device.ip_address,
@@ -582,7 +624,8 @@ async def get_active_alerts(db: Session = Depends(get_db)):
                 threshold=f">{device.memory_threshold}%",
                 state=device.memory_alert_state,
                 acknowledged_at=device.memory_acknowledged_at,
-                severity=mem_severity
+                severity=mem_severity,
+                detail_info=" | ".join(detail_parts)
             ))
 
     # --- 3. Query for Reachability Alerts ---
@@ -592,6 +635,15 @@ async def get_active_alerts(db: Session = Depends(get_db)):
 
     for device in reachability_alerts_query:
         # Reachability alerts are always Critical
+        # Build detail info with last poll information
+        detail_parts = []
+        if device.last_poll_success:
+            detail_parts.append(f"Last seen {_time_ago(device.last_poll_success)}")
+        if device.last_poll_attempt:
+            detail_parts.append(f"Last attempt {_time_ago(device.last_poll_attempt)}")
+        if device.reachability_acknowledged_at:
+            detail_parts.append(f"Acknowledged {_time_ago(device.reachability_acknowledged_at)}")
+
         all_alerts.append(schemas.ActiveAlertResponse(
             hostname=device.hostname,
             ip_address=device.ip_address,
@@ -600,7 +652,8 @@ async def get_active_alerts(db: Session = Depends(get_db)):
             threshold=f">{device.failure_threshold} failures",
             state=device.reachability_alert_state,
             acknowledged_at=device.reachability_acknowledged_at,
-            severity="Critical"
+            severity="Critical",
+            detail_info=" | ".join(detail_parts) if detail_parts else None
         ))
 
     # --- 5. Get Latest Interface Metric Timestamps ---
@@ -638,6 +691,11 @@ async def get_active_alerts(db: Session = Depends(get_db)):
     for interface, hostname, ip, status, disc_in, disc_out in interface_alerts_query:
         if interface.oper_status_alert_state in ["triggered", "acknowledged"]:
             # Interface down alerts are High severity
+            # Build detail info
+            detail_parts = [f"Interface index: {interface.if_index}"]
+            if interface.oper_status_acknowledged_at:
+                detail_parts.append(f"Acknowledged {_time_ago(interface.oper_status_acknowledged_at)}")
+
             all_alerts.append(schemas.ActiveAlertResponse(
                 hostname=hostname,
                 ip_address=ip,
@@ -647,7 +705,8 @@ async def get_active_alerts(db: Session = Depends(get_db)):
                 state=interface.oper_status_alert_state,
                 acknowledged_at=interface.oper_status_acknowledged_at,
                 if_index=interface.if_index,
-                severity="High"
+                severity="High",
+                detail_info=" | ".join(detail_parts)
             ))
         if interface.packet_drop_alert_state in ["triggered", "acknowledged"]:
             total_drops = (disc_in or 0) + (disc_out or 0)
@@ -658,16 +717,26 @@ async def get_active_alerts(db: Session = Depends(get_db)):
             elif total_drops >= 1000:
                 drop_severity = "High"
 
+            # Build detail info with breakdown
+            detail_parts = [
+                f"In: {int(disc_in or 0)} drops",
+                f"Out: {int(disc_out or 0)} drops",
+                f"Threshold: {interface.packet_drop_threshold}%"
+            ]
+            if interface.packet_drop_acknowledged_at:
+                detail_parts.append(f"Acknowledged {_time_ago(interface.packet_drop_acknowledged_at)}")
+
             all_alerts.append(schemas.ActiveAlertResponse(
                 hostname=hostname,
                 ip_address=ip,
                 metric=f"Packet Drops ({interface.if_name})",
-                current_value=f"{total_drops} drops",
-                threshold=f">{interface.packet_drop_threshold} drops",
+                current_value=f"{int(total_drops)} drops",
+                threshold=f">{interface.packet_drop_threshold}% discard rate",
                 state=interface.packet_drop_alert_state,
                 acknowledged_at=interface.packet_drop_acknowledged_at,
                 if_index=interface.if_index,
-                severity=drop_severity
+                severity=drop_severity,
+                detail_info=" | ".join(detail_parts)
             ))
 
     return all_alerts
