@@ -312,19 +312,26 @@ async def get_network_throughput(
 
     # Counter wrap detection: Counter32 max value is 2^32 = 4,294,967,296
     # If current < previous, counter wrapped: delta = (2^32 - previous) + current
+    # However, if this calculation results in negative (64-bit counter or device reset), return 0
     # Otherwise: delta = current - previous
     COUNTER32_MAX = 2 ** 32
+
+    # Pre-calculate wrap fix to check if valid
+    wrap_fix_in = COUNTER32_MAX - lag_subquery.c.prev_octets_in + lag_subquery.c.octets_in
+    wrap_fix_out = COUNTER32_MAX - lag_subquery.c.prev_octets_out + lag_subquery.c.octets_out
 
     delta_in_expr = case(
         (lag_subquery.c.octets_in >= lag_subquery.c.prev_octets_in,
          lag_subquery.c.octets_in - lag_subquery.c.prev_octets_in),
-        else_=(COUNTER32_MAX - lag_subquery.c.prev_octets_in + lag_subquery.c.octets_in)
+        (wrap_fix_in < 0, 0),  # Discard invalid wraps (likely 64-bit counter or device reset)
+        else_=wrap_fix_in
     ).label("delta_in")
 
     delta_out_expr = case(
         (lag_subquery.c.octets_out >= lag_subquery.c.prev_octets_out,
          lag_subquery.c.octets_out - lag_subquery.c.prev_octets_out),
-        else_=(COUNTER32_MAX - lag_subquery.c.prev_octets_out + lag_subquery.c.octets_out)
+        (wrap_fix_out < 0, 0),  # Discard invalid wraps (likely 64-bit counter or device reset)
+        else_=wrap_fix_out
     ).label("delta_out")
 
     delta_subquery = select(
@@ -407,23 +414,32 @@ async def get_device_utilization(
         models.InterfaceMetric.interface_id == models.Interface.id
     ).filter(
         models.Interface.speed_bps != None,  # Only include interfaces with known speed
+        models.InterfaceMetric.admin_status == 1,  # Only show admin UP interfaces (prevents flat lines at 0%)
         models.InterfaceMetric.timestamp >= start_time,
         models.InterfaceMetric.timestamp <= end_time
     ).subquery()
 
     # Counter wrap detection
+    # If current < previous, counter wrapped: delta = (2^32 - previous) + current
+    # However, if this calculation results in negative (64-bit counter or device reset), return 0
     COUNTER32_MAX = 2 ** 32
+
+    # Pre-calculate wrap fix to check if valid
+    wrap_fix_in = COUNTER32_MAX - lag_subquery.c.prev_octets_in + lag_subquery.c.octets_in
+    wrap_fix_out = COUNTER32_MAX - lag_subquery.c.prev_octets_out + lag_subquery.c.octets_out
 
     delta_in_expr = case(
         (lag_subquery.c.octets_in >= lag_subquery.c.prev_octets_in,
          lag_subquery.c.octets_in - lag_subquery.c.prev_octets_in),
-        else_=(COUNTER32_MAX - lag_subquery.c.prev_octets_in + lag_subquery.c.octets_in)
+        (wrap_fix_in < 0, 0),  # Discard invalid wraps (likely 64-bit counter or device reset)
+        else_=wrap_fix_in
     ).label("delta_in")
 
     delta_out_expr = case(
         (lag_subquery.c.octets_out >= lag_subquery.c.prev_octets_out,
          lag_subquery.c.octets_out - lag_subquery.c.prev_octets_out),
-        else_=(COUNTER32_MAX - lag_subquery.c.prev_octets_out + lag_subquery.c.octets_out)
+        (wrap_fix_out < 0, 0),  # Discard invalid wraps (likely 64-bit counter or device reset)
+        else_=wrap_fix_out
     ).label("delta_out")
 
     delta_subquery = select(
@@ -488,14 +504,18 @@ async def get_device_utilization(
         results_list = sorted(sampled_results, key=lambda x: x.timestamp)
 
     for row in results_list:
-        # Calculate utilization percentages
-        utilization_in_pct = None
-        utilization_out_pct = None
-        max_utilization_pct = None
+        # Sanitize values FIRST: Clamp negative values to 0
+        safe_inbound_bps = row.inbound_bps if row.inbound_bps and row.inbound_bps > 0 else 0.0
+        safe_outbound_bps = row.outbound_bps if row.outbound_bps and row.outbound_bps > 0 else 0.0
+
+        # Calculate utilization percentages using SAFE values
+        utilization_in_pct = 0.0
+        utilization_out_pct = 0.0
+        max_utilization_pct = 0.0
 
         if row.total_capacity_bps and row.total_capacity_bps > 0:
-            utilization_in_pct = (row.inbound_bps / row.total_capacity_bps) * 100
-            utilization_out_pct = (row.outbound_bps / row.total_capacity_bps) * 100
+            utilization_in_pct = (safe_inbound_bps / row.total_capacity_bps) * 100
+            utilization_out_pct = (safe_outbound_bps / row.total_capacity_bps) * 100
             max_utilization_pct = max(utilization_in_pct, utilization_out_pct)
 
         output.append(
@@ -504,8 +524,8 @@ async def get_device_utilization(
                 hostname=row.hostname,
                 ip_address=row.ip_address,
                 timestamp=to_utc_iso(row.timestamp),
-                inbound_bps=row.inbound_bps if row.inbound_bps and row.inbound_bps > 0 else 0,
-                outbound_bps=row.outbound_bps if row.outbound_bps and row.outbound_bps > 0 else 0,
+                inbound_bps=safe_inbound_bps,
+                outbound_bps=safe_outbound_bps,
                 total_capacity_bps=row.total_capacity_bps,
                 utilization_in_pct=utilization_in_pct,
                 utilization_out_pct=utilization_out_pct,

@@ -13,10 +13,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Download, FileText, Activity, HardDrive, AlertTriangle, Clock } from 'lucide-react';
+import { Download, FileText, Activity, HardDrive, AlertTriangle, Clock, Network } from 'lucide-react';
 import { reportApi } from '@/lib/api';
 import type {
-  NetworkThroughputDatapoint,
   ReportDeviceUtilizationDatapoint,
   PacketDropRecord,
   UptimeSummaryResponse,
@@ -62,9 +61,15 @@ export default function ReportPage() {
   const endDateTime = getDateTimeString(endDate, false);
 
   // Fetch all report data
-  const { data: throughputData, isLoading: loadingThroughput } = useQuery<NetworkThroughputDatapoint[]>({
-    queryKey: ['reportThroughput', startDateTime, endDateTime],
-    queryFn: () => reportApi.getNetworkThroughput(startDateTime, endDateTime),
+  const { data: bandwidthUtilizationData, isLoading: loadingBandwidth } = useQuery<import("@/types").DeviceUtilization[]>({
+    queryKey: ['reportBandwidthUtilization', startDateTime, endDateTime],
+    queryFn: () => {
+      // Calculate minutes between start and end
+      const start = new Date(startDateTime);
+      const end = new Date(endDateTime);
+      const minutes = Math.floor((end.getTime() - start.getTime()) / (1000 * 60));
+      return queryApi.getDeviceUtilization(minutes, 1);
+    },
     enabled: reportGenerated && !!startDateTime && !!endDateTime,
   });
 
@@ -92,7 +97,7 @@ export default function ReportPage() {
     enabled: reportGenerated && !!startDateTime && !!endDateTime,
   });
 
-  const isLoading = loadingThroughput || loadingUtilization || loadingPacketDrops || loadingUptime || loadingAvailability;
+  const isLoading = loadingBandwidth || loadingUtilization || loadingPacketDrops || loadingUptime || loadingAvailability;
 
   const handleGenerateReport = () => {
     if (startDate && endDate) {
@@ -135,16 +140,49 @@ export default function ReportPage() {
     }
   };
 
-  // Aggregate and format throughput data (max 10 points)
-  const formattedThroughputData = React.useMemo(() => {
-    if (!throughputData) return [];
-    const aggregated = aggregateData(throughputData, 10);
+  // Aggregate and format bandwidth utilization data (max 10 points)
+  const formattedBandwidthData = React.useMemo(() => {
+    if (!bandwidthUtilizationData) return [];
+
+    // Group by timestamp and aggregate device utilizations
+    const timeMap = new Map<string, { timestamp: string; maxUtil: number }>();
+
+    bandwidthUtilizationData.forEach(d => {
+      const existing = timeMap.get(d.timestamp);
+      const currentMax = d.max_utilization_pct || 0;
+
+      if (!existing || currentMax > existing.maxUtil) {
+        timeMap.set(d.timestamp, {
+          timestamp: d.timestamp,
+          maxUtil: currentMax
+        });
+      }
+    });
+
+    const sorted = Array.from(timeMap.values()).sort((a, b) =>
+      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
+
+    const aggregated = aggregateData(sorted, 10);
     return aggregated.map(d => ({
       time: format(new Date(d.timestamp), 'MMM dd HH:mm'),
-      inbound: parseFloat((d.total_inbound_bps / 1_000_000).toFixed(2)), // Convert to Mbps
-      outbound: parseFloat((d.total_outbound_bps / 1_000_000).toFixed(2)),
+      utilization: parseFloat(d.maxUtil.toFixed(4)),
     }));
-  }, [throughputData]);
+  }, [bandwidthUtilizationData]);
+
+  // Calculate dynamic domain for bandwidth chart
+  const bandwidthDomain = React.useMemo(() => {
+    if (formattedBandwidthData.length === 0) return [0, 100];
+
+    const maxUtil = Math.max(...formattedBandwidthData.map(d => d.utilization));
+
+    if (maxUtil <= 0.1) return [0, 0.1];
+    if (maxUtil <= 1) return [0, 1];
+    if (maxUtil <= 10) return [0, 10];
+    if (maxUtil <= 25) return [0, 25];
+    if (maxUtil <= 50) return [0, 50];
+    return [0, 100];
+  }, [formattedBandwidthData]);
 
   // Aggregate and format utilization data (max 10 points)
   const formattedUtilizationData = React.useMemo(() => {
@@ -156,6 +194,22 @@ export default function ReportPage() {
       memory: parseFloat(d.avg_memory_utilization.toFixed(2)),
     }));
   }, [utilizationData]);
+
+  // Calculate dynamic domain for CPU/Memory chart
+  const cpuMemoryDomain = React.useMemo(() => {
+    if (formattedUtilizationData.length === 0) return [0, 100];
+
+    const maxValue = Math.max(
+      ...formattedUtilizationData.map(d => Math.max(d.cpu, d.memory))
+    );
+
+    if (maxValue <= 0.1) return [0, 0.1];
+    if (maxValue <= 1) return [0, 1];
+    if (maxValue <= 10) return [0, 10];
+    if (maxValue <= 25) return [0, 25];
+    if (maxValue <= 50) return [0, 50];
+    return [0, 100];
+  }, [formattedUtilizationData]);
 
   // Format packet drop data with smart x-axis domain
   const formattedPacketDropData = React.useMemo(() => {
@@ -172,9 +226,11 @@ export default function ReportPage() {
 
     const maxRate = Math.max(...formattedPacketDropData.map(d => d.rate));
 
-    if (maxRate < 1) return [0, 1];
-    if (maxRate < 10) return [0, 10];
-    if (maxRate < 100) return [0, 100];
+    if (maxRate <= 0.01) return [0, 0.01];
+    if (maxRate <= 0.1) return [0, 0.1];
+    if (maxRate <= 1) return [0, 1];
+    if (maxRate <= 10) return [0, 10];
+    if (maxRate <= 100) return [0, 100];
     return [0, Math.ceil(maxRate / 100) * 100];
   }, [formattedPacketDropData]);
 
@@ -263,19 +319,19 @@ export default function ReportPage() {
             </Card>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4" style={{ gridTemplateRows: 'repeat(2, minmax(300px, 1fr))' }}>
-              {/* Section 1: Network Bandwidth (Top-Left) */}
+              {/* Section 1: Device Bandwidth Utilization (Top-Left) */}
               <Card className="lg:col-span-1">
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2 text-base">
-                    <Activity className="h-4 w-4" />
-                    Network Bandwidth
+                    <Network className="h-4 w-4" />
+                    Device Bandwidth Utilization
                   </CardTitle>
-                  <CardDescription className="text-xs">Total throughput (Mbps)</CardDescription>
+                  <CardDescription className="text-xs">Maximum utilization percentage</CardDescription>
                 </CardHeader>
                 <CardContent className="pb-2">
-                  {formattedThroughputData.length > 0 ? (
+                  {formattedBandwidthData.length > 0 ? (
                     <ResponsiveContainer width="100%" height={250}>
-                      <LineChart data={formattedThroughputData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+                      <LineChart data={formattedBandwidthData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis
                           dataKey="time"
@@ -284,15 +340,18 @@ export default function ReportPage() {
                           textAnchor="end"
                           height={60}
                         />
-                        <YAxis tick={{ fontSize: 11 }} />
-                        <Tooltip />
+                        <YAxis
+                          tick={{ fontSize: 11 }}
+                          domain={bandwidthDomain}
+                          tickFormatter={(value) => value < 1 ? value.toFixed(3) : value.toFixed(1)}
+                        />
+                        <Tooltip formatter={(value: number) => `${value.toFixed(4)}%`} />
                         <Legend wrapperStyle={{ fontSize: '12px' }} />
-                        <Line type="monotone" dataKey="inbound" stroke="#3b82f6" name="Inbound" strokeWidth={2} dot={false} />
-                        <Line type="monotone" dataKey="outbound" stroke="#10b981" name="Outbound" strokeWidth={2} dot={false} />
+                        <Line type="monotone" dataKey="utilization" stroke="#8b5cf6" name="Utilization %" strokeWidth={2} dot={false} />
                       </LineChart>
                     </ResponsiveContainer>
                   ) : (
-                    <p className="text-sm text-muted-foreground text-center py-8">No throughput data available</p>
+                    <p className="text-sm text-muted-foreground text-center py-8">No bandwidth utilization data available</p>
                   )}
                 </CardContent>
               </Card>
@@ -318,8 +377,12 @@ export default function ReportPage() {
                           textAnchor="end"
                           height={60}
                         />
-                        <YAxis tick={{ fontSize: 11 }} />
-                        <Tooltip />
+                        <YAxis
+                          tick={{ fontSize: 11 }}
+                          domain={cpuMemoryDomain}
+                          tickFormatter={(value) => value < 1 ? value.toFixed(3) : value.toFixed(1)}
+                        />
+                        <Tooltip formatter={(value: number) => `${value.toFixed(2)}%`} />
                         <Legend wrapperStyle={{ fontSize: '12px' }} />
                         <Area type="monotone" dataKey="cpu" stackId="1" stroke="#f97316" fill="#fb923c" name="CPU" />
                         <Area type="monotone" dataKey="memory" stackId="2" stroke="#3b82f6" fill="#60a5fa" name="Memory" />
@@ -395,7 +458,12 @@ export default function ReportPage() {
                           type="number"
                           tick={{ fontSize: 11 }}
                           domain={packetDropDomain}
-                          tickFormatter={(value) => value.toFixed(value < 1 ? 3 : 0)}
+                          tickFormatter={(value) => {
+                            if (value < 0.01) return value.toFixed(4);
+                            if (value < 0.1) return value.toFixed(3);
+                            if (value < 1) return value.toFixed(2);
+                            return value.toFixed(1);
+                          }}
                         />
                         <YAxis dataKey="device" type="category" width={80} tick={{ fontSize: 10 }} />
                         <Tooltip formatter={(value: number) => value.toFixed(4) + '%'} />

@@ -300,8 +300,36 @@ export default function DashboardPage() {
                     />
                     <YAxis
                       label={{ value: 'Utilization %', angle: -90, position: 'insideLeft' }}
-                      domain={[0, 100]}
-                      ticks={[0, 25, 50, 75, 100]}
+                      domain={(() => {
+                        // Calculate max utilization across all devices and time points
+                        const maxUtil = Math.max(
+                          ...utilization.map(u => u.max_utilization_pct || 0),
+                          0
+                        );
+
+                        // Dynamic scale based on max value
+                        if (maxUtil <= 0.1) return [0, 0.1];
+                        if (maxUtil <= 1) return [0, 1];
+                        if (maxUtil <= 10) return [0, 10];
+                        if (maxUtil <= 25) return [0, 25];
+                        if (maxUtil <= 50) return [0, 50];
+                        return [0, 100];
+                      })()}
+                      ticks={(() => {
+                        // Calculate max utilization
+                        const maxUtil = Math.max(
+                          ...utilization.map(u => u.max_utilization_pct || 0),
+                          0
+                        );
+
+                        // Generate appropriate ticks
+                        if (maxUtil <= 0.1) return [0, 0.025, 0.05, 0.075, 0.1];
+                        if (maxUtil <= 1) return [0, 0.25, 0.5, 0.75, 1];
+                        if (maxUtil <= 10) return [0, 2.5, 5, 7.5, 10];
+                        if (maxUtil <= 25) return [0, 6.25, 12.5, 18.75, 25];
+                        if (maxUtil <= 50) return [0, 12.5, 25, 37.5, 50];
+                        return [0, 25, 50, 75, 100];
+                      })()}
                       tickFormatter={(value) => `${value}`}
                       stroke={resolvedTheme === 'dark' ? 'hsl(217.9 10.6% 64.9%)' : 'hsl(220 8.9% 46.1%)'}
                     />
