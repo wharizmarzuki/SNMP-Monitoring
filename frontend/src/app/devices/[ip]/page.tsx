@@ -175,12 +175,9 @@ export default function DeviceDetailPage() {
           bValue = (b.octets_in || 0) + (b.octets_out || 0);
           break;
         case "discard_rate":
-          const aDiscards = (a.discards_in || 0) + (a.discards_out || 0);
-          const bDiscards = (b.discards_in || 0) + (b.discards_out || 0);
-          const aTraffic = (a.octets_in || 0) + (a.octets_out || 0);
-          const bTraffic = (b.octets_in || 0) + (b.octets_out || 0);
-          aValue = calculateRate(aDiscards, aTraffic);
-          bValue = calculateRate(bDiscards, bTraffic);
+          // Use backend-calculated discard rate (delta-based)
+          aValue = a.discard_rate_pct ?? 0;
+          bValue = b.discard_rate_pct ?? 0;
           break;
         case "error_rate":
           const aErrors = (a.errors_in || 0) + (a.errors_out || 0);
@@ -964,7 +961,8 @@ export default function DeviceDetailPage() {
                   const totalDiscards = discardsIn + discardsOut;
                   const totalErrors = errorsIn + errorsOut;
 
-                  const discardRate = calculateRate(totalDiscards, totalTraffic);
+                  // Use backend-calculated discard rate (delta-based, accurate)
+                  const discardRate = iface.discard_rate_pct ?? 0;
                   const errorRate = calculateRate(totalErrors, totalTraffic);
 
                   return (

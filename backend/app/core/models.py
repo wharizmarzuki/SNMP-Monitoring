@@ -131,7 +131,11 @@ class InterfaceMetric(Base):
     errors_out: Mapped[int | None] = mapped_column(BigInteger)
     discards_in: Mapped[int | None] = mapped_column(BigInteger)
     discards_out: Mapped[int | None] = mapped_column(BigInteger)
-    
+
+    # Packet counters - Required for accurate discard rate calculation (discards are packet-based, not byte-based)
+    packets_in: Mapped[int | None] = mapped_column(BigInteger)
+    packets_out: Mapped[int | None] = mapped_column(BigInteger)
+
     interface: Mapped["Interface"] = relationship(back_populates="metrics")
 
 

@@ -240,12 +240,16 @@ async def poll_interfaces(device: models.Device, client: SNMPClient, db: Session
                 interface_id=db_interface.id,
                 admin_status=int(raw.get(schemas.INTERFACE_OIDS["interface_admin_status"], 0)),
                 oper_status=int(raw.get(schemas.INTERFACE_OIDS["interface_operational_status"], 0)),
-                octets_in=float(raw.get(schemas.INTERFACE_OIDS["inbound_octets"], 0)),
-                octets_out=float(raw.get(schemas.INTERFACE_OIDS["outbound_octets"], 0)),
-                errors_in=float(raw.get(schemas.INTERFACE_OIDS["inbound_errors"], 0)),
-                errors_out=float(raw.get(schemas.INTERFACE_OIDS["outbound_errors"], 0)),
-                discards_in=float(raw.get(schemas.INTERFACE_OIDS["inbound_discards"], 0)),
-                discards_out=float(raw.get(schemas.INTERFACE_OIDS["outbound_discards"], 0)),
+                # Cast to int for BigInteger columns (prevents precision loss on high-speed interfaces)
+                octets_in=int(float(raw.get(schemas.INTERFACE_OIDS["inbound_octets"], 0))),
+                octets_out=int(float(raw.get(schemas.INTERFACE_OIDS["outbound_octets"], 0))),
+                errors_in=int(float(raw.get(schemas.INTERFACE_OIDS["inbound_errors"], 0))),
+                errors_out=int(float(raw.get(schemas.INTERFACE_OIDS["outbound_errors"], 0))),
+                discards_in=int(float(raw.get(schemas.INTERFACE_OIDS["inbound_discards"], 0))),
+                discards_out=int(float(raw.get(schemas.INTERFACE_OIDS["outbound_discards"], 0))),
+                # Packet counters for accurate discard rate calculation (discards are packet-based)
+                packets_in=int(float(raw.get(schemas.INTERFACE_OIDS.get("inbound_packets", "0"), 0))),
+                packets_out=int(float(raw.get(schemas.INTERFACE_OIDS.get("outbound_packets", "0"), 0))),
             )
 
             db.add(metric)

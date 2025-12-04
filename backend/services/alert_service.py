@@ -561,27 +561,60 @@ SNMP Network Monitoring System"""
         """
         Check for discard rate threshold breaches and manage alerts.
         Returns message string if notifiable event occurred, else None.
+
+        Uses delta calculation (current - previous) to calculate true discard rate.
+        This matches the logic in query.py for consistency between alerts and dashboards.
         """
-        total_drops = (latest_metric.discards_in or 0) + (latest_metric.discards_out or 0)
-        total_traffic = (latest_metric.octets_in or 0) + (latest_metric.octets_out or 0)
-        discard_rate = (total_drops / total_traffic * 100) if total_traffic > 0 else 0
+        # Require previous metric to calculate delta (rate of change)
+        if not previous_metric:
+            return None
+
+        # Define safe delta helper (handles counter wraps and resets)
+        def get_safe_delta(curr, prev):
+            """Calculate delta with counter wrap/reset handling."""
+            if curr is None or prev is None:
+                return 0
+
+            delta = curr - prev
+
+            # Handle counter wraps/resets
+            # Negative delta usually indicates device reboot or counter reset
+            # Since we're using 64-bit high-capacity counters, wraps are extremely rare
+            if delta < 0:
+                return 0  # Discard invalid wrap (consistent with query.py)
+
+            return delta
+
+        # Calculate deltas for discards
+        delta_discards_in = get_safe_delta(latest_metric.discards_in, previous_metric.discards_in)
+        delta_discards_out = get_safe_delta(latest_metric.discards_out, previous_metric.discards_out)
+        total_drop_delta = delta_discards_in + delta_discards_out
+
+        # Calculate deltas for packets
+        delta_pkts_in = get_safe_delta(latest_metric.packets_in, previous_metric.packets_in)
+        delta_pkts_out = get_safe_delta(latest_metric.packets_out, previous_metric.packets_out)
+        total_packet_delta = delta_pkts_in + delta_pkts_out
+
+        # Calculate true discard rate percentage
+        # Formula: drops / (packets_passed + packets_dropped) * 100
+        # Total events = packets that passed + packets that were dropped
+        total_events = total_packet_delta + total_drop_delta
+
+        if total_events == 0:
+            discard_rate = 0.0
+        else:
+            discard_rate = (total_drop_delta / total_events) * 100
 
         is_exceeded = (discard_rate > interface.packet_drop_threshold)
 
         if is_exceeded:
             if interface.packet_drop_alert_state == "clear":
-                if previous_metric is not None:
-                    prev_total_drops = (previous_metric.discards_in or 0) + (previous_metric.discards_out or 0)
-                    prev_total_traffic = (previous_metric.octets_in or 0) + (previous_metric.octets_out or 0)
-                    prev_discard_rate = (prev_total_drops / prev_total_traffic * 100) if prev_total_traffic > 0 else 0
-                    prev_is_exceeded = (prev_discard_rate > interface.packet_drop_threshold)
-
-                    if not prev_is_exceeded:
-                        logger.warning(f"⚠️ ALERT: {device.hostname} Interface {interface.if_name} has high discard rate: {discard_rate:.3f}% (threshold: {interface.packet_drop_threshold}%)")
-                        interface.packet_drop_alert_state = "triggered"
-                        interface.packet_drop_alert_sent = True
-                        db.add(interface)
-                        return f"Interface {interface.if_name} ({interface.if_index}) has high discard rate: {discard_rate:.3f}% (threshold: {interface.packet_drop_threshold}%)"
+                # Trigger alert on threshold breach (state transition from clear to triggered)
+                logger.warning(f"⚠️ ALERT: {device.hostname} Interface {interface.if_name} has high discard rate: {discard_rate:.3f}% (threshold: {interface.packet_drop_threshold}%)")
+                interface.packet_drop_alert_state = "triggered"
+                interface.packet_drop_alert_sent = True
+                db.add(interface)
+                return f"Interface {interface.if_name} ({interface.if_index}) has high discard rate: {discard_rate:.3f}% (threshold: {interface.packet_drop_threshold}%)"
             elif interface.packet_drop_alert_state == "triggered":
                 pass
             elif interface.packet_drop_alert_state == "acknowledged":

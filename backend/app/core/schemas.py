@@ -132,6 +132,9 @@ INTERFACE_OIDS = {
     "outbound_errors": "1.3.6.1.2.1.2.2.1.20",
     "inbound_discards": "1.3.6.1.2.1.2.2.1.13",
     "outbound_discards": "1.3.6.1.2.1.2.2.1.19",
+    # Packet counters - High-capacity (64-bit) unicast packet counters for discard rate calculation
+    "inbound_packets": "1.3.6.1.2.1.31.1.1.1.7",   # ifHCInUcastPkts (unicast packets received)
+    "outbound_packets": "1.3.6.1.2.1.31.1.1.1.11",  # ifHCOutUcastPkts (unicast packets transmitted)
 }
 
 VENDOR_OIDS = {
@@ -285,6 +288,7 @@ class InterfaceSummaryResponse(BaseModel):
     errors_in: int | None
     errors_out: int | None
     packet_drop_threshold: float
+    discard_rate_pct: float | None = None  # Calculated discard rate percentage (delta-based)
 
     model_config = ConfigDict(from_attributes=True)
 

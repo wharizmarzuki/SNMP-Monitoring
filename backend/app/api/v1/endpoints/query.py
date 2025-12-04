@@ -136,6 +136,7 @@ async def get_device_interface_summary(
 ):
     """
     Get optimized interface summary (only essential fields).
+    Includes calculated discard rate percentage using delta calculation.
     Reduces payload size by 60-80% compared to full interface metrics.
     """
     device = db.query(models.Device).filter(models.Device.ip_address == ip).first()
@@ -143,63 +144,72 @@ async def get_device_interface_summary(
         raise DeviceNotFoundError(ip)
 
     try:
-        # Get latest metrics for each interface
-        subquery = (
-            db.query(
-                models.InterfaceMetric.interface_id,
-                func.max(models.InterfaceMetric.timestamp).label('max_timestamp')
-            )
-            .join(models.Interface)
-            .filter(models.Interface.device_id == device.id)
-            .group_by(models.InterfaceMetric.interface_id)
-            .subquery()
-        )
+        # Helper function to calculate discard rate (same logic as alert_service.py)
+        def calculate_discard_rate(latest: models.InterfaceMetric, previous: models.InterfaceMetric | None) -> float | None:
+            """Calculate delta-based discard rate percentage."""
+            if not previous:
+                return None
 
-        # Query only essential fields
-        interfaces = (
-            db.query(
-                models.Interface.if_index,
-                models.Interface.if_name,
-                models.Interface.packet_drop_threshold,
-                models.InterfaceMetric.oper_status,
-                models.InterfaceMetric.admin_status,
-                models.InterfaceMetric.octets_in,
-                models.InterfaceMetric.octets_out,
-                models.InterfaceMetric.discards_in,
-                models.InterfaceMetric.discards_out,
-                models.InterfaceMetric.errors_in,
-                models.InterfaceMetric.errors_out
-            )
-            .join(
-                models.InterfaceMetric,
-                models.InterfaceMetric.interface_id == models.Interface.id
-            )
-            .join(
-                subquery,
-                and_(
-                    models.InterfaceMetric.interface_id == subquery.c.interface_id,
-                    models.InterfaceMetric.timestamp == subquery.c.max_timestamp
-                )
-            )
-            .filter(models.Interface.device_id == device.id)
-            .all()
-        )
+            def get_safe_delta(curr, prev):
+                if curr is None or prev is None:
+                    return 0
+                delta = curr - prev
+                return 0 if delta < 0 else delta
 
-        # Build response with only essential fields
-        return [schemas.InterfaceSummaryResponse(
-            if_index=intf[0],
-            if_name=intf[1],
-            if_descr=None,  # Not stored in current model
-            oper_status=intf[3],
-            admin_status=intf[4],
-            octets_in=int(intf[5]) if intf[5] is not None else None,
-            octets_out=int(intf[6]) if intf[6] is not None else None,
-            discards_in=int(intf[7]) if intf[7] is not None else None,
-            discards_out=int(intf[8]) if intf[8] is not None else None,
-            errors_in=int(intf[9]) if intf[9] is not None else None,
-            errors_out=int(intf[10]) if intf[10] is not None else None,
-            packet_drop_threshold=intf[2]
-        ) for intf in interfaces]
+            # Calculate deltas for discards
+            delta_discards_in = get_safe_delta(latest.discards_in, previous.discards_in)
+            delta_discards_out = get_safe_delta(latest.discards_out, previous.discards_out)
+            total_drop_delta = delta_discards_in + delta_discards_out
+
+            # Calculate deltas for packets
+            delta_pkts_in = get_safe_delta(latest.packets_in, previous.packets_in)
+            delta_pkts_out = get_safe_delta(latest.packets_out, previous.packets_out)
+            total_packet_delta = delta_pkts_in + delta_pkts_out
+
+            # Calculate true discard rate
+            total_events = total_packet_delta + total_drop_delta
+            if total_events == 0:
+                return 0.0
+            return (total_drop_delta / total_events) * 100
+
+        # Get all interfaces for this device
+        interfaces = db.query(models.Interface).filter(models.Interface.device_id == device.id).all()
+
+        result = []
+        for interface in interfaces:
+            # Get latest 2 metrics for this interface
+            metrics = db.query(models.InterfaceMetric)\
+                .filter(models.InterfaceMetric.interface_id == interface.id)\
+                .order_by(models.InterfaceMetric.timestamp.desc())\
+                .limit(2)\
+                .all()
+
+            if not metrics:
+                continue
+
+            latest_metric = metrics[0]
+            previous_metric = metrics[1] if len(metrics) > 1 else None
+
+            # Calculate discard rate
+            discard_rate_pct = calculate_discard_rate(latest_metric, previous_metric)
+
+            result.append(schemas.InterfaceSummaryResponse(
+                if_index=interface.if_index,
+                if_name=interface.if_name,
+                if_descr=None,  # Not stored in current model
+                oper_status=latest_metric.oper_status,
+                admin_status=latest_metric.admin_status,
+                octets_in=int(latest_metric.octets_in) if latest_metric.octets_in is not None else None,
+                octets_out=int(latest_metric.octets_out) if latest_metric.octets_out is not None else None,
+                discards_in=int(latest_metric.discards_in) if latest_metric.discards_in is not None else None,
+                discards_out=int(latest_metric.discards_out) if latest_metric.discards_out is not None else None,
+                errors_in=int(latest_metric.errors_in) if latest_metric.errors_in is not None else None,
+                errors_out=int(latest_metric.errors_out) if latest_metric.errors_out is not None else None,
+                packet_drop_threshold=interface.packet_drop_threshold,
+                discard_rate_pct=discard_rate_pct  # NEW: Backend-calculated discard rate
+            ))
+
+        return result
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting interface summary: {str(e)}")
