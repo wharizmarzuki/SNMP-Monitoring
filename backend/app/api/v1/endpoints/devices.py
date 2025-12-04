@@ -118,3 +118,34 @@ async def delete_devices_endpoint(
     """Delete a device and all its associated data"""
     device_service.delete_device(ip, repo)
     return {"message": "Device deleted"}
+
+
+@router.get("/{ip}/interfaces")
+async def get_device_interfaces_with_speeds(
+    ip: str,
+    db: Session = Depends(database.get_db)
+):
+    """Get all interfaces for a device with speed information (diagnostic endpoint)"""
+    from app.core import models
+
+    device = db.query(models.Device).filter(models.Device.ip_address == ip).first()
+    if not device:
+        raise DeviceNotFoundError(ip)
+
+    interfaces = db.query(models.Interface).filter(models.Interface.device_id == device.id).all()
+
+    return {
+        "device_hostname": device.hostname,
+        "device_ip": device.ip_address,
+        "interfaces": [
+            {
+                "if_index": iface.if_index,
+                "if_name": iface.if_name,
+                "speed_bps": iface.speed_bps,
+                "speed_mbps": iface.speed_bps / 1_000_000 if iface.speed_bps else None,
+                "speed_source": iface.speed_source,
+                "speed_last_updated": iface.speed_last_updated
+            }
+            for iface in interfaces
+        ]
+    }
