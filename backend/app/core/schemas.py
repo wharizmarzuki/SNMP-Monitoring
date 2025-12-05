@@ -127,16 +127,29 @@ INTERFACE_OIDS = {
     "interface_high_speed": "1.3.6.1.2.1.31.1.1.1.15",  # ifHighSpeed (Mbps, for Gigabit+)
     "interface_admin_status": "1.3.6.1.2.1.2.2.1.7",
     "interface_operational_status": "1.3.6.1.2.1.2.2.1.8",
-    # High-Capacity (64-bit) octet counters - prevents wrap on Gigabit+ interfaces
-    "inbound_octets": "1.3.6.1.2.1.31.1.1.1.6",   # ifHCInOctets (64-bit)
-    "outbound_octets": "1.3.6.1.2.1.31.1.1.1.10",  # ifHCOutOctets (64-bit)
+    # Octet counters - High-Capacity (64-bit) preferred, 32-bit fallback for older devices
+    "inbound_octets_hc": "1.3.6.1.2.1.31.1.1.1.6",   # ifHCInOctets (64-bit)
+    "outbound_octets_hc": "1.3.6.1.2.1.31.1.1.1.10",  # ifHCOutOctets (64-bit)
+    "inbound_octets": "1.3.6.1.2.1.2.2.1.10",   # ifInOctets (32-bit fallback)
+    "outbound_octets": "1.3.6.1.2.1.2.2.1.16",  # ifOutOctets (32-bit fallback)
+    # Error and discard counters (only 32-bit versions exist in standard MIB)
     "inbound_errors": "1.3.6.1.2.1.2.2.1.14",
     "outbound_errors": "1.3.6.1.2.1.2.2.1.20",
     "inbound_discards": "1.3.6.1.2.1.2.2.1.13",
     "outbound_discards": "1.3.6.1.2.1.2.2.1.19",
-    # Packet counters - High-capacity (64-bit) unicast packet counters for discard rate calculation
-    "inbound_packets": "1.3.6.1.2.1.31.1.1.1.7",   # ifHCInUcastPkts (unicast packets received)
-    "outbound_packets": "1.3.6.1.2.1.31.1.1.1.11",  # ifHCOutUcastPkts (unicast packets transmitted)
+    # Packet counters - High-capacity (64-bit) packet counters for accurate discard rate calculation
+    # 64-bit counters (preferred for high-speed interfaces)
+    "inbound_packets_hc": "1.3.6.1.2.1.31.1.1.1.7",   # ifHCInUcastPkts (unicast packets received)
+    "outbound_packets_hc": "1.3.6.1.2.1.31.1.1.1.11",  # ifHCOutUcastPkts (unicast packets transmitted)
+    "inbound_multicast_packets_hc": "1.3.6.1.2.1.31.1.1.1.8",   # ifHCInMulticastPkts
+    "outbound_multicast_packets_hc": "1.3.6.1.2.1.31.1.1.1.12",  # ifHCOutMulticastPkts
+    "inbound_broadcast_packets_hc": "1.3.6.1.2.1.31.1.1.1.9",   # ifHCInBroadcastPkts
+    "outbound_broadcast_packets_hc": "1.3.6.1.2.1.31.1.1.1.13",  # ifHCOutBroadcastPkts
+    # 32-bit counters (fallback for older devices/interfaces that don't support ifXTable)
+    "inbound_packets": "1.3.6.1.2.1.2.2.1.11",   # ifInUcastPkts (32-bit unicast in)
+    "outbound_packets": "1.3.6.1.2.1.2.2.1.17",  # ifOutUcastPkts (32-bit unicast out)
+    "inbound_nonunicast_packets": "1.3.6.1.2.1.2.2.1.12",   # ifInNUcastPkts (32-bit non-unicast in)
+    "outbound_nonunicast_packets": "1.3.6.1.2.1.2.2.1.18",  # ifOutNUcastPkts (32-bit non-unicast out)
 }
 
 VENDOR_OIDS = {

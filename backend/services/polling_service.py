@@ -269,21 +269,74 @@ async def poll_interfaces(
                     db_interface.speed_last_updated = datetime.now(timezone.utc)
                     db.add(db_interface)
 
+            # Helper to safely get counter with fallback from 64-bit HC to 32-bit
+            def get_packet_counter(hc_key: str, legacy_key: str, raw_data: dict) -> int:
+                """Try 64-bit HC counter first, fall back to 32-bit counter if not available."""
+                hc_oid = schemas.INTERFACE_OIDS.get(hc_key)
+                legacy_oid = schemas.INTERFACE_OIDS.get(legacy_key)
+
+                # Try 64-bit counter first
+                if hc_oid:
+                    value = raw_data.get(hc_oid, "")
+                    # Check if value is valid (not "No Such Instance" or similar error message)
+                    # Valid values are numeric strings (including "0")
+                    if value and isinstance(value, str):
+                        # Skip SNMP error responses
+                        if "No Such" in value or "Instance" in value or "Error" in value:
+                            pass  # Fall through to legacy counter
+                        elif value.replace('.', '').replace('-', '').isdigit():
+                            try:
+                                return int(float(value))
+                            except (ValueError, TypeError):
+                                pass
+
+                # Fall back to 32-bit counter
+                if legacy_oid:
+                    value = raw_data.get(legacy_oid, "0")
+                    if value and isinstance(value, str):
+                        if "No Such" not in value and "Instance" not in value:
+                            try:
+                                return int(float(value))
+                            except (ValueError, TypeError):
+                                pass
+
+                return 0
+
+            # Get octet counters with 64-bit / 32-bit fallback
+            octets_in = get_packet_counter("inbound_octets_hc", "inbound_octets", raw)
+            octets_out = get_packet_counter("outbound_octets_hc", "outbound_octets", raw)
+
+            # Get packet counters with 64-bit / 32-bit fallback
+            packets_in = get_packet_counter("inbound_packets_hc", "inbound_packets", raw)
+            packets_out = get_packet_counter("outbound_packets_hc", "outbound_packets", raw)
+
+            # Get multicast packets (64-bit only, as 32-bit non-unicast combines mcast+bcast)
+            mcast_in = get_packet_counter("inbound_multicast_packets_hc", "inbound_nonunicast_packets", raw)
+            mcast_out = get_packet_counter("outbound_multicast_packets_hc", "outbound_nonunicast_packets", raw)
+
+            # Get broadcast packets (64-bit only)
+            bcast_in = get_packet_counter("inbound_broadcast_packets_hc", "inbound_nonunicast_packets", raw)
+            bcast_out = get_packet_counter("outbound_broadcast_packets_hc", "outbound_nonunicast_packets", raw)
+
             metric = models.InterfaceMetric(
                 interface_id=db_interface.id,
                 timestamp=poll_time,  # Explicit timestamp for all interfaces in this poll cycle
                 admin_status=int(raw.get(schemas.INTERFACE_OIDS["interface_admin_status"], 0)),
                 oper_status=int(raw.get(schemas.INTERFACE_OIDS["interface_operational_status"], 0)),
-                # Cast to int for BigInteger columns (prevents precision loss on high-speed interfaces)
-                octets_in=int(float(raw.get(schemas.INTERFACE_OIDS["inbound_octets"], 0))),
-                octets_out=int(float(raw.get(schemas.INTERFACE_OIDS["outbound_octets"], 0))),
+                # Octet counters with automatic 64-bit / 32-bit fallback
+                octets_in=octets_in,
+                octets_out=octets_out,
                 errors_in=int(float(raw.get(schemas.INTERFACE_OIDS["inbound_errors"], 0))),
                 errors_out=int(float(raw.get(schemas.INTERFACE_OIDS["outbound_errors"], 0))),
                 discards_in=int(float(raw.get(schemas.INTERFACE_OIDS["inbound_discards"], 0))),
                 discards_out=int(float(raw.get(schemas.INTERFACE_OIDS["outbound_discards"], 0))),
-                # Packet counters for accurate discard rate calculation (discards are packet-based)
-                packets_in=int(float(raw.get(schemas.INTERFACE_OIDS.get("inbound_packets", "0"), 0))),
-                packets_out=int(float(raw.get(schemas.INTERFACE_OIDS.get("outbound_packets", "0"), 0))),
+                # Packet counters with automatic 64-bit / 32-bit fallback
+                packets_in=packets_in,
+                packets_out=packets_out,
+                multicast_packets_in=mcast_in,
+                multicast_packets_out=mcast_out,
+                broadcast_packets_in=bcast_in,
+                broadcast_packets_out=bcast_out,
             )
 
             db.add(metric)

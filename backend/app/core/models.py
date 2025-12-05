@@ -139,8 +139,15 @@ class InterfaceMetric(Base):
     discards_out: Mapped[int | None] = mapped_column(BigInteger)
 
     # Packet counters - Required for accurate discard rate calculation (discards are packet-based, not byte-based)
+    # Unicast packets
     packets_in: Mapped[int | None] = mapped_column(BigInteger)
     packets_out: Mapped[int | None] = mapped_column(BigInteger)
+    # Multicast packets (for OSPF, video streams, routing protocols, etc.)
+    multicast_packets_in: Mapped[int | None] = mapped_column(BigInteger, default=0)
+    multicast_packets_out: Mapped[int | None] = mapped_column(BigInteger, default=0)
+    # Broadcast packets (for ARP, DHCP, NetBIOS, etc.)
+    broadcast_packets_in: Mapped[int | None] = mapped_column(BigInteger, default=0)
+    broadcast_packets_out: Mapped[int | None] = mapped_column(BigInteger, default=0)
 
     interface: Mapped["Interface"] = relationship(back_populates="metrics")
 

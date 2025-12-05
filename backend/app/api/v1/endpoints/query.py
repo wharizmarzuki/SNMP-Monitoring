@@ -161,10 +161,20 @@ async def get_device_interface_summary(
             delta_discards_out = get_safe_delta(latest.discards_out, previous.discards_out)
             total_drop_delta = delta_discards_in + delta_discards_out
 
-            # Calculate deltas for packets
+            # Calculate deltas for packets (unicast + multicast + broadcast)
             delta_pkts_in = get_safe_delta(latest.packets_in, previous.packets_in)
             delta_pkts_out = get_safe_delta(latest.packets_out, previous.packets_out)
-            total_packet_delta = delta_pkts_in + delta_pkts_out
+
+            # Add multicast packets
+            delta_mcast_in = get_safe_delta(latest.multicast_packets_in, previous.multicast_packets_in)
+            delta_mcast_out = get_safe_delta(latest.multicast_packets_out, previous.multicast_packets_out)
+
+            # Add broadcast packets
+            delta_bcast_in = get_safe_delta(latest.broadcast_packets_in, previous.broadcast_packets_in)
+            delta_bcast_out = get_safe_delta(latest.broadcast_packets_out, previous.broadcast_packets_out)
+
+            # Total packet delta = unicast + multicast + broadcast
+            total_packet_delta = delta_pkts_in + delta_pkts_out + delta_mcast_in + delta_mcast_out + delta_bcast_in + delta_bcast_out
 
             # Calculate true discard rate
             total_events = total_packet_delta + total_drop_delta
@@ -189,10 +199,20 @@ async def get_device_interface_summary(
             delta_errors_out = get_safe_delta(latest.errors_out, previous.errors_out)
             total_error_delta = delta_errors_in + delta_errors_out
 
-            # Calculate deltas for packets
+            # Calculate deltas for packets (unicast + multicast + broadcast)
             delta_pkts_in = get_safe_delta(latest.packets_in, previous.packets_in)
             delta_pkts_out = get_safe_delta(latest.packets_out, previous.packets_out)
-            total_packet_delta = delta_pkts_in + delta_pkts_out
+
+            # Add multicast packets
+            delta_mcast_in = get_safe_delta(latest.multicast_packets_in, previous.multicast_packets_in)
+            delta_mcast_out = get_safe_delta(latest.multicast_packets_out, previous.multicast_packets_out)
+
+            # Add broadcast packets
+            delta_bcast_in = get_safe_delta(latest.broadcast_packets_in, previous.broadcast_packets_in)
+            delta_bcast_out = get_safe_delta(latest.broadcast_packets_out, previous.broadcast_packets_out)
+
+            # Total packet delta = unicast + multicast + broadcast
+            total_packet_delta = delta_pkts_in + delta_pkts_out + delta_mcast_in + delta_mcast_out + delta_bcast_in + delta_bcast_out
 
             # Calculate deltas for discards (needed for total events)
             delta_discards_in = get_safe_delta(latest.discards_in, previous.discards_in)
@@ -354,6 +374,12 @@ async def get_network_throughput(
             partition_by=models.InterfaceMetric.interface_id,
             order_by=models.InterfaceMetric.timestamp
         ).label("prev_timestamp")
+    ).join(
+        models.Interface,
+        models.InterfaceMetric.interface_id == models.Interface.id
+    ).filter(
+        ~models.Interface.if_name.like('%Null%'),  # Exclude virtual null interfaces
+        ~models.Interface.if_name.like('%Loopback%')  # Exclude loopback interfaces
     ).subquery()
 
     # Counter wrap detection: For 64-bit counters (ifHCInOctets/ifHCOutOctets)
@@ -376,7 +402,7 @@ async def get_network_throughput(
         lag_subquery.c.timestamp,
         delta_in_expr,
         delta_out_expr,
-        func.extract("epoch", lag_subquery.c.timestamp - lag_subquery.c.prev_timestamp).label("delta_seconds")
+        ((func.julianday(lag_subquery.c.timestamp) - func.julianday(lag_subquery.c.prev_timestamp)) * 86400).label("delta_seconds")
     ).filter(lag_subquery.c.prev_timestamp != None).subquery()
 
     results = db.query(
@@ -454,6 +480,8 @@ async def get_device_utilization(
     ).filter(
         models.Interface.speed_bps != None,  # Only include interfaces with known speed
         models.InterfaceMetric.admin_status == 1,  # Only show admin UP interfaces (prevents flat lines at 0%)
+        ~models.Interface.if_name.like('%Null%'),  # Exclude virtual null interfaces (Null0, VoIP-Null0)
+        ~models.Interface.if_name.like('%Loopback%'),  # Exclude loopback interfaces
         models.InterfaceMetric.timestamp >= start_time,
         models.InterfaceMetric.timestamp <= end_time
     ).subquery()
@@ -480,7 +508,7 @@ async def get_device_utilization(
         lag_subquery.c.timestamp,
         delta_in_expr,
         delta_out_expr,
-        func.extract("epoch", lag_subquery.c.timestamp - lag_subquery.c.prev_timestamp).label("delta_seconds")
+        ((func.julianday(lag_subquery.c.timestamp) - func.julianday(lag_subquery.c.prev_timestamp)) * 86400).label("delta_seconds")
     ).filter(lag_subquery.c.prev_timestamp != None).subquery()
 
     # Aggregate by device and time interval
@@ -676,6 +704,10 @@ async def get_active_alerts(db: Session = Depends(get_db)):
         models.InterfaceMetric.discards_out,
         models.InterfaceMetric.packets_in,
         models.InterfaceMetric.packets_out,
+        models.InterfaceMetric.multicast_packets_in,
+        models.InterfaceMetric.multicast_packets_out,
+        models.InterfaceMetric.broadcast_packets_in,
+        models.InterfaceMetric.broadcast_packets_out,
         models.InterfaceMetric.id.label("latest_metric_id")
     ).join(
         latest_interface_metrics_subq,
@@ -694,7 +726,7 @@ async def get_active_alerts(db: Session = Depends(get_db)):
         )
     ).all()
 
-    for interface, hostname, ip, status, disc_in, disc_out, pkts_in, pkts_out, latest_metric_id in interface_alerts_query:
+    for interface, hostname, ip, status, disc_in, disc_out, pkts_in, pkts_out, mcast_in, mcast_out, bcast_in, bcast_out, latest_metric_id in interface_alerts_query:
         if interface.oper_status_alert_state in ["triggered", "acknowledged"]:
             # Interface down alerts are High severity
             all_alerts.append(schemas.ActiveAlertResponse(
@@ -734,9 +766,20 @@ async def get_active_alerts(db: Session = Depends(get_db)):
                 delta_discards_out = get_safe_delta(disc_out, previous_metric.discards_out)
                 total_drop_delta = delta_discards_in + delta_discards_out
 
+                # Calculate deltas for packets (unicast + multicast + broadcast)
                 delta_pkts_in = get_safe_delta(pkts_in, previous_metric.packets_in)
                 delta_pkts_out = get_safe_delta(pkts_out, previous_metric.packets_out)
-                total_packet_delta = delta_pkts_in + delta_pkts_out
+
+                # Add multicast packets
+                delta_mcast_in = get_safe_delta(mcast_in, previous_metric.multicast_packets_in)
+                delta_mcast_out = get_safe_delta(mcast_out, previous_metric.multicast_packets_out)
+
+                # Add broadcast packets
+                delta_bcast_in = get_safe_delta(bcast_in, previous_metric.broadcast_packets_in)
+                delta_bcast_out = get_safe_delta(bcast_out, previous_metric.broadcast_packets_out)
+
+                # Total packet delta = unicast + multicast + broadcast
+                total_packet_delta = delta_pkts_in + delta_pkts_out + delta_mcast_in + delta_mcast_out + delta_bcast_in + delta_bcast_out
 
                 # Calculate discard rate: drops / (packets + drops) * 100
                 total_events = total_packet_delta + total_drop_delta
@@ -801,7 +844,12 @@ async def get_report_network_throughput(
             partition_by=models.InterfaceMetric.interface_id,
             order_by=models.InterfaceMetric.timestamp
         ).label("prev_timestamp")
+    ).join(
+        models.Interface,
+        models.InterfaceMetric.interface_id == models.Interface.id
     ).filter(
+        ~models.Interface.if_name.like('%Null%'),  # Exclude virtual null interfaces
+        ~models.Interface.if_name.like('%Loopback%'),  # Exclude loopback interfaces
         models.InterfaceMetric.timestamp >= start_dt,
         models.InterfaceMetric.timestamp <= end_dt
     ).subquery()
@@ -821,7 +869,7 @@ async def get_report_network_throughput(
              lag_subquery.c.octets_out - lag_subquery.c.prev_out),
             else_=0  # Device reset or counter discontinuity - discard this sample
         ).label("delta_out"),
-        func.extract("epoch", lag_subquery.c.timestamp - lag_subquery.c.prev_timestamp).label("delta_seconds")
+        ((func.julianday(lag_subquery.c.timestamp) - func.julianday(lag_subquery.c.prev_timestamp)) * 86400).label("delta_seconds")
     ).filter(lag_subquery.c.prev_timestamp != None).subquery()
 
     # Aggregate throughput across all interfaces per timestamp

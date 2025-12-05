@@ -335,7 +335,13 @@ export default function DashboardPage() {
                     />
                     <Tooltip
                       labelFormatter={(value) => new Date(value).toLocaleString()}
-                      formatter={(value: number) => `${value.toFixed(1)}%`}
+                      formatter={(value: number) => {
+                        // Smart decimal places based on value magnitude
+                        if (value < 0.01) return `${value.toFixed(4)}%`;  // 0.0001% - 0.0099%
+                        if (value < 0.1) return `${value.toFixed(3)}%`;   // 0.010% - 0.099%
+                        if (value < 1) return `${value.toFixed(2)}%`;     // 0.10% - 0.99%
+                        return `${value.toFixed(1)}%`;                    // 1.0% and above
+                      }}
                       contentStyle={{
                         backgroundColor: resolvedTheme === 'dark' ? 'hsl(262 70% 4.1%)' : 'hsl(0 0% 100%)',
                         border: `1px solid ${resolvedTheme === 'dark' ? 'hsl(262 27.9% 16.9%)' : 'hsl(220 13% 91%)'}`,

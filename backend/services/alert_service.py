@@ -734,10 +734,20 @@ SNMP Network Monitoring System"""
         delta_discards_out = get_safe_delta(latest_metric.discards_out, previous_metric.discards_out)
         total_drop_delta = delta_discards_in + delta_discards_out
 
-        # Calculate deltas for packets
+        # Calculate deltas for packets (unicast + multicast + broadcast)
         delta_pkts_in = get_safe_delta(latest_metric.packets_in, previous_metric.packets_in)
         delta_pkts_out = get_safe_delta(latest_metric.packets_out, previous_metric.packets_out)
-        total_packet_delta = delta_pkts_in + delta_pkts_out
+
+        # Add multicast packets
+        delta_mcast_in = get_safe_delta(latest_metric.multicast_packets_in, previous_metric.multicast_packets_in)
+        delta_mcast_out = get_safe_delta(latest_metric.multicast_packets_out, previous_metric.multicast_packets_out)
+
+        # Add broadcast packets
+        delta_bcast_in = get_safe_delta(latest_metric.broadcast_packets_in, previous_metric.broadcast_packets_in)
+        delta_bcast_out = get_safe_delta(latest_metric.broadcast_packets_out, previous_metric.broadcast_packets_out)
+
+        # Total packet delta = unicast + multicast + broadcast
+        total_packet_delta = delta_pkts_in + delta_pkts_out + delta_mcast_in + delta_mcast_out + delta_bcast_in + delta_bcast_out
 
         # Calculate true discard rate percentage
         # Formula: drops / (packets_passed + packets_dropped) * 100
