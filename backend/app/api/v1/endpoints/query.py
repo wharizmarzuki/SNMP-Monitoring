@@ -172,6 +172,40 @@ async def get_device_interface_summary(
                 return 0.0
             return (total_drop_delta / total_events) * 100
 
+        # Helper function to calculate error rate (same delta-based logic as discard rate)
+        def calculate_error_rate(latest: models.InterfaceMetric, previous: models.InterfaceMetric | None) -> float | None:
+            """Calculate delta-based error rate percentage."""
+            if not previous:
+                return None
+
+            def get_safe_delta(curr, prev):
+                if curr is None or prev is None:
+                    return 0
+                delta = curr - prev
+                return 0 if delta < 0 else delta
+
+            # Calculate deltas for errors
+            delta_errors_in = get_safe_delta(latest.errors_in, previous.errors_in)
+            delta_errors_out = get_safe_delta(latest.errors_out, previous.errors_out)
+            total_error_delta = delta_errors_in + delta_errors_out
+
+            # Calculate deltas for packets
+            delta_pkts_in = get_safe_delta(latest.packets_in, previous.packets_in)
+            delta_pkts_out = get_safe_delta(latest.packets_out, previous.packets_out)
+            total_packet_delta = delta_pkts_in + delta_pkts_out
+
+            # Calculate deltas for discards (needed for total events)
+            delta_discards_in = get_safe_delta(latest.discards_in, previous.discards_in)
+            delta_discards_out = get_safe_delta(latest.discards_out, previous.discards_out)
+            total_drop_delta = delta_discards_in + delta_discards_out
+
+            # Calculate true error rate
+            # Total events = packets passed + packets dropped
+            total_events = total_packet_delta + total_drop_delta
+            if total_events == 0:
+                return 0.0
+            return (total_error_delta / total_events) * 100
+
         # Get all interfaces for this device
         interfaces = db.query(models.Interface).filter(models.Interface.device_id == device.id).all()
 
@@ -190,8 +224,9 @@ async def get_device_interface_summary(
             latest_metric = metrics[0]
             previous_metric = metrics[1] if len(metrics) > 1 else None
 
-            # Calculate discard rate
+            # Calculate discard rate and error rate
             discard_rate_pct = calculate_discard_rate(latest_metric, previous_metric)
+            error_rate_pct = calculate_error_rate(latest_metric, previous_metric)
 
             result.append(schemas.InterfaceSummaryResponse(
                 if_index=interface.if_index,
@@ -206,7 +241,8 @@ async def get_device_interface_summary(
                 errors_in=int(latest_metric.errors_in) if latest_metric.errors_in is not None else None,
                 errors_out=int(latest_metric.errors_out) if latest_metric.errors_out is not None else None,
                 packet_drop_threshold=interface.packet_drop_threshold,
-                discard_rate_pct=discard_rate_pct  # NEW: Backend-calculated discard rate
+                discard_rate_pct=discard_rate_pct,  # Backend-calculated discard rate (delta-based)
+                error_rate_pct=error_rate_pct  # Backend-calculated error rate (delta-based)
             ))
 
         return result
@@ -345,8 +381,9 @@ async def get_network_throughput(
 
     results = db.query(
         delta_subquery.c.timestamp,
-        (func.sum(delta_subquery.c.delta_in) * 8 / func.avg(delta_subquery.c.delta_seconds)).label("inbound_bps"),
-        (func.sum(delta_subquery.c.delta_out) * 8 / func.avg(delta_subquery.c.delta_seconds)).label("outbound_bps")
+        # Calculate bps per interface first, then sum (correct math for varying time intervals)
+        func.sum(delta_subquery.c.delta_in * 8 / delta_subquery.c.delta_seconds).label("inbound_bps"),
+        func.sum(delta_subquery.c.delta_out * 8 / delta_subquery.c.delta_seconds).label("outbound_bps")
     ).group_by(delta_subquery.c.timestamp)\
      .order_by(delta_subquery.c.timestamp.desc())\
      .limit(limit)\
@@ -450,8 +487,9 @@ async def get_device_utilization(
     device_aggregation = select(
         delta_subquery.c.device_id,
         delta_subquery.c.timestamp,
-        (func.sum(delta_subquery.c.delta_in) * 8 / func.avg(delta_subquery.c.delta_seconds)).label("inbound_bps"),
-        (func.sum(delta_subquery.c.delta_out) * 8 / func.avg(delta_subquery.c.delta_seconds)).label("outbound_bps"),
+        # Calculate bps per interface first, then sum (correct math for varying time intervals)
+        func.sum(delta_subquery.c.delta_in * 8 / delta_subquery.c.delta_seconds).label("inbound_bps"),
+        func.sum(delta_subquery.c.delta_out * 8 / delta_subquery.c.delta_seconds).label("outbound_bps"),
         func.sum(delta_subquery.c.speed_bps).label("total_capacity_bps")
     ).group_by(
         delta_subquery.c.device_id,
@@ -750,8 +788,9 @@ async def get_report_network_throughput(
     # Aggregate throughput across all interfaces per timestamp
     results = db.query(
         delta_subquery.c.timestamp,
-        (func.sum(delta_subquery.c.delta_in) * 8 / func.avg(delta_subquery.c.delta_seconds)).label("inbound_bps"),
-        (func.sum(delta_subquery.c.delta_out) * 8 / func.avg(delta_subquery.c.delta_seconds)).label("outbound_bps")
+        # Calculate bps per interface first, then sum (correct math for varying time intervals)
+        func.sum(delta_subquery.c.delta_in * 8 / delta_subquery.c.delta_seconds).label("inbound_bps"),
+        func.sum(delta_subquery.c.delta_out * 8 / delta_subquery.c.delta_seconds).label("outbound_bps")
     ).group_by(delta_subquery.c.timestamp)\
      .order_by(delta_subquery.c.timestamp.asc())\
      .all()

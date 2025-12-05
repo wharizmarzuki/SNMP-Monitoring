@@ -64,11 +64,6 @@ function formatBytes(bytes: number): string {
   return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
 }
 
-// Calculate rate as percentage
-function calculateRate(part: number, total: number): number {
-  return total > 0 ? (part / total * 100) : 0;
-}
-
 // Get color class based on rate
 function getRateColor(rate: number): string {
   if (rate < 0.1) return 'text-green-600';
@@ -180,12 +175,9 @@ export default function DeviceDetailPage() {
           bValue = b.discard_rate_pct ?? 0;
           break;
         case "error_rate":
-          const aErrors = (a.errors_in || 0) + (a.errors_out || 0);
-          const bErrors = (b.errors_in || 0) + (b.errors_out || 0);
-          const aTraffic2 = (a.octets_in || 0) + (a.octets_out || 0);
-          const bTraffic2 = (b.octets_in || 0) + (b.octets_out || 0);
-          aValue = calculateRate(aErrors, aTraffic2);
-          bValue = calculateRate(bErrors, bTraffic2);
+          // Use backend-calculated error rate (delta-based)
+          aValue = a.error_rate_pct ?? 0;
+          bValue = b.error_rate_pct ?? 0;
           break;
         default:
           return 0;
@@ -961,9 +953,9 @@ export default function DeviceDetailPage() {
                   const totalDiscards = discardsIn + discardsOut;
                   const totalErrors = errorsIn + errorsOut;
 
-                  // Use backend-calculated discard rate (delta-based, accurate)
+                  // Use backend-calculated rates (delta-based, accurate)
                   const discardRate = iface.discard_rate_pct ?? 0;
-                  const errorRate = calculateRate(totalErrors, totalTraffic);
+                  const errorRate = iface.error_rate_pct ?? 0;
 
                   return (
                     <InterfaceRow

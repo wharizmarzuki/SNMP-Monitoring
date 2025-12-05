@@ -6,7 +6,7 @@ import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 
 export function ThemeToggle() {
-  const { resolvedTheme, setTheme } = useTheme();
+  const { theme, setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = React.useState(false);
 
   // Avoid hydration mismatch by only rendering after mount
@@ -23,7 +23,9 @@ export function ThemeToggle() {
   }
 
   const toggleTheme = () => {
-    setTheme(resolvedTheme === "dark" ? "light" : "dark");
+    // Use theme instead of resolvedTheme for proper state management
+    const currentTheme = theme === "dark" || (theme === "system" && resolvedTheme === "dark");
+    setTheme(currentTheme ? "light" : "dark");
   };
 
   return (

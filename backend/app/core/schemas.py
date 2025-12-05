@@ -290,6 +290,7 @@ class InterfaceSummaryResponse(BaseModel):
     errors_out: int | None
     packet_drop_threshold: float
     discard_rate_pct: float | None = None  # Calculated discard rate percentage (delta-based)
+    error_rate_pct: float | None = None  # Calculated error rate percentage (delta-based)
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -1065,6 +1065,8 @@ export interface components {
             packet_drop_threshold: number;
             /** Discard Rate Pct - Calculated discard rate percentage (delta-based) */
             discard_rate_pct: number | null;
+            /** Error Rate Pct - Calculated error rate percentage (delta-based) */
+            error_rate_pct: number | null;
         };
         /** InterfaceThresholdResponse */
         InterfaceThresholdResponse: {
