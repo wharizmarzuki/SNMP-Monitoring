@@ -3,6 +3,7 @@ Device service layer - Repository pattern for device CRUD operations.
 Handles device creation, updates, metrics insertion, and vendor identification.
 """
 from typing import Optional
+from datetime import datetime, timezone
 from fastapi import Depends
 from sqlalchemy.orm import Session
 from app.core import database, models
@@ -58,7 +59,11 @@ class DeviceRepository(ABC):
         pass
 
     @abstractmethod
-    async def insert_device_metric(self, metric: schemas.DeviceMetrics) -> models.DeviceMetric:
+    async def insert_device_metric(
+        self,
+        metric: schemas.DeviceMetrics,
+        timestamp: datetime | None = None
+    ) -> models.DeviceMetric:
         pass
 
 class SQLAlchemyDeviceRepository(DeviceRepository):
@@ -111,16 +116,25 @@ class SQLAlchemyDeviceRepository(DeviceRepository):
         else:
             return await self.create_device(device_info)
     
-    async def insert_device_metric(self, metric: schemas.DeviceMetrics) -> models.DeviceMetric:
+    async def insert_device_metric(
+        self,
+        metric: schemas.DeviceMetrics,
+        timestamp: datetime | None = None
+    ) -> models.DeviceMetric:
         """
         Insert device metric entry. Does not commit - caller handles transaction.
+
+        Args:
+            metric: Device metrics schema
+            timestamp: Explicit timestamp for this metric (for polling cycle synchronization)
         """
         try:
             new_entry = models.DeviceMetric(
                 cpu_utilization=metric.cpu_utilization,
                 memory_utilization=metric.memory_utilization,
                 uptime_seconds=int(float(metric.uptime)),
-                device_id=metric.device_id
+                device_id=metric.device_id,
+                timestamp=timestamp or metric.timestamp or datetime.now(timezone.utc)
             )
             self.db.add(new_entry)
             return new_entry
@@ -161,6 +175,7 @@ async def update_device(
 
 async def insert_device_metric(
     metric: schemas.DeviceMetrics,
-    repo: DeviceRepository
+    repo: DeviceRepository,
+    timestamp: datetime | None = None
 ) -> models.DeviceMetric:
-    return await repo.insert_device_metric(metric)
+    return await repo.insert_device_metric(metric, timestamp)

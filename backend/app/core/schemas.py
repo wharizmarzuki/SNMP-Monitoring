@@ -64,11 +64,12 @@ class DeviceResponse(BaseModel):
 class DeviceMetrics(BaseModel):
     # This schema now matches the 'oid_values' dict in polling_service.py
     device_id: int
-    uptime: str | float | int 
+    uptime: str | float | int
     device_name: str | None = Field(default="Unknown")
     model_name: str | None = Field(default="N/A")
     cpu_utilization: float = Field(default=0)
     memory_utilization: float = Field(default=0)
+    timestamp: datetime | None = None  # Optional explicit timestamp for polling cycle synchronization
 
 
 class DiscoveryResponse(BaseModel):

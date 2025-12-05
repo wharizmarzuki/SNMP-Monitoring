@@ -645,11 +645,14 @@ async def get_active_alerts(db: Session = Depends(get_db)):
 
     for device in reachability_alerts_query:
         # Reachability alerts are always Critical
+        # Format last seen timestamp
+        last_seen = device.last_poll_success.strftime("%Y-%m-%d %H:%M:%S UTC") if device.last_poll_success else "Never"
+
         all_alerts.append(schemas.ActiveAlertResponse(
             hostname=device.hostname,
             ip_address=device.ip_address,
             metric="Device Unreachable",
-            current_value=f"Down ({device.consecutive_failures} failures)",
+            current_value=f"Last seen: {last_seen}",
             threshold=f">{device.failure_threshold} failures",
             state=device.reachability_alert_state,
             acknowledged_at=device.reachability_acknowledged_at,
@@ -670,7 +673,10 @@ async def get_active_alerts(db: Session = Depends(get_db)):
         models.Device.ip_address,
         models.InterfaceMetric.oper_status,
         models.InterfaceMetric.discards_in,
-        models.InterfaceMetric.discards_out
+        models.InterfaceMetric.discards_out,
+        models.InterfaceMetric.packets_in,
+        models.InterfaceMetric.packets_out,
+        models.InterfaceMetric.id.label("latest_metric_id")
     ).join(
         latest_interface_metrics_subq,
         models.Interface.id == latest_interface_metrics_subq.c.interface_id
@@ -688,7 +694,7 @@ async def get_active_alerts(db: Session = Depends(get_db)):
         )
     ).all()
 
-    for interface, hostname, ip, status, disc_in, disc_out in interface_alerts_query:
+    for interface, hostname, ip, status, disc_in, disc_out, pkts_in, pkts_out, latest_metric_id in interface_alerts_query:
         if interface.oper_status_alert_state in ["triggered", "acknowledged"]:
             # Interface down alerts are High severity
             all_alerts.append(schemas.ActiveAlertResponse(
@@ -703,20 +709,53 @@ async def get_active_alerts(db: Session = Depends(get_db)):
                 severity="High"
             ))
         if interface.packet_drop_alert_state in ["triggered", "acknowledged"]:
-            total_drops = (disc_in or 0) + (disc_out or 0)
-            # Packet drop severity based on total drops
+            # Calculate discard rate percentage using delta method
+            # Get previous metric for delta calculation
+            previous_metric = db.query(models.InterfaceMetric).filter(
+                models.InterfaceMetric.interface_id == interface.id,
+                models.InterfaceMetric.id < latest_metric_id
+            ).order_by(models.InterfaceMetric.timestamp.desc()).first()
+
+            discard_rate = 0.0  # Default if no previous metric
+
+            if previous_metric:
+                # Helper function for safe delta calculation
+                def get_safe_delta(curr, prev):
+                    if curr is None or prev is None:
+                        return 0
+                    delta = curr - prev
+                    # Handle counter wraps/resets (negative deltas)
+                    if delta < 0:
+                        return 0
+                    return delta
+
+                # Calculate deltas
+                delta_discards_in = get_safe_delta(disc_in, previous_metric.discards_in)
+                delta_discards_out = get_safe_delta(disc_out, previous_metric.discards_out)
+                total_drop_delta = delta_discards_in + delta_discards_out
+
+                delta_pkts_in = get_safe_delta(pkts_in, previous_metric.packets_in)
+                delta_pkts_out = get_safe_delta(pkts_out, previous_metric.packets_out)
+                total_packet_delta = delta_pkts_in + delta_pkts_out
+
+                # Calculate discard rate: drops / (packets + drops) * 100
+                total_events = total_packet_delta + total_drop_delta
+                if total_events > 0:
+                    discard_rate = (total_drop_delta / total_events) * 100
+
+            # Determine severity based on discard rate
             drop_severity = "Warning"
-            if total_drops >= 10000:
+            if discard_rate >= 5.0:
                 drop_severity = "Critical"
-            elif total_drops >= 1000:
+            elif discard_rate >= 1.0:
                 drop_severity = "High"
 
             all_alerts.append(schemas.ActiveAlertResponse(
                 hostname=hostname,
                 ip_address=ip,
                 metric=f"Packet Drops ({interface.if_name})",
-                current_value=f"{total_drops} drops",
-                threshold=f">{interface.packet_drop_threshold} drops",
+                current_value=f"{discard_rate:.2f}%",
+                threshold=f">{interface.packet_drop_threshold}%",
                 state=interface.packet_drop_alert_state,
                 acknowledged_at=interface.packet_drop_acknowledged_at,
                 if_index=interface.if_index,

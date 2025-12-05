@@ -74,17 +74,32 @@ def clear_interface_alerts(device: models.Device, db: Session):
             logger.debug(f"Cleared alerts for interface {interface.if_name} on unreachable device {device.ip_address}")
 
 
-async def poll_device(device: models.Device, client: SNMPClient, db: Session) -> bool:
+async def poll_device(
+    device: models.Device,
+    client: SNMPClient,
+    db: Session,
+    poll_time: datetime | None = None
+) -> bool:
     """
     Poll device for CPU/memory metrics and evaluate alerts.
     Returns True if poll succeeded, False otherwise.
+
+    Args:
+        device: Device to poll
+        client: SNMP client
+        db: Database session
+        poll_time: Optional explicit timestamp for polling cycle synchronization
     """
     host = typing.cast(str, device.ip_address)
     vendor = typing.cast(str, device.vendor)
     repo = SQLAlchemyDeviceRepository(db)
 
+    # Use provided poll_time or generate one if not provided (for backwards compatibility)
+    if poll_time is None:
+        poll_time = datetime.now(timezone.utc)
+
     # Mark poll attempt timestamp
-    device.last_poll_attempt = datetime.now(timezone.utc)
+    device.last_poll_attempt = poll_time
 
     try:
         oids = list(schemas.DEVICE_OIDS.values()) + list(schemas.VENDOR_OIDS.get(vendor, {}).values())
@@ -110,7 +125,7 @@ async def poll_device(device: models.Device, client: SNMPClient, db: Session) ->
             return False
 
         # Poll succeeded - reset failure counters
-        device.last_poll_success = datetime.now(timezone.utc)
+        device.last_poll_success = poll_time
         device.consecutive_failures = 0
 
         # Mark as reachable if it was previously down
@@ -162,7 +177,7 @@ async def poll_device(device: models.Device, client: SNMPClient, db: Session) ->
 
         # --- Save Metric ---
         metric_schema = schemas.DeviceMetrics.model_validate(oid_values)
-        await insert_device_metric(metric_schema, repo) # This will db.add()
+        await insert_device_metric(metric_schema, repo, timestamp=poll_time) # Pass explicit timestamp
 
         db.add(device)  # Save the updated device state
 
@@ -176,13 +191,27 @@ async def poll_device(device: models.Device, client: SNMPClient, db: Session) ->
         return False
 
 
-async def poll_interfaces(device: models.Device, client: SNMPClient, db: Session):
-    """Poll all interfaces for metrics and evaluate alerts."""
+async def poll_interfaces(
+    device: models.Device,
+    client: SNMPClient,
+    db: Session,
+    poll_time: datetime | None = None
+):
+    """
+    Poll all interfaces for metrics and evaluate alerts.
+
+    Args:
+        device: Device to poll
+        client: SNMP client
+        db: Database session
+        poll_time: Optional explicit timestamp for polling cycle synchronization
+    """
     host = typing.cast(str, device.ip_address)
 
-    # Capture poll time once for all interfaces in this poll cycle
-    # This ensures all interfaces get the same timestamp for proper aggregation
-    poll_time = datetime.now(timezone.utc)
+    # Use provided poll_time or generate one if not provided (for backwards compatibility)
+    # When called from perform_full_poll(), this will be the shared cycle timestamp
+    if poll_time is None:
+        poll_time = datetime.now(timezone.utc)
 
     try:
         oids = list(schemas.INTERFACE_OIDS.values())
@@ -272,6 +301,7 @@ async def perform_full_poll(db: Session, client: SNMPClient):
     """
     Poll all devices with session isolation.
     Each concurrent polling task gets its own database session.
+    All devices in this polling cycle will share the same timestamp.
     """
     logger.info("Starting scheduled full poll...")
     try:
@@ -291,6 +321,11 @@ async def perform_full_poll(db: Session, client: SNMPClient):
         successful_polls = 0
         failed_polls = 0
 
+        # Capture single timestamp for this entire polling cycle
+        # This ensures all devices and interfaces get the same timestamp for proper aggregation
+        polling_cycle_timestamp = datetime.now(timezone.utc)
+        logger.debug(f"Polling cycle timestamp: {polling_cycle_timestamp.isoformat()}")
+
         async def limited_polling(device_id: int):
             """
             Poll single device with dedicated database session.
@@ -305,10 +340,12 @@ async def perform_full_poll(db: Session, client: SNMPClient):
                         logger.warning(f"Device with ID {device_id} not found")
                         return
 
-                    poll_succeeded = await poll_device(device, client, task_db)
+                    # Pass polling cycle timestamp for synchronization
+                    poll_succeeded = await poll_device(device, client, task_db, poll_time=polling_cycle_timestamp)
 
                     if poll_succeeded:
-                        await poll_interfaces(device, client, task_db)
+                        # Pass polling cycle timestamp for synchronization
+                        await poll_interfaces(device, client, task_db, poll_time=polling_cycle_timestamp)
                         successful_polls += 1
                     else:
                         if not device.is_reachable:
