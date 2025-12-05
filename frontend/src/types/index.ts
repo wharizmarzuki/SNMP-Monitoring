@@ -9,10 +9,12 @@ export type {
   TopDeviceResponse,
   ThroughputDatapoint,
   RecipientResponse,
-  HistoryRecordResponse,
   AlertStateResponse,
   ThresholdBatchUpdate,
   DiscoveryResponse,
+  AlertHistoryResponse,
+  AlertHistoryDetailResponse,
+  AlertHistoryStatsResponse,
 } from "@/lib/api";
 
 // Legacy type aliases for backwards compatibility
@@ -25,7 +27,9 @@ export type InterfaceMetric = import("@/lib/api").InterfaceSummaryResponse;
 export type TopDevice = import("@/lib/api").TopDeviceResponse;
 export type NetworkThroughput = import("@/lib/api").ThroughputDatapoint;
 export type Recipient = import("@/lib/api").RecipientResponse;
-export type HistoryRecord = import("@/lib/api").HistoryRecordResponse;
+export type AlertHistory = import("@/lib/api").AlertHistoryResponse;
+export type AlertHistoryDetail = import("@/lib/api").AlertHistoryDetailResponse;
+export type AlertHistoryStats = import("@/lib/api").AlertHistoryStatsResponse;
 
 // Device utilization type (manually defined until OpenAPI regeneration)
 export interface DeviceUtilization {

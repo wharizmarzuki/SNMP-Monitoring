@@ -58,6 +58,9 @@ class Device(Base):
     interfaces: Mapped[list["Interface"]] = relationship(
         back_populates="device", cascade="all, delete-orphan"
     )
+    alert_history: Mapped[list["AlertHistory"]] = relationship(
+        back_populates="device", cascade="all, delete-orphan"
+    )
 
 
 class DeviceMetric(Base):
@@ -106,8 +109,11 @@ class Interface(Base):
     oper_status_alert_sent: Mapped[bool] = mapped_column(Boolean, default=False)
     
     device: Mapped["Device"] = relationship(back_populates="interfaces")
-    
+
     metrics: Mapped[list["InterfaceMetric"]] = relationship(
+        back_populates="interface", cascade="all, delete-orphan"
+    )
+    alert_history: Mapped[list["AlertHistory"]] = relationship(
         back_populates="interface", cascade="all, delete-orphan"
     )
 
@@ -145,6 +151,66 @@ class AlertRecipient(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     email: Mapped[str] = mapped_column(String, unique=True, index=True)
+
+
+class AlertHistory(Base):
+    """Alert history tracking with lifecycle management and email status."""
+    __tablename__ = "alert_history"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+
+    # Alert identification
+    alert_type: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    # Values: "cpu", "memory", "reachability", "interface_status", "packet_drop"
+
+    severity: Mapped[str] = mapped_column(String(20), nullable=False)
+    # Values: "Warning", "High", "Critical"
+
+    # Device/Interface association
+    device_id: Mapped[int] = mapped_column(ForeignKey("devices.id"), nullable=False, index=True)
+    interface_id: Mapped[int | None] = mapped_column(ForeignKey("interfaces.id"), nullable=True, index=True)
+
+    # Alert lifecycle timestamps
+    triggered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    cleared_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+
+    # Alert details (captured at trigger time)
+    metric_value: Mapped[str] = mapped_column(String(100), nullable=False)
+    # Examples: "85.5%", "Down", "Last seen: 2025-12-05 10:30:00 UTC"
+
+    threshold_value: Mapped[str] = mapped_column(String(100), nullable=False)
+    # Examples: ">80%", "Should be Up", ">3 failures"
+
+    message: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # Brief description from alert evaluator
+
+    # Email tracking
+    email_sent: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    email_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # Values: "success", "failed", "pending", None
+
+    email_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    email_recipients: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    # Comma-separated list of email addresses
+
+    email_error: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # Error message if email failed
+
+    # Single action tracking (LAST action only - overwrites on each action)
+    action_taken: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    # Values: "acknowledged", "resolved", "auto_cleared", None
+
+    action_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    action_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    # User who performed the action (NULL for system actions)
+
+    action_notes: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    # User-provided notes/reason
+
+    # Relationships
+    device: Mapped["Device"] = relationship(back_populates="alert_history")
+    interface: Mapped["Interface"] = relationship(back_populates="alert_history")
+    user: Mapped["User"] = relationship(back_populates="alert_actions")
 
 
 class ApplicationSettings(Base):
@@ -191,3 +257,5 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    alert_actions: Mapped[list["AlertHistory"]] = relationship(back_populates="user")

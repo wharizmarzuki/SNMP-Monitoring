@@ -439,3 +439,67 @@ class AvailabilityRecord(BaseModel):
     availability_pct: float
     avg_uptime_days: float
     last_seen: datetime
+
+
+# -------------------------------
+# Alert History Schemas
+# -------------------------------
+
+class AlertHistoryResponse(BaseModel):
+    """Response schema for alert history records."""
+    id: int
+    alert_type: str
+    severity: str
+    device_id: int
+    interface_id: int | None
+    triggered_at: datetime
+    cleared_at: datetime | None
+    metric_value: str
+    threshold_value: str
+    message: str | None
+    email_sent: bool
+    email_status: str | None
+    email_sent_at: datetime | None
+    action_taken: str | None
+    action_at: datetime | None
+    action_by: int | None
+    action_notes: str | None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AlertHistoryDetailResponse(BaseModel):
+    """Detailed alert history response with related entities."""
+    id: int
+    alert_type: str
+    severity: str
+    device_id: int
+    interface_id: int | None
+    triggered_at: datetime
+    cleared_at: datetime | None
+    metric_value: str
+    threshold_value: str
+    message: str | None
+    email_sent: bool
+    email_status: str | None
+    email_sent_at: datetime | None
+    email_recipients: str | None
+    email_error: str | None
+    action_taken: str | None
+    action_at: datetime | None
+    action_by: int | None
+    action_notes: str | None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AlertHistoryStatsResponse(BaseModel):
+    """Statistics for alert history."""
+    total_alerts: int
+    active_alerts: int
+    cleared_alerts: int
+    critical_count: int
+    high_count: int
+    warning_count: int
+    email_sent_count: int
+    email_failed_count: int

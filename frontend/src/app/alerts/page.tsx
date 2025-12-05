@@ -19,15 +19,29 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle } from "lucide-react";
+import { CheckCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { queryApi, deviceApi } from "@/lib/api";
-import { Alert } from "@/types";
+import { Alert, AlertHistory } from "@/types";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function AlertsPage() {
   const queryClient = useQueryClient();
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+
+  // Alert History filters and pagination
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyPerPage] = useState(20);
+  const [historySeverityFilter, setHistorySeverityFilter] = useState<string>("all");
+  const [historyAlertTypeFilter, setHistoryAlertTypeFilter] = useState<string>("all");
+  const [historyClearedFilter, setHistoryClearedFilter] = useState<string>("all");
 
   const severityMap: Record<Alert['severity'], 'warning' | 'destructive' | 'default'> = {
     'Warning': 'default',
@@ -41,6 +55,27 @@ export default function AlertsPage() {
   });
 
   const alerts = alertsData || [];
+
+  // Fetch alert history with filters
+  const { data: alertHistoryData, isLoading: isLoadingHistory } = useQuery<AlertHistory[]>({
+    queryKey: [
+      "alertHistory",
+      historyPage,
+      historyPerPage,
+      historySeverityFilter,
+      historyAlertTypeFilter,
+      historyClearedFilter
+    ],
+    queryFn: () => queryApi.getAlertHistory({
+      page: historyPage,
+      per_page: historyPerPage,
+      severity: historySeverityFilter !== "all" ? historySeverityFilter : undefined,
+      alert_type: historyAlertTypeFilter !== "all" ? historyAlertTypeFilter : undefined,
+      include_cleared: historyClearedFilter === "all" ? true : historyClearedFilter === "cleared"
+    }),
+  });
+
+  const alertHistory = alertHistoryData || [];
 
   // Helper function to parse alert and determine alert type
   const parseAlert = (alert: Alert) => {
@@ -248,6 +283,189 @@ export default function AlertsPage() {
                 ))}
               </TableBody>
             </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Alert History Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Alert History</CardTitle>
+          <CardDescription>
+            Historical record of all alerts with filtering and pagination
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {/* Filters */}
+          <div className="flex gap-4 mb-4 flex-wrap">
+            <div className="flex-1 min-w-[150px]">
+              <label className="text-sm font-medium mb-2 block">Severity</label>
+              <Select value={historySeverityFilter} onValueChange={setHistorySeverityFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Severities" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Severities</SelectItem>
+                  <SelectItem value="Warning">Warning</SelectItem>
+                  <SelectItem value="High">High</SelectItem>
+                  <SelectItem value="Critical">Critical</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex-1 min-w-[150px]">
+              <label className="text-sm font-medium mb-2 block">Alert Type</label>
+              <Select value={historyAlertTypeFilter} onValueChange={setHistoryAlertTypeFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Types" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="cpu">CPU</SelectItem>
+                  <SelectItem value="memory">Memory</SelectItem>
+                  <SelectItem value="reachability">Reachability</SelectItem>
+                  <SelectItem value="interface_status">Interface Status</SelectItem>
+                  <SelectItem value="packet_drop">Packet Drop</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex-1 min-w-[150px]">
+              <label className="text-sm font-medium mb-2 block">Status</label>
+              <Select value={historyClearedFilter} onValueChange={setHistoryClearedFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="active">Active Only</SelectItem>
+                  <SelectItem value="cleared">Cleared Only</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-end">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setHistoryPage(1);
+                  setHistorySeverityFilter("all");
+                  setHistoryAlertTypeFilter("all");
+                  setHistoryClearedFilter("all");
+                }}
+              >
+                Reset Filters
+              </Button>
+            </div>
+          </div>
+
+          {/* Alert History Table */}
+          {isLoadingHistory ? (
+            <div className="space-y-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex gap-4">
+                  <div className="h-4 flex-1 animate-pulse rounded-md bg-muted/50" />
+                  <div className="h-4 flex-1 animate-pulse rounded-md bg-muted/50" />
+                  <div className="h-4 flex-1 animate-pulse rounded-md bg-muted/50" />
+                  <div className="h-4 flex-1 animate-pulse rounded-md bg-muted/50" />
+                  <div className="h-4 flex-1 animate-pulse rounded-md bg-muted/50" />
+                </div>
+              ))}
+            </div>
+          ) : alertHistory.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-sm text-muted-foreground">No alert history found</p>
+            </div>
+          ) : (
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-center">Alert Type</TableHead>
+                    <TableHead className="text-center">Severity</TableHead>
+                    <TableHead className="text-center">Triggered At</TableHead>
+                    <TableHead className="text-center">Cleared At</TableHead>
+                    <TableHead className="text-center">Metric Value</TableHead>
+                    <TableHead className="text-center">Threshold</TableHead>
+                    <TableHead className="text-center">Email Sent</TableHead>
+                    <TableHead className="text-center">Action Taken</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {alertHistory.map((historyItem) => (
+                    <TableRow key={historyItem.id}>
+                      <TableCell className="text-center capitalize">
+                        {historyItem.alert_type.replace(/_/g, ' ')}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant={severityMap[historyItem.severity as Alert['severity']] || 'default'}>
+                          {historyItem.severity}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {new Date(historyItem.triggered_at+"Z").toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {historyItem.cleared_at ? (
+                          <span className="text-green-600">
+                            {new Date(historyItem.cleared_at+"Z").toLocaleString()}
+                          </span>
+                        ) : (
+                          <Badge variant="destructive">Active</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {historyItem.metric_value}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {historyItem.threshold_value}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {historyItem.email_sent ? (
+                          <Badge variant="default">Yes</Badge>
+                        ) : (
+                          <Badge variant="outline">No</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {historyItem.action_taken ? (
+                          <span className="text-sm capitalize">{historyItem.action_taken}</span>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">-</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+
+              {/* Pagination Controls */}
+              <div className="flex items-center justify-between mt-4">
+                <div className="text-sm text-muted-foreground">
+                  Page {historyPage} • Showing {alertHistory.length} items
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
+                    disabled={historyPage === 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setHistoryPage((p) => p + 1)}
+                    disabled={alertHistory.length < historyPerPage}
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

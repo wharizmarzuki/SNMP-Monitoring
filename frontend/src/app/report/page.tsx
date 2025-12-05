@@ -14,7 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Download, FileText, Activity, HardDrive, AlertTriangle, Clock, Network } from 'lucide-react';
-import { reportApi } from '@/lib/api';
+import { reportApi, queryApi } from '@/lib/api';
 import type {
   ReportDeviceUtilizationDatapoint,
   PacketDropRecord,

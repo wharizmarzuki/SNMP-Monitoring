@@ -13,16 +13,7 @@ export interface paths {
         };
         /**
          * Get Health
-         * @description Overall system health check
-         *
-         *     Returns the health status of all system components:
-         *     - Database connectivity
-         *     - Redis cache (if enabled)
-         *     - System timestamp
-         *
-         *     Status codes:
-         *     - 200: System is healthy
-         *     - 503: System has issues (check details)
+         * @description Overall system health check for database, Redis, and configuration.
          */
         get: operations["get_health_health_get"];
         put?: never;
@@ -42,9 +33,7 @@ export interface paths {
         };
         /**
          * Check Database
-         * @description Database health check
-         *
-         *     Tests database connectivity and response time
+         * @description Database health check with connectivity test.
          */
         get: operations["check_database_health_database_get"];
         put?: never;
@@ -64,9 +53,7 @@ export interface paths {
         };
         /**
          * Check Redis
-         * @description Redis cache health check
-         *
-         *     Tests Redis connectivity and response time
+         * @description Redis cache health check with connectivity test.
          */
         get: operations["check_redis_health_redis_get"];
         put?: never;
@@ -86,9 +73,7 @@ export interface paths {
         };
         /**
          * Check All Services
-         * @description Comprehensive health check for all services
-         *
-         *     Returns detailed status of all system components
+         * @description Comprehensive health check for all system components.
          */
         get: operations["check_all_services_health_services_get"];
         put?: never;
@@ -108,9 +93,7 @@ export interface paths {
         };
         /**
          * Ping
-         * @description Simple ping endpoint
-         *
-         *     Returns a simple response to verify the API is running
+         * @description Simple ping endpoint to verify API is running.
          */
         get: operations["ping_ping_get"];
         put?: never;
@@ -229,7 +212,7 @@ export interface paths {
         };
         /**
          * Discovery Api
-         * @description API Endpoint to manually trigger a full network discovery.
+         * @description Manually trigger full network discovery scan.
          */
         get: operations["discovery_api_device_discover_get"];
         put?: never;
@@ -253,7 +236,15 @@ export interface paths {
          */
         get: operations["get_all_devices_endpoint_device__get"];
         put?: never;
-        /** Create Device Endpoint */
+        /**
+         * Create Device Endpoint
+         * @description Create a new device with optional SNMP validation.
+         *
+         *     By default (validate=True), the endpoint will attempt to reach the device
+         *     via SNMP before adding it to prevent adding unreachable devices.
+         *
+         *     Set validate=false to skip validation (not recommended).
+         */
         post: operations["create_device_endpoint_device__post"];
         delete?: never;
         options?: never;
@@ -275,7 +266,10 @@ export interface paths {
         get: operations["get_devices_endpoint_device__ip__get"];
         put?: never;
         post?: never;
-        /** Delete Devices Endpoint */
+        /**
+         * Delete Devices Endpoint
+         * @description Delete a device and all its associated data
+         */
         delete: operations["delete_devices_endpoint_device__ip__delete"];
         options?: never;
         head?: never;
@@ -292,10 +286,7 @@ export interface paths {
         get?: never;
         /**
          * Update Device Thresholds Batch
-         * @description Batch update all thresholds for a device.
-         *
-         *     This endpoint allows updating multiple thresholds in a single request,
-         *     matching the frontend payload structure. Only provided thresholds will be updated.
+         * @description Batch update device thresholds. Only provided thresholds will be updated.
          */
         put: operations["update_device_thresholds_batch_device__ip__thresholds_put"];
         post?: never;
@@ -327,206 +318,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/device/{ip}/alert/cpu/acknowledge": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Acknowledge Cpu Alert
-         * @description Acknowledge CPU alert to stop receiving notifications until recovery.
-         */
-        put: operations["acknowledge_cpu_alert_device__ip__alert_cpu_acknowledge_put"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/device/{ip}/alert/cpu/resolve": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Resolve Cpu Alert
-         * @description Manually resolve CPU alert (mark as false positive or resolved).
-         */
-        put: operations["resolve_cpu_alert_device__ip__alert_cpu_resolve_put"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/device/{ip}/alert/memory/acknowledge": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Acknowledge Memory Alert
-         * @description Acknowledge Memory alert to stop receiving notifications until recovery.
-         */
-        put: operations["acknowledge_memory_alert_device__ip__alert_memory_acknowledge_put"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/device/{ip}/alert/memory/resolve": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Resolve Memory Alert
-         * @description Manually resolve Memory alert (mark as false positive or resolved).
-         */
-        put: operations["resolve_memory_alert_device__ip__alert_memory_resolve_put"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/device/{ip}/alert/reachability/acknowledge": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Acknowledge Reachability Alert
-         * @description Acknowledge Reachability alert to stop receiving notifications until recovery.
-         */
-        put: operations["acknowledge_reachability_alert_device__ip__alert_reachability_acknowledge_put"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/device/{ip}/alert/reachability/resolve": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Resolve Reachability Alert
-         * @description Manually resolve Reachability alert (mark as false positive or resolved).
-         */
-        put: operations["resolve_reachability_alert_device__ip__alert_reachability_resolve_put"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/device/{ip}/interface/{if_index}/alert/status/acknowledge": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Acknowledge Interface Status Alert
-         * @description Acknowledge interface operational status alert.
-         */
-        put: operations["acknowledge_interface_status_alert_device__ip__interface__if_index__alert_status_acknowledge_put"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/device/{ip}/interface/{if_index}/alert/status/resolve": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Resolve Interface Status Alert
-         * @description Manually resolve interface operational status alert.
-         */
-        put: operations["resolve_interface_status_alert_device__ip__interface__if_index__alert_status_resolve_put"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/device/{ip}/interface/{if_index}/alert/drops/acknowledge": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Acknowledge Interface Drops Alert
-         * @description Acknowledge interface packet drop alert.
-         */
-        put: operations["acknowledge_interface_drops_alert_device__ip__interface__if_index__alert_drops_acknowledge_put"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/device/{ip}/interface/{if_index}/alert/drops/resolve": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Resolve Interface Drops Alert
-         * @description Manually resolve interface packet drop alert.
-         */
-        put: operations["resolve_interface_drops_alert_device__ip__interface__if_index__alert_drops_resolve_put"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/device/{ip}/maintenance": {
         parameters: {
             query?: never;
@@ -547,6 +338,199 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/device/{ip}/alerts/{alert_type}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Manage Device Alert
+         * @description Consolidated endpoint for managing device alert states.
+         *
+         *     Supports:
+         *     - alert_type: cpu, memory, reachability
+         *     - action: acknowledge, resolve
+         *
+         *     Request body:
+         *     {
+         *         "action": "acknowledge" | "resolve",
+         *         "notes": "optional notes",
+         *         "reason": "optional reason (for resolve)"
+         *     }
+         */
+        patch: operations["manage_device_alert_device__ip__alerts__alert_type__patch"];
+        trace?: never;
+    };
+    "/device/{ip}/interfaces/{if_index}/alerts/{alert_type}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Manage Interface Alert
+         * @description Consolidated endpoint for managing interface alert states.
+         *
+         *     Supports:
+         *     - alert_type: status, drops
+         *     - action: acknowledge, resolve
+         *
+         *     Request body:
+         *     {
+         *         "action": "acknowledge" | "resolve",
+         *         "notes": "optional notes",
+         *         "reason": "optional reason (for resolve)"
+         *     }
+         */
+        patch: operations["manage_interface_alert_device__ip__interfaces__if_index__alerts__alert_type__patch"];
+        trace?: never;
+    };
+    "/alerts/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Alert History
+         * @description Get paginated alert history with optional filters.
+         *
+         *     Query parameters:
+         *     - alert_type: cpu, memory, reachability, interface_status, packet_drop
+         *     - severity: Warning, High, Critical
+         *     - device_id: Filter by specific device
+         *     - interface_id: Filter by specific interface
+         *     - start_time: ISO 8601 timestamp
+         *     - end_time: ISO 8601 timestamp
+         *     - include_cleared: Whether to include cleared alerts (default: true)
+         *     - page: Page number (default: 1)
+         *     - per_page: Items per page (default: 50, max: 500)
+         */
+        get: operations["get_alert_history_alerts_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/alerts/history/{alert_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Alert History Detail
+         * @description Get detailed information for a specific alert history record.
+         */
+        get: operations["get_alert_history_detail_alerts_history__alert_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/alerts/history/device/{ip}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Device Alert History
+         * @description Get alert history for a specific device by IP address.
+         */
+        get: operations["get_device_alert_history_alerts_history_device__ip__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/alerts/history/device/{ip}/interfaces/{if_index}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Interface Alert History
+         * @description Get alert history for a specific interface.
+         */
+        get: operations["get_interface_alert_history_alerts_history_device__ip__interfaces__if_index__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/alerts/history/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Alert History Stats
+         * @description Get alert history statistics.
+         */
+        get: operations["get_alert_history_stats_alerts_history_stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/polling/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Polling Status
+         * @description Get current polling status and type.
+         */
+        get: operations["get_polling_status_polling_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/polling/": {
         parameters: {
             query?: never;
@@ -556,8 +540,7 @@ export interface paths {
         };
         /**
          * Poll All Device Api
-         * @description API Endpoint to manually trigger a full device poll.
-         *     This is now a "dumb" wrapper that calls the polling service.
+         * @description Manually trigger full device poll.
          */
         get: operations["poll_all_device_api_polling__get"];
         put?: never;
@@ -615,6 +598,7 @@ export interface paths {
         /**
          * Get Device Interface Summary
          * @description Get optimized interface summary (only essential fields).
+         *     Includes calculated discard rate percentage using delta calculation.
          *     Reduces payload size by 60-80% compared to full interface metrics.
          */
         get: operations["get_device_interface_summary_query_device__ip__interfaces_summary_get"];
@@ -680,6 +664,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/query/device-utilization": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Device Utilization
+         * @description Get per-device throughput and utilization metrics over time (time series).
+         *
+         *     Returns time series data for devices showing:
+         *     - Throughput (bps) over time
+         *     - Total capacity (sum of interface speeds)
+         *     - Utilization percentages over time
+         *
+         *     Parameters:
+         *     - minutes: Time range to fetch data for (e.g., 15, 30, 60)
+         *     - interval_minutes: Data aggregation interval (e.g., 1, 5, 10)
+         *
+         *     Only includes devices with at least one interface that has known speed.
+         *     Data points are ordered chronologically for time series visualization.
+         */
+        get: operations["get_device_utilization_query_device_utilization_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/query/alerts/active": {
         parameters: {
             query?: never;
@@ -700,6 +716,111 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/query/report/network-throughput": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Report Network Throughput
+         * @description Get network-wide throughput aggregated across all interfaces for report date range.
+         *     Returns time series of total inbound/outbound bandwidth.
+         */
+        get: operations["get_report_network_throughput_query_report_network_throughput_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/query/report/device-utilization": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Report Device Utilization
+         * @description Get network-wide CPU/Memory utilization metrics for report date range.
+         *     Returns time series of average and max utilization across all devices.
+         */
+        get: operations["get_report_device_utilization_query_report_device_utilization_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/query/report/packet-drops": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Report Packet Drops
+         * @description Get packet drop statistics by device for report date range.
+         *     Returns devices with highest discard rates, including errors.
+         */
+        get: operations["get_report_packet_drops_query_report_packet_drops_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/query/report/uptime-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Report Uptime Summary
+         * @description Get system uptime summary for report date range.
+         *     Returns average uptime, longest uptime device, and recently rebooted device.
+         */
+        get: operations["get_report_uptime_summary_query_report_uptime_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/query/report/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Report Availability
+         * @description Get device availability metrics for report date range.
+         *     Returns availability percentage based on reachability polls.
+         */
+        get: operations["get_report_availability_query_report_availability_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/recipients/": {
         parameters: {
             query?: never;
@@ -709,13 +830,13 @@ export interface paths {
         };
         /**
          * Get All Recipients
-         * @description Retrieve all alert recipients
+         * @description Retrieve all alert recipients.
          */
         get: operations["get_all_recipients_recipients__get"];
         put?: never;
         /**
          * Create Recipient
-         * @description Create a new alert recipient
+         * @description Create a new alert recipient.
          */
         post: operations["create_recipient_recipients__post"];
         delete?: never;
@@ -736,12 +857,37 @@ export interface paths {
         post?: never;
         /**
          * Delete Recipient
-         * @description Delete a recipient by ID
+         * @description Delete a recipient by ID.
          */
         delete: operations["delete_recipient_recipients__recipient_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/settings/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Application Settings
+         * @description Get current application settings from database.
+         *     If no settings exist in DB, create default settings from .env.
+         */
+        get: operations["get_application_settings_settings__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Application Settings
+         * @description Update application settings. Only provided fields will be updated.
+         */
+        patch: operations["update_application_settings_settings__patch"];
         trace?: never;
     };
 }
@@ -769,22 +915,144 @@ export interface components {
             acknowledged_at?: string | null;
             /** If Index */
             if_index?: number | null;
+            /**
+             * Severity
+             * @default Warning
+             */
+            severity: string;
         };
-        /** AlertAcknowledge */
-        AlertAcknowledge: {
+        /**
+         * AlertAction
+         * @description Schema for consolidated alert management endpoint
+         */
+        AlertAction: {
+            /**
+             * Action
+             * @description Action to perform: 'acknowledge' or 'resolve'
+             */
+            action: string;
             /**
              * Notes
-             * @description Optional notes about acknowledgment
+             * @description Optional notes about the action
              */
             notes?: string | null;
-        };
-        /** AlertResolve */
-        AlertResolve: {
             /**
              * Reason
-             * @description Reason for resolving alert
+             * @description Reason for resolving (only for resolve action)
              */
             reason?: string | null;
+        };
+        /**
+         * AlertHistoryDetailResponse
+         * @description Detailed alert history response with related entities.
+         */
+        AlertHistoryDetailResponse: {
+            /** Id */
+            id: number;
+            /** Alert Type */
+            alert_type: string;
+            /** Severity */
+            severity: string;
+            /** Device Id */
+            device_id: number;
+            /** Interface Id */
+            interface_id: number | null;
+            /**
+             * Triggered At
+             * Format: date-time
+             */
+            triggered_at: string;
+            /** Cleared At */
+            cleared_at: string | null;
+            /** Metric Value */
+            metric_value: string;
+            /** Threshold Value */
+            threshold_value: string;
+            /** Message */
+            message: string | null;
+            /** Email Sent */
+            email_sent: boolean;
+            /** Email Status */
+            email_status: string | null;
+            /** Email Sent At */
+            email_sent_at: string | null;
+            /** Email Recipients */
+            email_recipients: string | null;
+            /** Email Error */
+            email_error: string | null;
+            /** Action Taken */
+            action_taken: string | null;
+            /** Action At */
+            action_at: string | null;
+            /** Action By */
+            action_by: number | null;
+            /** Action Notes */
+            action_notes: string | null;
+        };
+        /**
+         * AlertHistoryResponse
+         * @description Response schema for alert history records.
+         */
+        AlertHistoryResponse: {
+            /** Id */
+            id: number;
+            /** Alert Type */
+            alert_type: string;
+            /** Severity */
+            severity: string;
+            /** Device Id */
+            device_id: number;
+            /** Interface Id */
+            interface_id: number | null;
+            /**
+             * Triggered At
+             * Format: date-time
+             */
+            triggered_at: string;
+            /** Cleared At */
+            cleared_at: string | null;
+            /** Metric Value */
+            metric_value: string;
+            /** Threshold Value */
+            threshold_value: string;
+            /** Message */
+            message: string | null;
+            /** Email Sent */
+            email_sent: boolean;
+            /** Email Status */
+            email_status: string | null;
+            /** Email Sent At */
+            email_sent_at: string | null;
+            /** Action Taken */
+            action_taken: string | null;
+            /** Action At */
+            action_at: string | null;
+            /** Action By */
+            action_by: number | null;
+            /** Action Notes */
+            action_notes: string | null;
+        };
+        /**
+         * AlertHistoryStatsResponse
+         * @description Statistics for alert history.
+         */
+        AlertHistoryStatsResponse: {
+            /** Total Alerts */
+            total_alerts: number;
+            /** Active Alerts */
+            active_alerts: number;
+            /** Cleared Alerts */
+            cleared_alerts: number;
+            /** Critical Count */
+            critical_count: number;
+            /** High Count */
+            high_count: number;
+            /** Warning Count */
+            warning_count: number;
+            /** Email Sent Count */
+            email_sent_count: number;
+            /** Email Failed Count */
+            email_failed_count: number;
         };
         /** AlertStateResponse */
         AlertStateResponse: {
@@ -803,6 +1071,88 @@ export interface components {
              * @description When alert was acknowledged
              */
             acknowledged_at?: string | null;
+        };
+        /**
+         * ApplicationSettingsResponse
+         * @description Response schema for application settings
+         */
+        ApplicationSettingsResponse: {
+            /** Id */
+            id: number;
+            /** Snmp Community */
+            snmp_community: string;
+            /** Snmp Timeout */
+            snmp_timeout: number;
+            /** Snmp Retries */
+            snmp_retries: number;
+            /** Polling Interval */
+            polling_interval: number;
+            /** Discovery Concurrency */
+            discovery_concurrency: number;
+            /** Polling Concurrency */
+            polling_concurrency: number;
+            /** Smtp Server */
+            smtp_server: string;
+            /** Smtp Port */
+            smtp_port: number;
+            /** Sender Email */
+            sender_email: string | null;
+            /** Sender Password */
+            sender_password: string | null;
+            /** Discovery Network */
+            discovery_network: string | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * ApplicationSettingsUpdate
+         * @description Update schema for application settings - all fields optional
+         */
+        ApplicationSettingsUpdate: {
+            /** Snmp Community */
+            snmp_community?: string | null;
+            /** Snmp Timeout */
+            snmp_timeout?: number | null;
+            /** Snmp Retries */
+            snmp_retries?: number | null;
+            /** Polling Interval */
+            polling_interval?: number | null;
+            /** Discovery Concurrency */
+            discovery_concurrency?: number | null;
+            /** Polling Concurrency */
+            polling_concurrency?: number | null;
+            /** Smtp Server */
+            smtp_server?: string | null;
+            /** Smtp Port */
+            smtp_port?: number | null;
+            /** Sender Email */
+            sender_email?: string | null;
+            /** Sender Password */
+            sender_password?: string | null;
+            /** Discovery Network */
+            discovery_network?: string | null;
+        };
+        /**
+         * AvailabilityRecord
+         * @description Device availability metrics for reports
+         */
+        AvailabilityRecord: {
+            /** Device Hostname */
+            device_hostname: string;
+            /** Device Ip */
+            device_ip: string;
+            /** Availability Pct */
+            availability_pct: number;
+            /** Avg Uptime Days */
+            avg_uptime_days: number;
+            /**
+             * Last Seen
+             * Format: date-time
+             */
+            last_seen: string;
         };
         /**
          * ChangeEmailRequest
@@ -979,6 +1329,35 @@ export interface components {
             /** Last Poll Success */
             last_poll_success: string | null;
         };
+        /**
+         * DeviceUtilizationDatapoint
+         * @description Per-device throughput and utilization metrics.
+         */
+        DeviceUtilizationDatapoint: {
+            /** Device Id */
+            device_id: number;
+            /** Hostname */
+            hostname: string | null;
+            /** Ip Address */
+            ip_address: string | null;
+            /**
+             * Timestamp
+             * Format: date-time
+             */
+            timestamp: string;
+            /** Inbound Bps */
+            inbound_bps: number;
+            /** Outbound Bps */
+            outbound_bps: number;
+            /** Total Capacity Bps */
+            total_capacity_bps: number | null;
+            /** Utilization In Pct */
+            utilization_in_pct: number | null;
+            /** Utilization Out Pct */
+            utilization_out_pct: number | null;
+            /** Max Utilization Pct */
+            max_utilization_pct: number | null;
+        };
         /** DiscoveryResponse */
         DiscoveryResponse: {
             /**
@@ -1063,10 +1442,10 @@ export interface components {
             errors_out: number | null;
             /** Packet Drop Threshold */
             packet_drop_threshold: number;
-            /** Discard Rate Pct - Calculated discard rate percentage (delta-based) */
-            discard_rate_pct: number | null;
-            /** Error Rate Pct - Calculated error rate percentage (delta-based) */
-            error_rate_pct: number | null;
+            /** Discard Rate Pct */
+            discard_rate_pct?: number | null;
+            /** Error Rate Pct */
+            error_rate_pct?: number | null;
         };
         /** InterfaceThresholdResponse */
         InterfaceThresholdResponse: {
@@ -1140,6 +1519,43 @@ export interface components {
             devices_in_alert: number;
             /** Devices Up */
             devices_up: number;
+            /** Devices Down */
+            devices_down: number;
+        };
+        /**
+         * NetworkThroughputDatapoint
+         * @description Network-wide throughput data point for reports
+         */
+        NetworkThroughputDatapoint: {
+            /**
+             * Timestamp
+             * Format: date-time
+             */
+            timestamp: string;
+            /** Total Inbound Bps */
+            total_inbound_bps: number;
+            /** Total Outbound Bps */
+            total_outbound_bps: number;
+        };
+        /**
+         * PacketDropRecord
+         * @description Packet drop statistics by device for reports
+         */
+        PacketDropRecord: {
+            /** Device Hostname */
+            device_hostname: string;
+            /** Device Ip */
+            device_ip: string;
+            /** Discard Rate Pct */
+            discard_rate_pct: number;
+            /** Total Discards In */
+            total_discards_in: number;
+            /** Total Discards Out */
+            total_discards_out: number;
+            /** Total Errors In */
+            total_errors_in: number;
+            /** Total Errors Out */
+            total_errors_out: number;
         };
         /** RecipientCreate */
         RecipientCreate: {
@@ -1161,6 +1577,27 @@ export interface components {
              * @description Recipient email address
              */
             email: string;
+        };
+        /**
+         * ReportDeviceUtilizationDatapoint
+         * @description Network-wide CPU/Memory utilization for reports
+         */
+        ReportDeviceUtilizationDatapoint: {
+            /**
+             * Timestamp
+             * Format: date-time
+             */
+            timestamp: string;
+            /** Avg Cpu Utilization */
+            avg_cpu_utilization: number;
+            /** Avg Memory Utilization */
+            avg_memory_utilization: number;
+            /** Max Cpu Utilization */
+            max_cpu_utilization: number;
+            /** Max Memory Utilization */
+            max_memory_utilization: number;
+            /** Devices Sampled */
+            devices_sampled: number;
         };
         /**
          * ServiceStatus
@@ -1230,6 +1667,22 @@ export interface components {
             ip_address: string;
             /** Value */
             value: number;
+        };
+        /**
+         * UptimeSummaryResponse
+         * @description System uptime summary for reports
+         */
+        UptimeSummaryResponse: {
+            /** Avg Uptime Days */
+            avg_uptime_days: number;
+            /** Longest Uptime */
+            longest_uptime: {
+                [key: string]: unknown;
+            };
+            /** Recently Rebooted */
+            recently_rebooted: {
+                [key: string]: unknown;
+            };
         };
         /**
          * UserResponse
@@ -1538,7 +1991,9 @@ export interface operations {
     };
     create_device_endpoint_device__post: {
         parameters: {
-            query?: never;
+            query?: {
+                validate?: boolean;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -1702,360 +2157,6 @@ export interface operations {
             };
         };
     };
-    acknowledge_cpu_alert_device__ip__alert_cpu_acknowledge_put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                ip: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["AlertAcknowledge"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AlertStateResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    resolve_cpu_alert_device__ip__alert_cpu_resolve_put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                ip: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["AlertResolve"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AlertStateResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    acknowledge_memory_alert_device__ip__alert_memory_acknowledge_put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                ip: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["AlertAcknowledge"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AlertStateResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    resolve_memory_alert_device__ip__alert_memory_resolve_put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                ip: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["AlertResolve"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AlertStateResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    acknowledge_reachability_alert_device__ip__alert_reachability_acknowledge_put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                ip: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["AlertAcknowledge"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AlertStateResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    resolve_reachability_alert_device__ip__alert_reachability_resolve_put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                ip: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["AlertResolve"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AlertStateResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    acknowledge_interface_status_alert_device__ip__interface__if_index__alert_status_acknowledge_put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                ip: string;
-                if_index: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["AlertAcknowledge"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AlertStateResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    resolve_interface_status_alert_device__ip__interface__if_index__alert_status_resolve_put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                ip: string;
-                if_index: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["AlertResolve"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AlertStateResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    acknowledge_interface_drops_alert_device__ip__interface__if_index__alert_drops_acknowledge_put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                ip: string;
-                if_index: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["AlertAcknowledge"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AlertStateResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    resolve_interface_drops_alert_device__ip__interface__if_index__alert_drops_resolve_put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                ip: string;
-                if_index: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["AlertResolve"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AlertStateResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     update_maintenance_mode_device__ip__maintenance_put: {
         parameters: {
             query?: never;
@@ -2087,6 +2188,287 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    manage_device_alert_device__ip__alerts__alert_type__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ip: string;
+                alert_type: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AlertAction"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertStateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    manage_interface_alert_device__ip__interfaces__if_index__alerts__alert_type__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ip: string;
+                if_index: number;
+                alert_type: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AlertAction"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertStateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_alert_history_alerts_history_get: {
+        parameters: {
+            query?: {
+                /** @description Filter by alert type */
+                alert_type?: string | null;
+                /** @description Filter by severity */
+                severity?: string | null;
+                /** @description Filter by device ID */
+                device_id?: number | null;
+                /** @description Filter by interface ID */
+                interface_id?: number | null;
+                /** @description Filter alerts after this time */
+                start_time?: string | null;
+                /** @description Filter alerts before this time */
+                end_time?: string | null;
+                /** @description Include cleared alerts */
+                include_cleared?: boolean;
+                /** @description Page number */
+                page?: number;
+                /** @description Items per page */
+                per_page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertHistoryResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_alert_history_detail_alerts_history__alert_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                alert_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertHistoryDetailResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_device_alert_history_alerts_history_device__ip__get: {
+        parameters: {
+            query?: {
+                alert_type?: string | null;
+                start_time?: string | null;
+                end_time?: string | null;
+                include_cleared?: boolean;
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path: {
+                ip: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertHistoryResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_interface_alert_history_alerts_history_device__ip__interfaces__if_index__get: {
+        parameters: {
+            query?: {
+                alert_type?: string | null;
+                start_time?: string | null;
+                end_time?: string | null;
+                include_cleared?: boolean;
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path: {
+                ip: string;
+                if_index: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertHistoryResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_alert_history_stats_alerts_history_stats_get: {
+        parameters: {
+            query?: {
+                start_time?: string | null;
+                end_time?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertHistoryStatsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_polling_status_polling_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };
@@ -2134,7 +2516,8 @@ export interface operations {
     get_device_metrics_history_query_device__ip__metrics_get: {
         parameters: {
             query?: {
-                limit?: number;
+                minutes?: number;
+                interval_minutes?: number;
             };
             header?: never;
             path: {
@@ -2290,6 +2673,38 @@ export interface operations {
             };
         };
     };
+    get_device_utilization_query_device_utilization_get: {
+        parameters: {
+            query?: {
+                minutes?: number;
+                interval_minutes?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceUtilizationDatapoint"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_active_alerts_query_alerts_active_get: {
         parameters: {
             query?: never;
@@ -2306,6 +2721,166 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ActiveAlertResponse"][];
+                };
+            };
+        };
+    };
+    get_report_network_throughput_query_report_network_throughput_get: {
+        parameters: {
+            query: {
+                start_date: string;
+                end_date: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NetworkThroughputDatapoint"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_report_device_utilization_query_report_device_utilization_get: {
+        parameters: {
+            query: {
+                start_date: string;
+                end_date: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportDeviceUtilizationDatapoint"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_report_packet_drops_query_report_packet_drops_get: {
+        parameters: {
+            query: {
+                start_date: string;
+                end_date: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PacketDropRecord"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_report_uptime_summary_query_report_uptime_summary_get: {
+        parameters: {
+            query: {
+                start_date: string;
+                end_date: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UptimeSummaryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_report_availability_query_report_availability_get: {
+        parameters: {
+            query: {
+                start_date: string;
+                end_date: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AvailabilityRecord"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -2380,6 +2955,59 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_application_settings_settings__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationSettingsResponse"];
+                };
+            };
+        };
+    };
+    update_application_settings_settings__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApplicationSettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationSettingsResponse"];
+                };
             };
             /** @description Validation Error */
             422: {

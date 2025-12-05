@@ -5,6 +5,7 @@ from app.core.exceptions import DeviceNotFoundError, InterfaceNotFoundError, Ale
 from app.core.security import get_current_user
 from services import device_service
 from services.device_service import DeviceRepository, get_repository
+from services.alert_history_service import AlertHistoryService
 
 router = APIRouter(
     prefix="/device",
@@ -20,7 +21,8 @@ async def manage_device_alert(
     ip: str,
     alert_type: str,
     action_data: schemas.AlertAction,
-    repo: DeviceRepository = Depends(get_repository)
+    repo: DeviceRepository = Depends(get_repository),
+    current_user: models.User = Depends(get_current_user)
 ):
     """
     Consolidated endpoint for managing device alert states.
@@ -70,12 +72,44 @@ async def manage_device_alert(
             raise AlertNotFoundError(display_name)
         setattr(device, state_field, "acknowledged")
         setattr(device, ack_field, datetime.now(timezone.utc))
+
+        # Update alert history
+        alert_record = AlertHistoryService.get_active_alert_record(
+            db=repo.db,
+            alert_type=alert_type,
+            device_id=device.id
+        )
+        if alert_record:
+            AlertHistoryService.record_user_action(
+                db=repo.db,
+                alert_record=alert_record,
+                action="acknowledged",
+                user_id=current_user.id,
+                notes=action_data.notes
+            )
+
         message = f"{display_name} alert acknowledged"
 
     elif action_data.action == "resolve":
         setattr(device, state_field, "clear")
         setattr(device, ack_field, None)
         setattr(device, sent_field, False)
+
+        # Update alert history
+        alert_record = AlertHistoryService.get_active_alert_record(
+            db=repo.db,
+            alert_type=alert_type,
+            device_id=device.id
+        )
+        if alert_record:
+            AlertHistoryService.record_user_action(
+                db=repo.db,
+                alert_record=alert_record,
+                action="resolved",
+                user_id=current_user.id,
+                notes=action_data.reason or action_data.notes
+            )
+
         message = f"{display_name} alert resolved"
 
     repo.db.commit()
@@ -95,7 +129,8 @@ async def manage_interface_alert(
     if_index: int,
     alert_type: str,
     action_data: schemas.AlertAction,
-    repo: DeviceRepository = Depends(get_repository)
+    repo: DeviceRepository = Depends(get_repository),
+    current_user: models.User = Depends(get_current_user)
 ):
     """
     Consolidated endpoint for managing interface alert states.
@@ -146,18 +181,59 @@ async def manage_interface_alert(
     state_field, ack_field, sent_field, display_name = alert_map[alert_type]
     current_state = getattr(interface, state_field)
 
+    # Map alert_type to history alert_type
+    history_alert_type_map = {
+        "status": "interface_status",
+        "drops": "packet_drop"
+    }
+    history_alert_type = history_alert_type_map[alert_type]
+
     # Perform action
     if action_data.action == "acknowledge":
         if current_state != "triggered":
             raise AlertNotFoundError(display_name)
         setattr(interface, state_field, "acknowledged")
         setattr(interface, ack_field, datetime.now(timezone.utc))
+
+        # Update alert history
+        alert_record = AlertHistoryService.get_active_alert_record(
+            db=repo.db,
+            alert_type=history_alert_type,
+            device_id=device.id,
+            interface_id=interface.id
+        )
+        if alert_record:
+            AlertHistoryService.record_user_action(
+                db=repo.db,
+                alert_record=alert_record,
+                action="acknowledged",
+                user_id=current_user.id,
+                notes=action_data.notes
+            )
+
         message = f"Interface {interface.if_name} {display_name} alert acknowledged"
 
     elif action_data.action == "resolve":
         setattr(interface, state_field, "clear")
         setattr(interface, ack_field, None)
         setattr(interface, sent_field, False)
+
+        # Update alert history
+        alert_record = AlertHistoryService.get_active_alert_record(
+            db=repo.db,
+            alert_type=history_alert_type,
+            device_id=device.id,
+            interface_id=interface.id
+        )
+        if alert_record:
+            AlertHistoryService.record_user_action(
+                db=repo.db,
+                alert_record=alert_record,
+                action="resolved",
+                user_id=current_user.id,
+                notes=action_data.reason or action_data.notes
+            )
+
         message = f"Interface {interface.if_name} {display_name} alert resolved"
 
     repo.db.commit()

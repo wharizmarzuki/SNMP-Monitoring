@@ -257,10 +257,11 @@ export default function DeviceDetailPage() {
     if (device?.maintenance_mode !== undefined) {
       setMaintenanceEnabled(device.maintenance_mode);
     }
-    if (device?.maintenance_reason) {
-      setMaintenanceReason(device.maintenance_reason);
-    }
-  }, [device?.maintenance_mode, device?.maintenance_reason]);
+    // Note: maintenance_reason not yet available in DeviceResponse type
+    // if (device?.maintenance_reason) {
+    //   setMaintenanceReason(device.maintenance_reason);
+    // }
+  }, [device?.maintenance_mode]);
 
   // Batch threshold update mutation (Phase 3: Single API call for all thresholds)
   const updateThresholdsMutation = useMutation({
@@ -433,12 +434,12 @@ export default function DeviceDetailPage() {
                   </p>
                   <p className="text-base">{device.vendor}</p>
                 </div>
-                <div>
+                {/* <div>
                   <p className="text-sm font-medium text-muted-foreground">
                     MAC Address
                   </p>
                   <p className="text-base">{device.mac_address}</p>
-                </div>
+                </div> */}
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">
                     Status
@@ -618,12 +619,13 @@ export default function DeviceDetailPage() {
 
                 {maintenanceEnabled && (
                   <div className="space-y-4 p-4 bg-amber-50 border border-amber-200 rounded">
-                    {device?.maintenance_until && (
+                    {/* Note: maintenance_until not yet available in DeviceResponse type */}
+                    {/* {device?.maintenance_until && (
                       <div className="text-sm text-amber-900">
                         <strong>Active until:</strong>{" "}
                         {new Date(device.maintenance_until + "Z").toLocaleString()}
                       </div>
-                    )}
+                    )} */}
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
@@ -667,11 +669,12 @@ export default function DeviceDetailPage() {
                   </div>
                 )}
 
-                {device?.maintenance_mode && device?.maintenance_reason && (
+                {/* Note: maintenance_reason not yet available in DeviceResponse type */}
+                {/* {device?.maintenance_mode && device?.maintenance_reason && (
                   <div className="mt-2 text-sm text-amber-700">
                     <strong>Reason:</strong> {device.maintenance_reason}
                   </div>
-                )}
+                )} */}
               </div>
             </div>
           ) : (

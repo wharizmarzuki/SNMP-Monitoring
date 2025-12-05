@@ -7,21 +7,56 @@ from sqlalchemy.orm import Session
 from app.core import models
 from app.config.logging import logger
 from services.email_service import send_email_background
+from services.alert_history_service import AlertHistoryService
+from typing import Optional
 
 
 class AlertEvaluator:
-    
+
     @staticmethod
-    def _notify(subject: str, body: str, db: Session):
-        """Fetch recipients from database and send email notification."""
+    def _notify(subject: str, body: str, db: Session, alert_record: Optional[models.AlertHistory] = None):
+        """
+        Fetch recipients from database and send email notification.
+        Updates alert_record with email status if provided.
+        """
         recipients_db = db.query(models.AlertRecipient).all()
         recipient_list = [r.email for r in recipients_db]
 
         if not recipient_list:
             logger.warning(f"⚠️ Alert triggered but no recipients found in DB!")
+            if alert_record:
+                AlertHistoryService.update_email_status(db, alert_record, False, [], "No recipients configured")
+                db.commit()
             return
 
-        send_email_background(subject, body, recipient_list)
+        # Extract the ID while the session is still active to avoid DetachedInstanceError
+        alert_id = alert_record.id if alert_record else None
+
+        def email_callback(success: bool, recipients: list[str], error: str | None):
+            """Callback to update alert history with email status."""
+            if alert_id:
+                logger.info(f"📧 Email callback triggered for alert_id={alert_id}, success={success}")
+                # Need new session for thread-safe database access
+                from app.core.database import SessionLocal
+                db_thread = SessionLocal()
+                try:
+                    # Re-query alert record in this session using the primitive ID
+                    record = db_thread.query(models.AlertHistory).filter(
+                        models.AlertHistory.id == alert_id
+                    ).first()
+                    if record:
+                        AlertHistoryService.update_email_status(db_thread, record, success, recipients, error)
+                        db_thread.commit()
+                        logger.info(f"✉️ Successfully updated email status for alert {alert_id}")
+                    else:
+                        logger.warning(f"⚠️ Could not find alert record {alert_id} to update email status")
+                except Exception as e:
+                    logger.error(f"❌ Failed to update email status for alert {alert_id}: {e}")
+                    db_thread.rollback()
+                finally:
+                    db_thread.close()
+
+        send_email_background(subject, body, recipient_list, callback=email_callback)
 
     @staticmethod
     def evaluate_cpu(device: models.Device, current_val: float, db: Session):
@@ -46,6 +81,21 @@ class AlertEvaluator:
 
                 timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
                 exceeded_by = round(current_val - device.cpu_threshold, 2)
+
+                # Determine severity
+                severity = "Critical" if current_val >= 90 else "High" if current_val >= 75 else "Warning"
+
+                # Create alert history record
+                alert_record = AlertHistoryService.create_alert_record(
+                    db=db,
+                    alert_type="cpu",
+                    severity=severity,
+                    device_id=device.id,
+                    interface_id=None,
+                    metric_value=f"{current_val}%",
+                    threshold_value=f">{device.cpu_threshold}%",
+                    message=f"CPU utilization exceeded threshold by {exceeded_by}%"
+                )
 
                 subject = f"[CRITICAL] CPU Usage Alert - {device.hostname}"
                 body = f"""Dear Network Administrator,
@@ -85,7 +135,7 @@ To manage alert settings, log in to your SNMP Monitoring Dashboard.
 Best regards,
 SNMP Network Monitoring System"""
 
-                AlertEvaluator._notify(subject, body, db)
+                AlertEvaluator._notify(subject, body, db, alert_record)
 
                 device.cpu_alert_state = "triggered"
                 device.cpu_alert_sent = True
@@ -97,6 +147,19 @@ SNMP Network Monitoring System"""
         else:
             if device.cpu_alert_state in ["triggered", "acknowledged"]:
                 logger.info(f"✅ RECOVERY: {device.hostname} CPU Normal")
+
+                # Find and close alert history record
+                alert_record = AlertHistoryService.get_active_alert_record(
+                    db=db,
+                    alert_type="cpu",
+                    device_id=device.id
+                )
+                if alert_record:
+                    AlertHistoryService.record_auto_clear(
+                        db=db,
+                        alert_record=alert_record,
+                        message=f"CPU returned to normal: {current_val}%"
+                    )
 
                 timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
@@ -161,6 +224,21 @@ SNMP Network Monitoring System"""
                 timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
                 exceeded_by = round(current_val - device.memory_threshold, 2)
 
+                # Determine severity
+                severity = "Critical" if current_val >= 90 else "High" if current_val >= 75 else "Warning"
+
+                # Create alert history record
+                alert_record = AlertHistoryService.create_alert_record(
+                    db=db,
+                    alert_type="memory",
+                    severity=severity,
+                    device_id=device.id,
+                    interface_id=None,
+                    metric_value=f"{current_val}%",
+                    threshold_value=f">{device.memory_threshold}%",
+                    message=f"Memory utilization exceeded threshold by {exceeded_by}%"
+                )
+
                 subject = f"[CRITICAL] Memory Usage Alert - {device.hostname}"
                 body = f"""Dear Network Administrator,
 
@@ -199,7 +277,7 @@ To manage alert settings, log in to your SNMP Monitoring Dashboard.
 Best regards,
 SNMP Network Monitoring System"""
 
-                AlertEvaluator._notify(subject, body, db)
+                AlertEvaluator._notify(subject, body, db, alert_record)
 
                 device.memory_alert_state = "triggered"
                 device.memory_alert_sent = True
@@ -211,6 +289,19 @@ SNMP Network Monitoring System"""
         else:
             if device.memory_alert_state in ["triggered", "acknowledged"]:
                 logger.info(f"✅ RECOVERY: {device.hostname} Memory Normal")
+
+                # Find and close alert history record
+                alert_record = AlertHistoryService.get_active_alert_record(
+                    db=db,
+                    alert_type="memory",
+                    device_id=device.id
+                )
+                if alert_record:
+                    AlertHistoryService.record_auto_clear(
+                        db=db,
+                        alert_record=alert_record,
+                        message=f"Memory returned to normal: {current_val}%"
+                    )
 
                 timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
@@ -279,6 +370,18 @@ SNMP Network Monitoring System"""
                 last_success = device.last_poll_success.strftime("%Y-%m-%d %H:%M:%S UTC") if device.last_poll_success else "Never"
                 last_attempt = device.last_poll_attempt.strftime("%Y-%m-%d %H:%M:%S UTC") if device.last_poll_attempt else "Unknown"
 
+                # Create alert history record
+                alert_record = AlertHistoryService.create_alert_record(
+                    db=db,
+                    alert_type="reachability",
+                    severity="Critical",
+                    device_id=device.id,
+                    interface_id=None,
+                    metric_value=f"Last seen: {last_success}",
+                    threshold_value=f">{device.failure_threshold} failures",
+                    message=f"Device unreachable after {device.consecutive_failures} consecutive failures"
+                )
+
                 subject = f"[CRITICAL] Device Unreachable - {device.hostname}"
                 body = f"""Dear Network Administrator,
 
@@ -325,7 +428,7 @@ To manage alert settings, log in to your SNMP Monitoring Dashboard.
 Best regards,
 SNMP Network Monitoring System"""
 
-                AlertEvaluator._notify(subject, body, db)
+                AlertEvaluator._notify(subject, body, db, alert_record)
 
                 device.reachability_alert_state = "triggered"
                 device.reachability_alert_sent = True
@@ -339,6 +442,19 @@ SNMP Network Monitoring System"""
                 logger.info(
                     f"✅ RECOVERY: {device.hostname} ({device.ip_address}) is REACHABLE again"
                 )
+
+                # Find and close alert history record
+                alert_record = AlertHistoryService.get_active_alert_record(
+                    db=db,
+                    alert_type="reachability",
+                    device_id=device.id
+                )
+                if alert_record:
+                    AlertHistoryService.record_auto_clear(
+                        db=db,
+                        alert_record=alert_record,
+                        message="Device connectivity restored"
+                    )
 
                 timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
                 last_success = device.last_poll_success.strftime("%Y-%m-%d %H:%M:%S UTC") if device.last_poll_success else "Just now"
@@ -531,6 +647,19 @@ SNMP Network Monitoring System"""
                     prev_is_down = (previous_metric.oper_status != 1)
                     if not prev_is_down:
                         logger.warning(f"⚠️ ALERT: {device.hostname} Interface {interface.if_name} is DOWN")
+
+                        # Create alert history record
+                        AlertHistoryService.create_alert_record(
+                            db=db,
+                            alert_type="interface_status",
+                            severity="High",
+                            device_id=device.id,
+                            interface_id=interface.id,
+                            metric_value="Down",
+                            threshold_value="Should be Up",
+                            message=f"Interface {interface.if_name} changed state to DOWN"
+                        )
+
                         interface.oper_status_alert_state = "triggered"
                         interface.oper_status_alert_sent = True
                         db.add(interface)
@@ -542,6 +671,21 @@ SNMP Network Monitoring System"""
         else:
             if interface.oper_status_alert_state in ["triggered", "acknowledged"]:
                 logger.info(f"✅ RECOVERY: {device.hostname} Interface {interface.if_name} is UP")
+
+                # Find and close alert history record
+                alert_record = AlertHistoryService.get_active_alert_record(
+                    db=db,
+                    alert_type="interface_status",
+                    device_id=device.id,
+                    interface_id=interface.id
+                )
+                if alert_record:
+                    AlertHistoryService.record_auto_clear(
+                        db=db,
+                        alert_record=alert_record,
+                        message=f"Interface {interface.if_name} returned to UP state"
+                    )
+
                 interface.oper_status_alert_state = "clear"
                 interface.oper_status_acknowledged_at = None
                 interface.oper_status_alert_sent = False
@@ -611,6 +755,22 @@ SNMP Network Monitoring System"""
             if interface.packet_drop_alert_state == "clear":
                 # Trigger alert on threshold breach (state transition from clear to triggered)
                 logger.warning(f"⚠️ ALERT: {device.hostname} Interface {interface.if_name} has high discard rate: {discard_rate:.3f}% (threshold: {interface.packet_drop_threshold}%)")
+
+                # Determine severity based on discard rate
+                severity = "Critical" if discard_rate >= 5.0 else "High" if discard_rate >= 1.0 else "Warning"
+
+                # Create alert history record
+                AlertHistoryService.create_alert_record(
+                    db=db,
+                    alert_type="packet_drop",
+                    severity=severity,
+                    device_id=device.id,
+                    interface_id=interface.id,
+                    metric_value=f"{discard_rate:.2f}%",
+                    threshold_value=f">{interface.packet_drop_threshold}%",
+                    message=f"Interface {interface.if_name} discard rate exceeded threshold"
+                )
+
                 interface.packet_drop_alert_state = "triggered"
                 interface.packet_drop_alert_sent = True
                 db.add(interface)
@@ -622,6 +782,21 @@ SNMP Network Monitoring System"""
         else:
             if interface.packet_drop_alert_state in ["triggered", "acknowledged"]:
                 logger.info(f"✅ RECOVERY: {device.hostname} Interface {interface.if_name} discard rate normal: {discard_rate:.3f}%")
+
+                # Find and close alert history record
+                alert_record = AlertHistoryService.get_active_alert_record(
+                    db=db,
+                    alert_type="packet_drop",
+                    device_id=device.id,
+                    interface_id=interface.id
+                )
+                if alert_record:
+                    AlertHistoryService.record_auto_clear(
+                        db=db,
+                        alert_record=alert_record,
+                        message=f"Interface {interface.if_name} discard rate returned to normal: {discard_rate:.3f}%"
+                    )
+
                 interface.packet_drop_alert_state = "clear"
                 interface.packet_drop_acknowledged_at = None
                 interface.packet_drop_alert_sent = False

@@ -10,10 +10,12 @@ export type InterfaceSummaryResponse = components["schemas"]["InterfaceSummaryRe
 export type TopDeviceResponse = components["schemas"]["TopDeviceResponse"];
 export type ThroughputDatapoint = components["schemas"]["ThroughputDatapoint"];
 export type RecipientResponse = components["schemas"]["RecipientResponse"];
-export type HistoryRecordResponse = components["schemas"]["HistoryRecordResponse"];
 export type AlertStateResponse = components["schemas"]["AlertStateResponse"];
 export type ThresholdBatchUpdate = components["schemas"]["ThresholdBatchUpdate"];
 export type DiscoveryResponse = components["schemas"]["DiscoveryResponse"];
+export type AlertHistoryResponse = components["schemas"]["AlertHistoryResponse"];
+export type AlertHistoryDetailResponse = components["schemas"]["AlertHistoryDetailResponse"];
+export type AlertHistoryStatsResponse = components["schemas"]["AlertHistoryStatsResponse"];
 
 // Configure base URL - update this to match your backend
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -262,7 +264,7 @@ export const queryApi = {
     const startDateTime = start.includes('T') ? start : `${start}T00:00:00`;
     const endDateTime = end.includes('T') ? end : `${end}T23:59:59`;
 
-    const response = await api.post<HistoryRecordResponse[]>(
+    const response = await api.post<DeviceMetricResponse[]>(
       `/query/history/device`,
       {
         ip_address: ip,
@@ -275,6 +277,52 @@ export const queryApi = {
 
   getActiveAlerts: async () => {
     const response = await api.get<ActiveAlertResponse[]>("/query/alerts/active");
+    return response.data;
+  },
+
+  // Alert History endpoints
+  getAlertHistory: async (params?: {
+    alert_type?: string;
+    severity?: string;
+    device_id?: number;
+    interface_id?: number;
+    start_time?: string;
+    end_time?: string;
+    include_cleared?: boolean;
+    page?: number;
+    per_page?: number;
+  }) => {
+    const queryParams = new URLSearchParams();
+    if (params?.alert_type) queryParams.append('alert_type', params.alert_type);
+    if (params?.severity) queryParams.append('severity', params.severity);
+    if (params?.device_id) queryParams.append('device_id', params.device_id.toString());
+    if (params?.interface_id) queryParams.append('interface_id', params.interface_id.toString());
+    if (params?.start_time) queryParams.append('start_time', params.start_time);
+    if (params?.end_time) queryParams.append('end_time', params.end_time);
+    if (params?.include_cleared !== undefined) queryParams.append('include_cleared', params.include_cleared.toString());
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.per_page) queryParams.append('per_page', params.per_page.toString());
+
+    const queryString = queryParams.toString();
+    const response = await api.get<AlertHistoryResponse[]>(`/alerts/history${queryString ? `?${queryString}` : ''}`);
+    return response.data;
+  },
+
+  getAlertHistoryDetail: async (alertId: number) => {
+    const response = await api.get<AlertHistoryDetailResponse>(`/alerts/history/${alertId}`);
+    return response.data;
+  },
+
+  getAlertHistoryStats: async (params?: {
+    start_time?: string;
+    end_time?: string;
+  }) => {
+    const queryParams = new URLSearchParams();
+    if (params?.start_time) queryParams.append('start_time', params.start_time);
+    if (params?.end_time) queryParams.append('end_time', params.end_time);
+
+    const queryString = queryParams.toString();
+    const response = await api.get<AlertHistoryStatsResponse>(`/alerts/history/stats${queryString ? `?${queryString}` : ''}`);
     return response.data;
   },
 
