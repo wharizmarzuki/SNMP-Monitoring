@@ -6,12 +6,50 @@
 # This script will interactively configure your SNMP monitoring system
 # It handles both development and production setups
 #
+# IMPORTANT: This script MUST be run with sudo
+#
 # Usage:
-#   ./setup.sh              # Interactive development setup
-#   ./setup.sh --production # Production setup with stricter validation
-#   ./setup.sh --help       # Show help message
+#   sudo ./setup.sh              # Interactive development setup
+#   sudo ./setup.sh --production # Production setup with stricter validation
+#   sudo ./setup.sh --help       # Show help message
+#
+# The script will:
+#   1. Detect your OS and install missing system dependencies
+#   2. Create configuration files (.env)
+#   3. Set up Python virtual environment and install packages
+#   4. Install Node.js dependencies
+#   5. Initialize database and create admin user
+#   6. Optionally install and configure Redis for caching
 
 set -e  # Exit on error
+
+# ==============================================================================
+# Require Sudo
+# ==============================================================================
+
+# Check if script is run with sudo
+if [ "$EUID" -ne 0 ]; then
+    echo "ERROR: This script must be run with sudo"
+    echo ""
+    echo "Usage: sudo ./setup.sh"
+    echo ""
+    echo "The script needs elevated privileges to:"
+    echo "  - Install system packages (Python, Node.js, Redis, etc.)"
+    echo "  - Configure services"
+    echo "  - Set proper file permissions"
+    echo ""
+    exit 1
+fi
+
+# Get the actual user who invoked sudo
+if [ -z "$SUDO_USER" ]; then
+    echo "ERROR: Could not determine the user who invoked sudo"
+    echo "Please run this script as: sudo ./setup.sh"
+    exit 1
+fi
+
+ACTUAL_USER="$SUDO_USER"
+ACTUAL_HOME=$(getent passwd "$SUDO_USER" | cut -d: -f6)
 
 # ==============================================================================
 # Configuration
@@ -160,16 +198,28 @@ validate_port() {
 show_help() {
     echo "SNMP Monitoring System - Setup Wizard"
     echo ""
-    echo "Usage: $0 [OPTIONS]"
+    echo "This script will automatically install system dependencies and set up"
+    echo "your SNMP monitoring system."
+    echo ""
+    echo "IMPORTANT: Must be run with sudo"
+    echo ""
+    echo "Usage: sudo $0 [OPTIONS]"
     echo ""
     echo "Options:"
     echo "  --production     Run production setup (stricter validation)"
-    echo "  --skip-deps      Skip dependency checking"
+    echo "  --skip-deps      Skip dependency installation (not recommended)"
     echo "  --help           Show this help message"
     echo ""
     echo "Examples:"
-    echo "  $0                    # Interactive development setup"
-    echo "  $0 --production       # Production setup"
+    echo "  sudo $0                    # Interactive development setup"
+    echo "  sudo $0 --production       # Production setup"
+    echo ""
+    echo "What gets installed:"
+    echo "  - Python 3.12+ and pip"
+    echo "  - Python venv module"
+    echo "  - Node.js 20+ and npm"
+    echo "  - OpenSSL"
+    echo "  - Redis (optional, for caching)"
     echo ""
 }
 
@@ -196,6 +246,158 @@ while [[ $# -gt 0 ]]; do
 done
 
 # ==============================================================================
+# Dependency Installation Functions
+# ==============================================================================
+
+detect_os() {
+    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        if [ -f /etc/debian_version ]; then
+            echo "debian"
+        elif [ -f /etc/redhat-release ]; then
+            echo "redhat"
+        else
+            echo "linux"
+        fi
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
+        echo "macos"
+    else
+        echo "unknown"
+    fi
+}
+
+install_system_dependencies() {
+    local OS_TYPE=$(detect_os)
+    local MISSING_DEPS=false
+
+    print_step "Detecting operating system: $OS_TYPE"
+    echo ""
+
+    # Check what's missing
+    local NEED_PYTHON=false
+    local NEED_PIP=false
+    local NEED_VENV=false
+    local NEED_NODE=false
+    local NEED_NPM=false
+    local NEED_OPENSSL=false
+
+    if ! command -v python3 &> /dev/null; then
+        NEED_PYTHON=true
+        MISSING_DEPS=true
+    fi
+
+    if ! command -v pip3 &> /dev/null; then
+        NEED_PIP=true
+        MISSING_DEPS=true
+    fi
+
+    if ! python3 -m venv --help &> /dev/null 2>&1; then
+        NEED_VENV=true
+        MISSING_DEPS=true
+    fi
+
+    if ! command -v node &> /dev/null; then
+        NEED_NODE=true
+        MISSING_DEPS=true
+    fi
+
+    if ! command -v npm &> /dev/null; then
+        NEED_NPM=true
+        MISSING_DEPS=true
+    fi
+
+    if ! command -v openssl &> /dev/null; then
+        NEED_OPENSSL=true
+        MISSING_DEPS=true
+    fi
+
+    if [ "$MISSING_DEPS" = false ]; then
+        print_success "All required dependencies are already installed"
+        return 0
+    fi
+
+    print_warning "Some dependencies are missing. Installing them now..."
+    echo ""
+
+    if [ "$OS_TYPE" = "debian" ]; then
+        print_step "Installing dependencies for Debian/Ubuntu..."
+
+        # Update package list
+        print_step "Updating package list..."
+        apt-get update -qq
+
+        # Install missing packages
+        local PACKAGES=""
+        [ "$NEED_PYTHON" = true ] && PACKAGES="$PACKAGES python3"
+        [ "$NEED_PIP" = true ] && PACKAGES="$PACKAGES python3-pip"
+        [ "$NEED_VENV" = true ] && PACKAGES="$PACKAGES python3-venv"
+        [ "$NEED_OPENSSL" = true ] && PACKAGES="$PACKAGES openssl"
+
+        if [ -n "$PACKAGES" ]; then
+            print_step "Installing:$PACKAGES"
+            apt-get install -y $PACKAGES
+        fi
+
+        # Node.js requires special handling
+        if [ "$NEED_NODE" = true ] || [ "$NEED_NPM" = true ]; then
+            print_step "Installing Node.js and npm..."
+            if ! command -v curl &> /dev/null; then
+                apt-get install -y curl
+            fi
+
+            # Install NodeSource repository
+            curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+            apt-get install -y nodejs
+        fi
+
+    elif [ "$OS_TYPE" = "redhat" ]; then
+        print_step "Installing dependencies for RedHat/CentOS..."
+
+        local PACKAGES=""
+        [ "$NEED_PYTHON" = true ] && PACKAGES="$PACKAGES python3"
+        [ "$NEED_PIP" = true ] && PACKAGES="$PACKAGES python3-pip"
+        [ "$NEED_OPENSSL" = true ] && PACKAGES="$PACKAGES openssl"
+
+        if [ -n "$PACKAGES" ]; then
+            yum install -y $PACKAGES
+        fi
+
+        if [ "$NEED_NODE" = true ] || [ "$NEED_NPM" = true ]; then
+            print_step "Installing Node.js and npm..."
+            curl -fsSL https://rpm.nodesource.com/setup_20.x | bash -
+            yum install -y nodejs
+        fi
+
+    elif [ "$OS_TYPE" = "macos" ]; then
+        print_step "Installing dependencies for macOS..."
+
+        if ! command -v brew &> /dev/null; then
+            print_error "Homebrew is not installed"
+            print_info "Please install Homebrew first: https://brew.sh"
+            print_info "Then run: /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
+            exit 1
+        fi
+
+        [ "$NEED_PYTHON" = true ] && brew install python@3.12
+        [ "$NEED_NODE" = true ] && brew install node
+        [ "$NEED_OPENSSL" = true ] && brew install openssl
+
+    else
+        print_error "Unsupported operating system: $OS_TYPE"
+        print_info "Please install the following manually:"
+        print_info "  - Python 3.12+"
+        print_info "  - pip"
+        print_info "  - python3-venv"
+        print_info "  - Node.js 18+"
+        print_info "  - npm"
+        print_info "  - openssl"
+        exit 1
+    fi
+
+    print_success "System dependencies installed successfully"
+    echo ""
+}
+
+# ==============================================================================
 # Main Setup Flow
 # ==============================================================================
 
@@ -209,21 +411,10 @@ fi
 
 echo ""
 
-# Step 1: Check Dependencies
+# Step 1: Install System Dependencies
 if [ "$SKIP_DEPS_CHECK" = false ]; then
-    print_step "Checking system dependencies..."
-
-    if [ -f "$SCRIPTS_DIR/check-dependencies.sh" ]; then
-        bash "$SCRIPTS_DIR/check-dependencies.sh" || {
-            print_error "Dependency check failed. Please fix the issues above."
-            echo ""
-            echo "Run with --skip-deps to bypass this check (not recommended)"
-            exit 1
-        }
-    else
-        print_warning "Dependency checker not found, skipping..."
-    fi
-    echo ""
+    print_header "Installing System Dependencies"
+    install_system_dependencies
 fi
 
 # Step 2: Interactive Configuration
@@ -330,11 +521,11 @@ if prompt_yes_no "Enable Redis caching? (improves performance)" "y"; then
                 # Detect OS and start Redis
                 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
                     if [ -f /etc/debian_version ]; then
-                        sudo systemctl start redis-server 2>/dev/null || sudo service redis-server start 2>/dev/null
-                        sudo systemctl enable redis-server 2>/dev/null || true
+                        systemctl start redis-server 2>/dev/null || service redis-server start 2>/dev/null
+                        systemctl enable redis-server 2>/dev/null || true
                     elif [ -f /etc/redhat-release ]; then
-                        sudo systemctl start redis 2>/dev/null || sudo service redis start 2>/dev/null
-                        sudo systemctl enable redis 2>/dev/null || true
+                        systemctl start redis 2>/dev/null || service redis start 2>/dev/null
+                        systemctl enable redis 2>/dev/null || true
                     fi
                 elif [[ "$OSTYPE" == "darwin"* ]]; then
                     brew services start redis 2>/dev/null || redis-server --daemonize yes
@@ -368,15 +559,15 @@ if prompt_yes_no "Enable Redis caching? (improves performance)" "y"; then
             if [[ "$OSTYPE" == "linux-gnu"* ]]; then
                 if [ -f /etc/debian_version ]; then
                     print_info "Detected Debian/Ubuntu system"
-                    sudo apt-get update -qq
-                    sudo apt-get install -y redis-server
-                    sudo systemctl start redis-server
-                    sudo systemctl enable redis-server
+                    apt-get update -qq
+                    apt-get install -y redis-server
+                    systemctl start redis-server
+                    systemctl enable redis-server
                 elif [ -f /etc/redhat-release ]; then
                     print_info "Detected RedHat/CentOS system"
-                    sudo yum install -y redis
-                    sudo systemctl start redis
-                    sudo systemctl enable redis
+                    yum install -y redis
+                    systemctl start redis
+                    systemctl enable redis
                 else
                     print_error "Unsupported Linux distribution"
                     print_info "Please install Redis manually:"
@@ -600,6 +791,13 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 EOF
 
 print_success "Frontend .env.local created"
+
+# Fix ownership
+print_step "Fixing configuration file permissions..."
+chown "$ACTUAL_USER:$(id -gn $ACTUAL_USER)" "$BACKEND_DIR/.env"
+chown "$ACTUAL_USER:$(id -gn $ACTUAL_USER)" "$FRONTEND_DIR/.env.local"
+print_success "Permissions fixed"
+
 echo ""
 
 # ==============================================================================
@@ -612,19 +810,37 @@ print_header "Installing Dependencies"
 print_step "Setting up Python virtual environment..."
 cd "$BACKEND_DIR"
 
+print_info "Creating venv as user: $ACTUAL_USER"
+
 if [ ! -d "venv" ]; then
-    python3 -m venv venv
+    print_step "Creating virtual environment..."
+
+    # Create venv as the actual user (not root)
+    sudo -u "$ACTUAL_USER" python3 -m venv venv
+
     print_success "Virtual environment created"
 else
     print_step "Virtual environment already exists"
 fi
 
-print_step "Installing Python packages..."
+print_step "Installing Python packages (this may take a few minutes)..."
 source venv/bin/activate
-pip install --upgrade pip > /dev/null 2>&1
-pip install -r requirements.txt > /dev/null 2>&1
-print_success "Python packages installed"
+pip install --upgrade pip --quiet
+pip install -r requirements.txt --quiet
+
+if [ $? -eq 0 ]; then
+    print_success "Python packages installed successfully"
+else
+    print_error "Failed to install some Python packages"
+    print_info "You may need to install them manually later"
+fi
+
 deactivate
+
+# Ensure proper ownership
+print_step "Fixing file permissions..."
+chown -R "$ACTUAL_USER:$(id -gn $ACTUAL_USER)" venv
+print_success "Permissions fixed"
 
 cd "$SCRIPT_DIR"
 echo ""
@@ -634,8 +850,15 @@ print_step "Installing Node.js packages..."
 cd "$FRONTEND_DIR"
 
 if prompt_yes_no "Install frontend dependencies now? (may take a few minutes)" "y"; then
-    npm install --legacy-peer-deps
-    print_success "Node.js packages installed"
+    # Run npm install as the actual user (not root)
+    sudo -u "$ACTUAL_USER" npm install --legacy-peer-deps
+
+    if [ $? -eq 0 ]; then
+        print_success "Node.js packages installed successfully"
+    else
+        print_error "Failed to install some Node.js packages"
+        print_info "You may need to run: cd frontend && npm install --legacy-peer-deps"
+    fi
 else
     print_warning "Skipped frontend dependency installation"
     print_step "You can install later with: cd frontend && npm install --legacy-peer-deps"
@@ -718,6 +941,14 @@ source venv/bin/activate
 python temp_create_admin.py
 rm temp_create_admin.py
 deactivate
+
+# Fix database file ownership
+if [ -f "monitoring.db" ]; then
+    print_step "Fixing database file permissions..."
+    chown "$ACTUAL_USER:$(id -gn $ACTUAL_USER)" monitoring.db
+    print_success "Database permissions fixed"
+fi
+
 cd "$SCRIPT_DIR"
 
 print_success "Database initialized and admin user created"

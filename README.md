@@ -69,16 +69,27 @@ A comprehensive network monitoring solution built with FastAPI and Next.js that 
 
 ### Prerequisites
 
-- Python 3.12+
-- Node.js 18+
-- npm
-- Git
-- OpenSSL (for generating secure secrets)
-- Redis (optional but recommended for caching)
+The automated setup script will install all dependencies for you automatically. You only need:
 
-#### Installing Python 3.12
+- **Git** - to clone the repository
+- **sudo access** - for installing system packages
+- **curl** (usually pre-installed) - for Node.js installation
 
-If your system doesn't have Python 3.12+, install it first:
+The setup script will automatically install:
+- Python 3.12+, pip, and python3-venv
+- Node.js 20+ and npm
+- OpenSSL
+- Redis (optional, prompted during setup)
+
+**No manual installation required!** Just run `sudo ./setup.sh`
+
+---
+
+### Manual Installation (Advanced Users Only)
+
+If you prefer to install dependencies manually, here's how:
+
+**Installing Python 3.12**
 
 **Ubuntu/Debian:**
 ```bash
@@ -124,27 +135,34 @@ pyenv global 3.12
 git clone https://github.com/wharizmarzuki/SNMP-Monitoring.git
 cd SNMP-Monitoring
 
-# Run interactive setup wizard
-./setup.sh
+# Run interactive setup wizard with sudo
+sudo ./setup.sh
 ```
 
+**IMPORTANT:** The setup script must be run with `sudo` to install system dependencies.
+
 The setup wizard will:
-- ✅ Check system dependencies
+- ✅ **Automatically detect your OS and install missing system dependencies**
+  - Python 3.12+, pip, and venv
+  - Node.js 20+ and npm
+  - OpenSSL
+  - All done automatically with proper permissions
 - ✅ Prompt for all configuration (network range, SNMP settings, email, Redis, etc.)
 - ✅ **Automatically install and start Redis** (if you choose to enable caching)
 - ✅ Auto-generate secure JWT secret
-- ✅ Create `.env` files automatically
+- ✅ Create `.env` files automatically with proper ownership
+- ✅ Create Python virtual environment with proper permissions
 - ✅ Install Python and Node.js dependencies
-- ✅ Initialize database
+- ✅ Initialize database with correct ownership
 - ✅ Create admin user with your credentials
 - ✅ Optionally start services
 
-**That's it!** The wizard handles everything interactively - no manual file editing or separate scripts required.
+**That's it!** The wizard handles everything - including system dependencies - no manual installation or file editing required. Works on fresh Ubuntu/Debian, RedHat/CentOS, and macOS systems.
 
 #### For Production Setup
 
 ```bash
-./setup.sh --production
+sudo ./setup.sh --production
 ```
 
 Uses production-specific defaults with stricter validation.
