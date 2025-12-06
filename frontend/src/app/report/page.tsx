@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Download, FileText, Activity, HardDrive, AlertTriangle, Clock, Network } from 'lucide-react';
 import { reportApi, queryApi } from '@/lib/api';
 import type {
+  NetworkThroughputDatapoint,
   ReportDeviceUtilizationDatapoint,
   PacketDropRecord,
   UptimeSummaryResponse,
@@ -61,15 +62,9 @@ export default function ReportPage() {
   const endDateTime = getDateTimeString(endDate, false);
 
   // Fetch all report data
-  const { data: bandwidthUtilizationData, isLoading: loadingBandwidth } = useQuery<import("@/types").DeviceUtilization[]>({
-    queryKey: ['reportBandwidthUtilization', startDateTime, endDateTime],
-    queryFn: () => {
-      // Calculate minutes between start and end
-      const start = new Date(startDateTime);
-      const end = new Date(endDateTime);
-      const minutes = Math.floor((end.getTime() - start.getTime()) / (1000 * 60));
-      return queryApi.getDeviceUtilization(minutes, 1);
-    },
+  const { data: networkThroughputData, isLoading: loadingThroughput } = useQuery<NetworkThroughputDatapoint[]>({
+    queryKey: ['reportNetworkThroughput', startDateTime, endDateTime],
+    queryFn: () => reportApi.getNetworkThroughput(startDateTime, endDateTime),
     enabled: reportGenerated && !!startDateTime && !!endDateTime,
   });
 
@@ -97,7 +92,7 @@ export default function ReportPage() {
     enabled: reportGenerated && !!startDateTime && !!endDateTime,
   });
 
-  const isLoading = loadingBandwidth || loadingUtilization || loadingPacketDrops || loadingUptime || loadingAvailability;
+  const isLoading = loadingThroughput || loadingUtilization || loadingPacketDrops || loadingUptime || loadingAvailability;
 
   const handleGenerateReport = () => {
     if (startDate && endDate) {
@@ -140,49 +135,33 @@ export default function ReportPage() {
     }
   };
 
-  // Aggregate and format bandwidth utilization data (max 10 points)
-  const formattedBandwidthData = React.useMemo(() => {
-    if (!bandwidthUtilizationData) return [];
+  // Format network throughput data (max 10 points)
+  const formattedThroughputData = React.useMemo(() => {
+    if (!networkThroughputData) return [];
 
-    // Group by timestamp and aggregate device utilizations
-    const timeMap = new Map<string, { timestamp: string; maxUtil: number }>();
-
-    bandwidthUtilizationData.forEach(d => {
-      const existing = timeMap.get(d.timestamp);
-      const currentMax = d.max_utilization_pct || 0;
-
-      if (!existing || currentMax > existing.maxUtil) {
-        timeMap.set(d.timestamp, {
-          timestamp: d.timestamp,
-          maxUtil: currentMax
-        });
-      }
-    });
-
-    const sorted = Array.from(timeMap.values()).sort((a, b) =>
-      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-    );
-
-    const aggregated = aggregateData(sorted, 10);
+    const aggregated = aggregateData(networkThroughputData, 10);
     return aggregated.map(d => ({
       time: format(new Date(d.timestamp), 'MMM dd HH:mm'),
-      utilization: parseFloat(d.maxUtil.toFixed(4)),
+      inbound: parseFloat((d.total_inbound_bps / 1_000_000).toFixed(2)), // Convert to Mbps
+      outbound: parseFloat((d.total_outbound_bps / 1_000_000).toFixed(2)), // Convert to Mbps
     }));
-  }, [bandwidthUtilizationData]);
+  }, [networkThroughputData]);
 
-  // Calculate dynamic domain for bandwidth chart
-  const bandwidthDomain = React.useMemo(() => {
-    if (formattedBandwidthData.length === 0) return [0, 100];
+  // Calculate dynamic domain for throughput chart
+  const throughputDomain = React.useMemo(() => {
+    if (formattedThroughputData.length === 0) return [0, 100];
 
-    const maxUtil = Math.max(...formattedBandwidthData.map(d => d.utilization));
+    const maxThroughput = Math.max(
+      ...formattedThroughputData.map(d => Math.max(d.inbound, d.outbound))
+    );
 
-    if (maxUtil <= 0.1) return [0, 0.1];
-    if (maxUtil <= 1) return [0, 1];
-    if (maxUtil <= 10) return [0, 10];
-    if (maxUtil <= 25) return [0, 25];
-    if (maxUtil <= 50) return [0, 50];
-    return [0, 100];
-  }, [formattedBandwidthData]);
+    if (maxThroughput <= 1) return [0, 1];
+    if (maxThroughput <= 10) return [0, 10];
+    if (maxThroughput <= 100) return [0, 100];
+    if (maxThroughput <= 1000) return [0, 1000];
+    if (maxThroughput <= 10000) return [0, 10000];
+    return [0, Math.ceil(maxThroughput / 1000) * 1000];
+  }, [formattedThroughputData]);
 
   // Aggregate and format utilization data (max 10 points)
   const formattedUtilizationData = React.useMemo(() => {
@@ -319,19 +298,19 @@ export default function ReportPage() {
             </Card>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4" style={{ gridTemplateRows: 'repeat(2, minmax(300px, 1fr))' }}>
-              {/* Section 1: Device Bandwidth Utilization (Top-Left) */}
+              {/* Section 1: Network Throughput (Top-Left) */}
               <Card className="lg:col-span-1">
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2 text-base">
                     <Network className="h-4 w-4" />
-                    Device Bandwidth Utilization
+                    Network Throughput
                   </CardTitle>
-                  <CardDescription className="text-xs">Maximum utilization percentage</CardDescription>
+                  <CardDescription className="text-xs">Total network bandwidth usage (Mbps)</CardDescription>
                 </CardHeader>
                 <CardContent className="pb-2">
-                  {formattedBandwidthData.length > 0 ? (
+                  {formattedThroughputData.length > 0 ? (
                     <ResponsiveContainer width="100%" height={250}>
-                      <LineChart data={formattedBandwidthData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+                      <AreaChart data={formattedThroughputData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis
                           dataKey="time"
@@ -342,16 +321,17 @@ export default function ReportPage() {
                         />
                         <YAxis
                           tick={{ fontSize: 11 }}
-                          domain={bandwidthDomain}
-                          tickFormatter={(value) => value < 1 ? value.toFixed(3) : value.toFixed(1)}
+                          domain={throughputDomain}
+                          tickFormatter={(value) => value < 1 ? value.toFixed(2) : value.toFixed(0)}
                         />
-                        <Tooltip formatter={(value: number) => `${value.toFixed(4)}%`} />
+                        <Tooltip formatter={(value: number) => `${value.toFixed(2)} Mbps`} />
                         <Legend wrapperStyle={{ fontSize: '12px' }} />
-                        <Line type="monotone" dataKey="utilization" stroke="#8b5cf6" name="Utilization %" strokeWidth={2} dot={false} />
-                      </LineChart>
+                        <Area type="monotone" dataKey="inbound" stackId="1" stroke="#10b981" fill="#34d399" name="Inbound" />
+                        <Area type="monotone" dataKey="outbound" stackId="2" stroke="#3b82f6" fill="#60a5fa" name="Outbound" />
+                      </AreaChart>
                     </ResponsiveContainer>
                   ) : (
-                    <p className="text-sm text-muted-foreground text-center py-8">No bandwidth utilization data available</p>
+                    <p className="text-sm text-muted-foreground text-center py-8">No network throughput data available</p>
                   )}
                 </CardContent>
               </Card>

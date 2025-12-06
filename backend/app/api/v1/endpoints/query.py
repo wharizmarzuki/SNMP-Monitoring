@@ -945,42 +945,176 @@ async def get_report_packet_drops(
 ):
     """
     Get packet drop statistics by device for report date range.
-    Returns devices with highest discard rates, including errors.
+    Returns devices with highest discard rates using delta-based calculation.
+    Includes multicast and broadcast packets for accurate rate calculation.
     """
     start_dt = datetime.datetime.fromisoformat(start_date)
     end_dt = datetime.datetime.fromisoformat(end_date)
 
-    # Query to sum discards and errors per device over the period
-    drop_stats = db.query(
-        models.Device.hostname,
-        models.Device.ip_address,
-        func.sum(models.InterfaceMetric.discards_in).label('total_discards_in'),
-        func.sum(models.InterfaceMetric.discards_out).label('total_discards_out'),
-        func.sum(models.InterfaceMetric.errors_in).label('total_errors_in'),
-        func.sum(models.InterfaceMetric.errors_out).label('total_errors_out'),
-        func.sum(models.InterfaceMetric.octets_in + models.InterfaceMetric.octets_out).label('total_octets')
+    # Use LAG window function to calculate deltas per interface
+    lag_subquery = select(
+        models.Interface.device_id,
+        models.InterfaceMetric.interface_id,
+        models.InterfaceMetric.timestamp,
+        models.InterfaceMetric.discards_in,
+        models.InterfaceMetric.discards_out,
+        models.InterfaceMetric.errors_in,
+        models.InterfaceMetric.errors_out,
+        models.InterfaceMetric.packets_in,
+        models.InterfaceMetric.packets_out,
+        models.InterfaceMetric.multicast_packets_in,
+        models.InterfaceMetric.multicast_packets_out,
+        models.InterfaceMetric.broadcast_packets_in,
+        models.InterfaceMetric.broadcast_packets_out,
+        func.lag(models.InterfaceMetric.discards_in).over(
+            partition_by=models.InterfaceMetric.interface_id,
+            order_by=models.InterfaceMetric.timestamp
+        ).label("prev_discards_in"),
+        func.lag(models.InterfaceMetric.discards_out).over(
+            partition_by=models.InterfaceMetric.interface_id,
+            order_by=models.InterfaceMetric.timestamp
+        ).label("prev_discards_out"),
+        func.lag(models.InterfaceMetric.errors_in).over(
+            partition_by=models.InterfaceMetric.interface_id,
+            order_by=models.InterfaceMetric.timestamp
+        ).label("prev_errors_in"),
+        func.lag(models.InterfaceMetric.errors_out).over(
+            partition_by=models.InterfaceMetric.interface_id,
+            order_by=models.InterfaceMetric.timestamp
+        ).label("prev_errors_out"),
+        func.lag(models.InterfaceMetric.packets_in).over(
+            partition_by=models.InterfaceMetric.interface_id,
+            order_by=models.InterfaceMetric.timestamp
+        ).label("prev_packets_in"),
+        func.lag(models.InterfaceMetric.packets_out).over(
+            partition_by=models.InterfaceMetric.interface_id,
+            order_by=models.InterfaceMetric.timestamp
+        ).label("prev_packets_out"),
+        func.lag(models.InterfaceMetric.multicast_packets_in).over(
+            partition_by=models.InterfaceMetric.interface_id,
+            order_by=models.InterfaceMetric.timestamp
+        ).label("prev_mcast_in"),
+        func.lag(models.InterfaceMetric.multicast_packets_out).over(
+            partition_by=models.InterfaceMetric.interface_id,
+            order_by=models.InterfaceMetric.timestamp
+        ).label("prev_mcast_out"),
+        func.lag(models.InterfaceMetric.broadcast_packets_in).over(
+            partition_by=models.InterfaceMetric.interface_id,
+            order_by=models.InterfaceMetric.timestamp
+        ).label("prev_bcast_in"),
+        func.lag(models.InterfaceMetric.broadcast_packets_out).over(
+            partition_by=models.InterfaceMetric.interface_id,
+            order_by=models.InterfaceMetric.timestamp
+        ).label("prev_bcast_out")
     ).join(
         models.Interface,
-        models.Interface.device_id == models.Device.id
-    ).join(
-        models.InterfaceMetric,
         models.InterfaceMetric.interface_id == models.Interface.id
     ).filter(
         models.InterfaceMetric.timestamp >= start_dt,
         models.InterfaceMetric.timestamp <= end_dt
+    ).subquery()
+
+    # Calculate deltas with counter wrap detection (64-bit counters)
+    delta_subquery = select(
+        lag_subquery.c.device_id,
+        # Discard deltas
+        case(
+            (lag_subquery.c.discards_in >= lag_subquery.c.prev_discards_in,
+             lag_subquery.c.discards_in - lag_subquery.c.prev_discards_in),
+            else_=0
+        ).label("delta_discards_in"),
+        case(
+            (lag_subquery.c.discards_out >= lag_subquery.c.prev_discards_out,
+             lag_subquery.c.discards_out - lag_subquery.c.prev_discards_out),
+            else_=0
+        ).label("delta_discards_out"),
+        # Error deltas
+        case(
+            (lag_subquery.c.errors_in >= lag_subquery.c.prev_errors_in,
+             lag_subquery.c.errors_in - lag_subquery.c.prev_errors_in),
+            else_=0
+        ).label("delta_errors_in"),
+        case(
+            (lag_subquery.c.errors_out >= lag_subquery.c.prev_errors_out,
+             lag_subquery.c.errors_out - lag_subquery.c.prev_errors_out),
+            else_=0
+        ).label("delta_errors_out"),
+        # Packet deltas (unicast)
+        case(
+            (lag_subquery.c.packets_in >= lag_subquery.c.prev_packets_in,
+             lag_subquery.c.packets_in - lag_subquery.c.prev_packets_in),
+            else_=0
+        ).label("delta_packets_in"),
+        case(
+            (lag_subquery.c.packets_out >= lag_subquery.c.prev_packets_out,
+             lag_subquery.c.packets_out - lag_subquery.c.prev_packets_out),
+            else_=0
+        ).label("delta_packets_out"),
+        # Multicast packet deltas
+        case(
+            (lag_subquery.c.multicast_packets_in >= lag_subquery.c.prev_mcast_in,
+             lag_subquery.c.multicast_packets_in - lag_subquery.c.prev_mcast_in),
+            else_=0
+        ).label("delta_mcast_in"),
+        case(
+            (lag_subquery.c.multicast_packets_out >= lag_subquery.c.prev_mcast_out,
+             lag_subquery.c.multicast_packets_out - lag_subquery.c.prev_mcast_out),
+            else_=0
+        ).label("delta_mcast_out"),
+        # Broadcast packet deltas
+        case(
+            (lag_subquery.c.broadcast_packets_in >= lag_subquery.c.prev_bcast_in,
+             lag_subquery.c.broadcast_packets_in - lag_subquery.c.prev_bcast_in),
+            else_=0
+        ).label("delta_bcast_in"),
+        case(
+            (lag_subquery.c.broadcast_packets_out >= lag_subquery.c.prev_bcast_out,
+             lag_subquery.c.broadcast_packets_out - lag_subquery.c.prev_bcast_out),
+            else_=0
+        ).label("delta_bcast_out")
+    ).filter(
+        lag_subquery.c.prev_discards_in != None  # Only include rows with previous values
+    ).subquery()
+
+    # Aggregate by device
+    device_stats = select(
+        models.Device.hostname,
+        models.Device.ip_address,
+        func.sum(delta_subquery.c.delta_discards_in).label('total_discards_in'),
+        func.sum(delta_subquery.c.delta_discards_out).label('total_discards_out'),
+        func.sum(delta_subquery.c.delta_errors_in).label('total_errors_in'),
+        func.sum(delta_subquery.c.delta_errors_out).label('total_errors_out'),
+        func.sum(delta_subquery.c.delta_packets_in).label('total_packets_in'),
+        func.sum(delta_subquery.c.delta_packets_out).label('total_packets_out'),
+        func.sum(delta_subquery.c.delta_mcast_in).label('total_mcast_in'),
+        func.sum(delta_subquery.c.delta_mcast_out).label('total_mcast_out'),
+        func.sum(delta_subquery.c.delta_bcast_in).label('total_bcast_in'),
+        func.sum(delta_subquery.c.delta_bcast_out).label('total_bcast_out')
+    ).join(
+        delta_subquery,
+        models.Device.id == delta_subquery.c.device_id
     ).group_by(
         models.Device.id,
         models.Device.hostname,
         models.Device.ip_address
-    ).all()
+    )
+
+    drop_stats = db.execute(device_stats).all()
 
     results = []
     for row in drop_stats:
         total_discards = (row.total_discards_in or 0) + (row.total_discards_out or 0)
-        total_octets = row.total_octets or 1  # Avoid division by zero
 
-        # Calculate discard rate as percentage
-        discard_rate_pct = (total_discards / total_octets) * 100.0 if total_octets > 0 else 0.0
+        # Calculate total packets (unicast + multicast + broadcast)
+        total_packets = (
+            (row.total_packets_in or 0) + (row.total_packets_out or 0) +
+            (row.total_mcast_in or 0) + (row.total_mcast_out or 0) +
+            (row.total_bcast_in or 0) + (row.total_bcast_out or 0)
+        )
+
+        # Calculate discard rate: discards / (packets + discards) * 100
+        total_events = total_packets + total_discards
+        discard_rate_pct = (total_discards / total_events) * 100.0 if total_events > 0 else 0.0
 
         # Only include devices with discards > 0
         if total_discards > 0:
@@ -988,10 +1122,10 @@ async def get_report_packet_drops(
                 device_hostname=row.hostname,
                 device_ip=row.ip_address,
                 discard_rate_pct=discard_rate_pct,
-                total_discards_in=row.total_discards_in or 0.0,
-                total_discards_out=row.total_discards_out or 0.0,
-                total_errors_in=row.total_errors_in or 0.0,
-                total_errors_out=row.total_errors_out or 0.0
+                total_discards_in=float(row.total_discards_in or 0),
+                total_discards_out=float(row.total_discards_out or 0),
+                total_errors_in=float(row.total_errors_in or 0),
+                total_errors_out=float(row.total_errors_out or 0)
             ))
 
     # Sort by discard rate descending, limit to top 10
@@ -1007,26 +1141,37 @@ async def get_report_uptime_summary(
 ):
     """
     Get system uptime summary for report date range.
-    Returns average uptime, longest uptime device, and recently rebooted device.
+    Returns current uptime based on most recent reading, longest uptime device, and recently rebooted device.
+
+    Note: Uses the most recent uptime value within the date range, not average,
+    because averaging uptime values across reboots produces meaningless results.
     """
     start_dt = datetime.datetime.fromisoformat(start_date)
     end_dt = datetime.datetime.fromisoformat(end_date)
 
-    # Get average uptime per device in the period
-    device_uptimes = db.query(
-        models.Device.hostname,
-        models.Device.ip_address,
-        func.avg(models.DeviceMetric.uptime_seconds).label('avg_uptime_seconds')
-    ).join(
-        models.DeviceMetric,
-        models.DeviceMetric.device_id == models.Device.id
+    # Get latest uptime reading per device within the date range
+    # Uses subquery to find max timestamp per device, then joins to get the uptime value
+    latest_metrics_subq = db.query(
+        models.DeviceMetric.device_id,
+        func.max(models.DeviceMetric.timestamp).label('max_timestamp')
     ).filter(
         models.DeviceMetric.timestamp >= start_dt,
         models.DeviceMetric.timestamp <= end_dt
-    ).group_by(
-        models.Device.id,
+    ).group_by(models.DeviceMetric.device_id).subquery()
+
+    device_uptimes = db.query(
         models.Device.hostname,
-        models.Device.ip_address
+        models.Device.ip_address,
+        models.DeviceMetric.uptime_seconds
+    ).join(
+        latest_metrics_subq,
+        models.Device.id == latest_metrics_subq.c.device_id
+    ).join(
+        models.DeviceMetric,
+        and_(
+            models.DeviceMetric.device_id == latest_metrics_subq.c.device_id,
+            models.DeviceMetric.timestamp == latest_metrics_subq.c.max_timestamp
+        )
     ).all()
 
     if not device_uptimes:
@@ -1039,14 +1184,14 @@ async def get_report_uptime_summary(
     # Convert to days and calculate metrics
     uptime_data = []
     for row in device_uptimes:
-        uptime_days = (row.avg_uptime_seconds or 0) / 86400.0  # seconds to days
+        uptime_days = (row.uptime_seconds or 0) / 86400.0  # seconds to days
         uptime_data.append({
             "hostname": row.hostname,
             "ip": row.ip_address,
             "uptime_days": uptime_days
         })
 
-    # Calculate average across all devices
+    # Calculate average uptime across all devices (using current uptime, not historical average)
     avg_uptime_days = sum(d["uptime_days"] for d in uptime_data) / len(uptime_data)
 
     # Find longest and shortest uptime
@@ -1068,17 +1213,26 @@ async def get_report_availability(
 ):
     """
     Get device availability metrics for report date range.
-    Returns availability percentage based on reachability polls.
+    Returns availability percentage based on polling success rate.
+
+    Availability is calculated by comparing actual polls received vs expected polls.
+    Expected polls = (time_range_minutes / polling_interval_minutes)
+    Actual polls = count of DeviceMetric records (each represents a successful poll)
     """
     start_dt = datetime.datetime.fromisoformat(start_date)
     end_dt = datetime.datetime.fromisoformat(end_date)
 
-    # Count reachability polls per device
+    # Calculate expected number of polls based on time range
+    # Assuming 1-minute polling interval (adjust if different)
+    time_range_minutes = (end_dt - start_dt).total_seconds() / 60.0
+    polling_interval_minutes = 1  # Standard polling interval
+    expected_polls_per_device = int(time_range_minutes / polling_interval_minutes)
+
+    # Count actual polls (DeviceMetric records) per device
     availability_stats = db.query(
         models.Device.hostname,
         models.Device.ip_address,
-        func.count(models.DeviceMetric.id).label('total_polls'),
-        func.sum(case((models.Device.is_reachable == True, 1), else_=0)).label('successful_polls'),
+        func.count(models.DeviceMetric.id).label('actual_polls'),
         func.avg(models.DeviceMetric.uptime_seconds).label('avg_uptime_seconds'),
         func.max(models.DeviceMetric.timestamp).label('last_seen')
     ).join(
@@ -1095,11 +1249,11 @@ async def get_report_availability(
 
     results = []
     for row in availability_stats:
-        total_polls = row.total_polls or 1  # Avoid division by zero
-        successful_polls = row.successful_polls or 0
+        actual_polls = row.actual_polls or 0
 
-        # Calculate availability percentage
-        availability_pct = (successful_polls / total_polls) * 100.0
+        # Calculate availability: (actual polls / expected polls) * 100
+        # Cap at 100% in case there are extra polls
+        availability_pct = min((actual_polls / expected_polls_per_device) * 100.0, 100.0) if expected_polls_per_device > 0 else 0.0
         avg_uptime_days = (row.avg_uptime_seconds or 0) / 86400.0
 
         results.append(schemas.AvailabilityRecord(
@@ -1107,7 +1261,7 @@ async def get_report_availability(
             device_ip=row.ip_address,
             availability_pct=availability_pct,
             avg_uptime_days=avg_uptime_days,
-            last_seen=to_utc_iso(row.last_seen) if row.last_seen else to_utc_iso(datetime.utcnow())
+            last_seen=to_utc_iso(row.last_seen) if row.last_seen else None
         ))
 
     # Sort by availability ascending (worst first)

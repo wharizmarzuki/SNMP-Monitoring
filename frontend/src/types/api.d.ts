@@ -768,7 +768,8 @@ export interface paths {
         /**
          * Get Report Packet Drops
          * @description Get packet drop statistics by device for report date range.
-         *     Returns devices with highest discard rates, including errors.
+         *     Returns devices with highest discard rates using delta-based calculation.
+         *     Includes multicast and broadcast packets for accurate rate calculation.
          */
         get: operations["get_report_packet_drops_query_report_packet_drops_get"];
         put?: never;
@@ -789,7 +790,10 @@ export interface paths {
         /**
          * Get Report Uptime Summary
          * @description Get system uptime summary for report date range.
-         *     Returns average uptime, longest uptime device, and recently rebooted device.
+         *     Returns current uptime based on most recent reading, longest uptime device, and recently rebooted device.
+         *
+         *     Note: Uses the most recent uptime value within the date range, not average,
+         *     because averaging uptime values across reboots produces meaningless results.
          */
         get: operations["get_report_uptime_summary_query_report_uptime_summary_get"];
         put?: never;
@@ -810,7 +814,11 @@ export interface paths {
         /**
          * Get Report Availability
          * @description Get device availability metrics for report date range.
-         *     Returns availability percentage based on reachability polls.
+         *     Returns availability percentage based on polling success rate.
+         *
+         *     Availability is calculated by comparing actual polls received vs expected polls.
+         *     Expected polls = (time_range_minutes / polling_interval_minutes)
+         *     Actual polls = count of DeviceMetric records (each represents a successful poll)
          */
         get: operations["get_report_availability_query_report_availability_get"];
         put?: never;

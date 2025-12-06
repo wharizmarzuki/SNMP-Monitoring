@@ -14,44 +14,52 @@ from typing import Optional
 class AlertEvaluator:
 
     @staticmethod
-    def _notify(subject: str, body: str, db: Session, alert_record: Optional[models.AlertHistory] = None):
+    def _notify(subject: str, body: str, db: Session, alert_records: Optional[list[models.AlertHistory]] = None):
         """
         Fetch recipients from database and send email notification.
-        Updates alert_record with email status if provided.
+        Updates alert_records with email status if provided.
+
+        Args:
+            subject: Email subject
+            body: Email body
+            db: Database session
+            alert_records: List of alert records to update (or single record in a list), or None
         """
         recipients_db = db.query(models.AlertRecipient).all()
         recipient_list = [r.email for r in recipients_db]
 
         if not recipient_list:
             logger.warning(f"⚠️ Alert triggered but no recipients found in DB!")
-            if alert_record:
-                AlertHistoryService.update_email_status(db, alert_record, False, [], "No recipients configured")
+            if alert_records:
+                for alert_record in alert_records:
+                    AlertHistoryService.update_email_status(db, alert_record, False, [], "No recipients configured")
                 db.commit()
             return
 
-        # Extract the ID while the session is still active to avoid DetachedInstanceError
-        alert_id = alert_record.id if alert_record else None
+        # Extract IDs while the session is still active to avoid DetachedInstanceError
+        alert_ids = [record.id for record in alert_records] if alert_records else []
 
         def email_callback(success: bool, recipients: list[str], error: str | None):
             """Callback to update alert history with email status."""
-            if alert_id:
-                logger.info(f"📧 Email callback triggered for alert_id={alert_id}, success={success}")
+            if alert_ids:
+                logger.info(f"📧 Email callback triggered for alert_ids={alert_ids}, success={success}")
                 # Need new session for thread-safe database access
                 from app.core.database import SessionLocal
                 db_thread = SessionLocal()
                 try:
-                    # Re-query alert record in this session using the primitive ID
-                    record = db_thread.query(models.AlertHistory).filter(
-                        models.AlertHistory.id == alert_id
-                    ).first()
-                    if record:
-                        AlertHistoryService.update_email_status(db_thread, record, success, recipients, error)
-                        db_thread.commit()
-                        logger.info(f"✉️ Successfully updated email status for alert {alert_id}")
-                    else:
-                        logger.warning(f"⚠️ Could not find alert record {alert_id} to update email status")
+                    # Update all alert records in this batch
+                    for alert_id in alert_ids:
+                        record = db_thread.query(models.AlertHistory).filter(
+                            models.AlertHistory.id == alert_id
+                        ).first()
+                        if record:
+                            AlertHistoryService.update_email_status(db_thread, record, success, recipients, error)
+                            logger.info(f"✉️ Successfully updated email status for alert {alert_id}")
+                        else:
+                            logger.warning(f"⚠️ Could not find alert record {alert_id} to update email status")
+                    db_thread.commit()
                 except Exception as e:
-                    logger.error(f"❌ Failed to update email status for alert {alert_id}: {e}")
+                    logger.error(f"❌ Failed to update email status for alerts {alert_ids}: {e}")
                     db_thread.rollback()
                 finally:
                     db_thread.close()
@@ -135,7 +143,7 @@ To manage alert settings, log in to your SNMP Monitoring Dashboard.
 Best regards,
 SNMP Network Monitoring System"""
 
-                AlertEvaluator._notify(subject, body, db, alert_record)
+                AlertEvaluator._notify(subject, body, db, [alert_record])
 
                 device.cpu_alert_state = "triggered"
                 device.cpu_alert_sent = True
@@ -277,7 +285,7 @@ To manage alert settings, log in to your SNMP Monitoring Dashboard.
 Best regards,
 SNMP Network Monitoring System"""
 
-                AlertEvaluator._notify(subject, body, db, alert_record)
+                AlertEvaluator._notify(subject, body, db, [alert_record])
 
                 device.memory_alert_state = "triggered"
                 device.memory_alert_sent = True
@@ -428,7 +436,7 @@ To manage alert settings, log in to your SNMP Monitoring Dashboard.
 Best regards,
 SNMP Network Monitoring System"""
 
-                AlertEvaluator._notify(subject, body, db, alert_record)
+                AlertEvaluator._notify(subject, body, db, [alert_record])
 
                 device.reachability_alert_state = "triggered"
                 device.reachability_alert_sent = True
@@ -505,8 +513,9 @@ SNMP Network Monitoring System"""
     def evaluate_interfaces(device: models.Device, db: Session):
         """Check all interfaces for status changes and packet drops."""
         alerts_triggered = []
+        alert_records = []
         recoveries_triggered = []
-        
+
         for interface in device.interfaces:
             # Get the last two metrics to check for state changes
             metrics = db.query(models.InterfaceMetric)\
@@ -514,30 +523,36 @@ SNMP Network Monitoring System"""
                 .order_by(models.InterfaceMetric.timestamp.desc())\
                 .limit(2)\
                 .all()
-                
+
             if not metrics:
                 continue
 
             latest_metric = metrics[0]
             previous_metric = metrics[1] if len(metrics) > 1 else None
 
-            status_msg = AlertEvaluator._check_oper_status(
+            status_result = AlertEvaluator._check_oper_status(
                 device, interface, latest_metric, previous_metric, db
             )
-            if status_msg:
-                if "DOWN" in status_msg:
-                    alerts_triggered.append(status_msg)
+            if status_result:
+                msg, alert_record = status_result
+                if "DOWN" in msg:
+                    alerts_triggered.append(msg)
+                    if alert_record:
+                        alert_records.append(alert_record)
                 else:
-                    recoveries_triggered.append(status_msg)
+                    recoveries_triggered.append(msg)
 
-            drop_msg = AlertEvaluator._check_packet_drops(
+            drop_result = AlertEvaluator._check_packet_drops(
                 device, interface, latest_metric, previous_metric, db
             )
-            if drop_msg:
-                if "high discard" in drop_msg:
-                    alerts_triggered.append(drop_msg)
+            if drop_result:
+                msg, alert_record = drop_result
+                if "high discard" in msg:
+                    alerts_triggered.append(msg)
+                    if alert_record:
+                        alert_records.append(alert_record)
                 else:
-                    recoveries_triggered.append(drop_msg)
+                    recoveries_triggered.append(msg)
 
         if alerts_triggered:
             timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
@@ -584,7 +599,7 @@ To manage alert settings, log in to your SNMP Monitoring Dashboard.
 Best regards,
 SNMP Network Monitoring System"""
 
-            AlertEvaluator._notify(subject, body, db)
+            AlertEvaluator._notify(subject, body, db, alert_records if alert_records else None)
 
         if recoveries_triggered:
             timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
@@ -634,10 +649,10 @@ SNMP Network Monitoring System"""
         latest_metric: models.InterfaceMetric,
         previous_metric: models.InterfaceMetric | None,
         db: Session
-    ) -> str | None:
+    ) -> tuple[str, models.AlertHistory | None] | None:
         """
         Check for UP/DOWN state changes and manage alerts.
-        Returns message string if notifiable event occurred, else None.
+        Returns tuple of (message, alert_record) if notifiable event occurred, else None.
         """
         is_down = (latest_metric.oper_status != 1)
 
@@ -649,7 +664,7 @@ SNMP Network Monitoring System"""
                         logger.warning(f"⚠️ ALERT: {device.hostname} Interface {interface.if_name} is DOWN")
 
                         # Create alert history record
-                        AlertHistoryService.create_alert_record(
+                        alert_record = AlertHistoryService.create_alert_record(
                             db=db,
                             alert_type="interface_status",
                             severity="High",
@@ -663,7 +678,7 @@ SNMP Network Monitoring System"""
                         interface.oper_status_alert_state = "triggered"
                         interface.oper_status_alert_sent = True
                         db.add(interface)
-                        return f"Interface {interface.if_name} ({interface.if_index}) is DOWN"
+                        return (f"Interface {interface.if_name} ({interface.if_index}) is DOWN", alert_record)
             elif interface.oper_status_alert_state == "triggered":
                 pass
             elif interface.oper_status_alert_state == "acknowledged":
@@ -690,7 +705,7 @@ SNMP Network Monitoring System"""
                 interface.oper_status_acknowledged_at = None
                 interface.oper_status_alert_sent = False
                 db.add(interface)
-                return f"Interface {interface.if_name} ({interface.if_index}) is UP"
+                return (f"Interface {interface.if_name} ({interface.if_index}) is UP", None)
 
         return None
 
@@ -701,10 +716,10 @@ SNMP Network Monitoring System"""
         latest_metric: models.InterfaceMetric,
         previous_metric: models.InterfaceMetric | None,
         db: Session
-    ) -> str | None:
+    ) -> tuple[str, models.AlertHistory | None] | None:
         """
         Check for discard rate threshold breaches and manage alerts.
-        Returns message string if notifiable event occurred, else None.
+        Returns tuple of (message, alert_record) if notifiable event occurred, else None.
 
         Uses delta calculation (current - previous) to calculate true discard rate.
         This matches the logic in query.py for consistency between alerts and dashboards.
@@ -770,7 +785,7 @@ SNMP Network Monitoring System"""
                 severity = "Critical" if discard_rate >= 5.0 else "High" if discard_rate >= 1.0 else "Warning"
 
                 # Create alert history record
-                AlertHistoryService.create_alert_record(
+                alert_record = AlertHistoryService.create_alert_record(
                     db=db,
                     alert_type="packet_drop",
                     severity=severity,
@@ -784,7 +799,7 @@ SNMP Network Monitoring System"""
                 interface.packet_drop_alert_state = "triggered"
                 interface.packet_drop_alert_sent = True
                 db.add(interface)
-                return f"Interface {interface.if_name} ({interface.if_index}) has high discard rate: {discard_rate:.3f}% (threshold: {interface.packet_drop_threshold}%)"
+                return (f"Interface {interface.if_name} ({interface.if_index}) has high discard rate: {discard_rate:.3f}% (threshold: {interface.packet_drop_threshold}%)", alert_record)
             elif interface.packet_drop_alert_state == "triggered":
                 pass
             elif interface.packet_drop_alert_state == "acknowledged":
@@ -811,6 +826,6 @@ SNMP Network Monitoring System"""
                 interface.packet_drop_acknowledged_at = None
                 interface.packet_drop_alert_sent = False
                 db.add(interface)
-                return f"Interface {interface.if_name} ({interface.if_index}) discard rate is normal: {discard_rate:.3f}%"
+                return (f"Interface {interface.if_name} ({interface.if_index}) discard rate is normal: {discard_rate:.3f}%", None)
 
         return None
